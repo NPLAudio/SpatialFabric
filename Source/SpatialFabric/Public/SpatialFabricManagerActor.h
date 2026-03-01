@@ -53,6 +53,14 @@ public:
 
 	// ── Bindings ─────────────────────────────────────────────────────────────
 
+	/**
+	 * The single protocol format all tracked objects currently route to.
+	 * Changed via the Spatial Fabric editor panel format selector.
+	 * Changing this re-enables the matching adapter and disables all others.
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SpatialFabric|Bindings")
+	ESpatialAdapterType ActiveAdapterType = ESpatialAdapterType::ADMOSC;
+
 	/** All active actor → adapter target mappings. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SpatialFabric|Bindings",
 		meta = (TitleProperty = "Label"))
@@ -136,6 +144,13 @@ public:
 	/** Direct access to the protocol router (used by the editor module). */
 	FProtocolRouter* GetRouter() const { return Router.Get(); }
 
+	/**
+	 * Re-create and re-configure all adapters from the current AdapterConfigs.
+	 * Safe to call during PIE when you change adapter settings at runtime
+	 * (e.g. via the editor panel format selector).  No-op if Router is null.
+	 */
+	void InitializeAdapters();
+
 protected:
 	virtual void BeginPlay() override;
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
@@ -150,9 +165,6 @@ private:
 	/** Cached resolved pointer to the stage volume (updated each tick). */
 	UPROPERTY()
 	TObjectPtr<ASpatialStageVolume> ResolvedStageVolume;
-
-	/** Create and configure all adapters from AdapterConfigs. */
-	void InitializeAdapters();
 
 	/** Bound to ServerComponent::OnMessageReceived — forwards to router. */
 	UFUNCTION()

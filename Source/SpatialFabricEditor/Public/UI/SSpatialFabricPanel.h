@@ -64,8 +64,12 @@ private:
 		const TSharedRef<STableViewBase>&  OwnerTable);
 
 	void RemoveBinding(int32 Index);
-	void ToggleAdapterTarget(int32 BindingIndex, ESpatialAdapterType Type);
-	bool HasAdapterTarget(int32 BindingIndex, ESpatialAdapterType Type) const;
+
+	/**
+	 * Enable the given adapter, disable all others, re-route every existing
+	 * binding to the new format, and (if PIE) re-initialize the router.
+	 */
+	void SetActiveFormat(ESpatialAdapterType Type);
 
 	// ── Log list ─────────────────────────────────────────────────────────────
 	TSharedRef<ITableRow> GenerateLogRow(

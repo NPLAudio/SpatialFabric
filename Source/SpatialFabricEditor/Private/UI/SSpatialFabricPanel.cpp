@@ -26,19 +26,19 @@
 #define LOCTEXT_NAMESPACE "SSpatialFabricPanel"
 
 // ─────────────────────────────────────────────────────────────────────────────
-//  Adapter badge definitions (Phase-1 only shown inline)
+//  Format selector definitions (Phase-1 adapters)
 // ─────────────────────────────────────────────────────────────────────────────
 
-namespace SFBadge
+struct FSFFormatDef { ESpatialAdapterType Type; FString Name; FLinearColor Color; };
+
+static TArray<FSFFormatDef> GetFormatDefs()
 {
-	struct FDef { ESpatialAdapterType Type; const TCHAR* Label; float R, G, B; };
-	static constexpr FDef All[] = {
-		{ ESpatialAdapterType::ADMOSC,     TEXT("ADM"), 0.10f, 0.55f, 1.00f },
-		{ ESpatialAdapterType::DS100,      TEXT("DS1"), 1.00f, 0.42f, 0.10f },
-		{ ESpatialAdapterType::RTTrPM,     TEXT("RTP"), 0.58f, 0.30f, 0.72f },
-		{ ESpatialAdapterType::QLabObject, TEXT("QLB"), 0.10f, 0.72f, 0.32f },
+	return {
+		{ ESpatialAdapterType::ADMOSC,     TEXT("ADM-OSC"),     FLinearColor(0.10f, 0.45f, 0.85f) },
+		{ ESpatialAdapterType::DS100,      TEXT("DS100"),        FLinearColor(1.00f, 0.42f, 0.10f) },
+		{ ESpatialAdapterType::RTTrPM,     TEXT("RTTrPM"),       FLinearColor(0.58f, 0.30f, 0.72f) },
+		{ ESpatialAdapterType::QLabObject, TEXT("QLab Object"),  FLinearColor(0.10f, 0.72f, 0.32f) },
 	};
-	static constexpr int32 Num = UE_ARRAY_COUNT(All);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -194,23 +194,121 @@ TSharedRef<SWidget> SSpatialFabricPanel::BuildStageTab()
 
 TSharedRef<SWidget> SSpatialFabricPanel::BuildObjectsTab()
 {
-	// Build the list view
+	// ── Format selector row (built before Slate DSL to loop cleanly) ─────
+	TSharedRef<SHorizontalBox> FormatRow = SNew(SHorizontalBox);
+
+	FormatRow->AddSlot()
+		.AutoWidth()
+		.VAlign(VAlign_Center)
+		.Padding(0.f, 0.f, 10.f, 0.f)
+		[
+			SNew(STextBlock)
+			.Text(LOCTEXT("ProtocolLabel", "Protocol:"))
+			.ColorAndOpacity(FLinearColor(0.60f, 0.60f, 0.60f))
+		];
+
+	for (const FSFFormatDef& Def : GetFormatDefs())
+	{
+		const ESpatialAdapterType FormatType = Def.Type;
+		const FString FormatName             = Def.Name;
+		const FLinearColor ActiveColor       = Def.Color;
+
+		FormatRow->AddSlot()
+			.AutoWidth()
+			.Padding(0.f, 0.f, 4.f, 0.f)
+			[
+				SNew(SBox)
+				.HeightOverride(28.f)
+				.MinDesiredWidth(90.f)
+				[
+					SNew(SButton)
+					.ButtonStyle(FAppStyle::Get(), "FlatButton")
+					.HAlign(HAlign_Center)
+					.ButtonColorAndOpacity_Lambda([this, FormatType, ActiveColor]()
+					{
+						const ASpatialFabricManagerActor* Mgr = GetManager();
+						const bool bActive = Mgr && Mgr->ActiveAdapterType == FormatType;
+						return bActive
+							? ActiveColor
+							: FLinearColor(0.15f, 0.15f, 0.15f);
+					})
+					.ToolTipText(FText::Format(
+						LOCTEXT("FormatTip", "Route all objects via {0}"),
+						FText::FromString(FormatName)))
+					.OnClicked_Lambda([this, FormatType]() -> FReply
+					{
+						SetActiveFormat(FormatType);
+						return FReply::Handled();
+					})
+					[
+						SNew(STextBlock)
+						.Text(FText::FromString(FormatName))
+						.Justification(ETextJustify::Center)
+						.ColorAndOpacity(FLinearColor::White)
+					]
+				]
+			];
+	}
+
+	// Endpoint label — shows IP:port for the active format
+	FormatRow->AddSlot()
+		.FillWidth(1.f);
+
+	FormatRow->AddSlot()
+		.AutoWidth()
+		.VAlign(VAlign_Center)
+		.Padding(6.f, 0.f, 0.f, 0.f)
+		[
+			SNew(STextBlock)
+			.Text_Lambda([this]() -> FText
+			{
+				const ASpatialFabricManagerActor* Mgr = GetManager();
+				if (!Mgr) return FText::GetEmpty();
+				const uint8 Key = (uint8)Mgr->ActiveAdapterType;
+				if (const FSpatialAdapterConfig* C = Mgr->AdapterConfigs.Find(Key))
+					return FText::Format(LOCTEXT("EndpointFmt", "{0}:{1}"),
+						FText::FromString(C->TargetIP), C->TargetPort);
+				return FText::GetEmpty();
+			})
+			.ColorAndOpacity(FLinearColor(0.45f, 0.45f, 0.45f))
+			.ToolTipText(LOCTEXT("EndpointTip",
+				"IP and port for the selected protocol.\n"
+				"Edit in the SpatialFabricManagerActor Details panel under AdapterConfigs."))
+		];
+
+	// ── List view ─────────────────────────────────────────────────────────
 	TSharedRef<SListView<TSharedPtr<int32>>> ListView =
 		SAssignNew(BindingListView, SListView<TSharedPtr<int32>>)
 		.ListItemsSource(&BindingRows)
 		.OnGenerateRow(this, &SSpatialFabricPanel::GenerateBindingRow)
 		.SelectionMode(ESelectionMode::None);
 
+	// ── Assemble tab ──────────────────────────────────────────────────────
 	return SNew(SVerticalBox)
 
-		// ── Toolbar ──────────────────────────────────────────────────────
+		// ── Protocol format selector ──────────────────────────────────────
+		+ SVerticalBox::Slot()
+		.AutoHeight()
+		.Padding(4.f, 6.f, 4.f, 4.f)
+		[ FormatRow ]
+
+		// ── Separator ────────────────────────────────────────────────────
+		+ SVerticalBox::Slot()
+		.AutoHeight()
+		[
+			SNew(SBorder)
+			.BorderImage(FAppStyle::GetBrush("Menu.Separator"))
+			.Padding(0.f)
+		]
+
+		// ── Add / Remove toolbar ──────────────────────────────────────────
 		+ SVerticalBox::Slot()
 		.AutoHeight()
 		.Padding(4.f, 4.f, 4.f, 2.f)
 		[
 			SNew(SHorizontalBox)
 
-			// Add Selected Actors button
+			// Add Selected Actors
 			+ SHorizontalBox::Slot().AutoWidth().Padding(0.f, 0.f, 6.f, 0.f)
 			[
 				SNew(SButton)
@@ -242,12 +340,13 @@ TSharedRef<SWidget> SSpatialFabricPanel::BuildObjectsTab()
 				.Text_Lambda([this]() -> FText
 				{
 					const int32 N = BindingRows.Num();
-					return FText::Format(LOCTEXT("BindingCount", "{0} {0}|plural(one=object,other=objects)"), N);
+					return FText::Format(
+						LOCTEXT("BindingCount", "{0} {0}|plural(one=object,other=objects)"), N);
 				})
 				.ColorAndOpacity(FLinearColor(0.55f, 0.55f, 0.55f))
 			]
 
-			// Remove All button
+			// Remove All
 			+ SHorizontalBox::Slot().AutoWidth().Padding(6.f, 0.f, 0.f, 0.f)
 			[
 				SNew(SButton)
@@ -283,7 +382,6 @@ TSharedRef<SWidget> SSpatialFabricPanel::BuildObjectsTab()
 		[
 			SNew(SOverlay)
 
-			// Empty state message
 			+ SOverlay::Slot().HAlign(HAlign_Center).VAlign(VAlign_Center)
 			[
 				SNew(STextBlock)
@@ -298,11 +396,8 @@ TSharedRef<SWidget> SSpatialFabricPanel::BuildObjectsTab()
 				})
 			]
 
-			// The list view
 			+ SOverlay::Slot()
-			[
-				ListView
-			]
+			[ ListView ]
 		];
 }
 
@@ -337,54 +432,8 @@ TSharedRef<ITableRow> SSpatialFabricPanel::GenerateBindingRow(
 		? Actor->GetActorLabel()
 		: (B.CachedActorLabel.IsEmpty() ? TEXT("(None)") : B.CachedActorLabel + TEXT("  !"));
 
-	// ── Badge row (built before Slate DSL to avoid MSVC attribute-specifier confusion) ──
-	TSharedRef<SHorizontalBox> BadgeRow = SNew(SHorizontalBox);
-	for (int32 i = 0; i < SFBadge::Num; ++i)
-	{
-		const SFBadge::FDef& Def   = SFBadge::All[i];
-		const ESpatialAdapterType BadgeType = Def.Type;
-		const FLinearColor FullColor(Def.R, Def.G, Def.B, 1.f);
-		const FString BadgeLabel(Def.Label);
-
-		BadgeRow->AddSlot()
-			.AutoWidth()
-			.Padding(2.f, 0.f)
-			[
-				SNew(SBox)
-				.WidthOverride(44.f)
-				.HeightOverride(28.f)
-				[
-					SNew(SButton)
-					.ButtonStyle(FAppStyle::Get(), "FlatButton")
-					.ButtonColorAndOpacity_Lambda([this, BIdx, BadgeType, FullColor]()
-					{
-						return HasAdapterTarget(BIdx, BadgeType)
-							? FullColor
-							: FLinearColor(FullColor.R * 0.3f, FullColor.G * 0.3f, FullColor.B * 0.3f, 1.f);
-					})
-					.HAlign(HAlign_Center).VAlign(VAlign_Center)
-					.ToolTipText(FText::Format(
-						LOCTEXT("BadgeTip", "Toggle {0} routing for this object"),
-						FText::FromString(BadgeLabel)))
-					.OnClicked_Lambda([this, BIdx, BadgeType]() -> FReply
-					{
-						ToggleAdapterTarget(BIdx, BadgeType);
-						return FReply::Handled();
-					})
-					[
-						SNew(STextBlock)
-						.Text(FText::FromString(BadgeLabel))
-						.Font(FAppStyle::GetFontStyle("SmallFont"))
-						.Justification(ETextJustify::Center)
-						.ColorAndOpacity(FLinearColor::White)
-					]
-				]
-			];
-	}
-
-	// ── Row content ────────────────────────────────────────────────────────
 	return SNew(STableRow<TSharedPtr<int32>>, OwnerTable)
-		.Padding(FMargin(2.f, 1.f))
+		.Padding(FMargin(2.f, 2.f))
 		[
 			SNew(SHorizontalBox)
 
@@ -406,7 +455,7 @@ TSharedRef<ITableRow> SSpatialFabricPanel::GenerateBindingRow(
 							if (!M->ObjectBindings[BIdx].bEnabled)
 								return FLinearColor(0.45f, 0.45f, 0.45f); // gray = disabled
 						}
-					return FLinearColor(0.90f, 0.90f, 0.90f); // normal
+					return FLinearColor(0.90f, 0.90f, 0.90f);
 				})
 				.ToolTipText(FText::FromString(
 					bResolved ? Actor->GetPathName() : TEXT("Actor not found in level")))
@@ -416,10 +465,10 @@ TSharedRef<ITableRow> SSpatialFabricPanel::GenerateBindingRow(
 			+ SHorizontalBox::Slot()
 			.AutoWidth()
 			.VAlign(VAlign_Center)
-			.Padding(0.f, 0.f, 4.f, 0.f)
+			.Padding(0.f, 0.f, 6.f, 0.f)
 			[
 				SNew(SHorizontalBox)
-				+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center).Padding(0.f, 0.f, 2.f, 0.f)
+				+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center).Padding(0.f, 0.f, 4.f, 0.f)
 				[
 					SNew(STextBlock)
 					.Text(LOCTEXT("IDLabel", "ID"))
@@ -427,7 +476,7 @@ TSharedRef<ITableRow> SSpatialFabricPanel::GenerateBindingRow(
 				]
 				+ SHorizontalBox::Slot().AutoWidth()
 				[
-					SNew(SBox).WidthOverride(50.f)
+					SNew(SBox).WidthOverride(52.f)
 					[
 						SNew(SNumericEntryBox<int32>)
 						.Value_Lambda([WeakMgr, BIdx]() -> TOptional<int32>
@@ -451,13 +500,6 @@ TSharedRef<ITableRow> SSpatialFabricPanel::GenerateBindingRow(
 					]
 				]
 			]
-
-			// ── Adapter badges (pre-built above to avoid attribute-specifier conflict) ──
-			+ SHorizontalBox::Slot()
-			.AutoWidth()
-			.VAlign(VAlign_Center)
-			.Padding(2.f, 0.f, 4.f, 0.f)
-			[ BadgeRow ]
 
 			// ── Enable toggle ─────────────────────────────────────────────
 			+ SHorizontalBox::Slot()
@@ -569,17 +611,12 @@ void SSpatialFabricPanel::OnAddSelectedActors()
 		Binding.DefaultObjectID  = NextID++;
 		Binding.bEnabled         = true;
 
-		// Auto-add a target entry for each adapter currently enabled
-		for (const auto& Pair : Mgr->AdapterConfigs)
-		{
-			if (Pair.Value.bEnabled)
-			{
-				FSpatialAdapterTargetEntry T;
-				T.AdapterType      = static_cast<ESpatialAdapterType>(Pair.Key);
-				T.ObjectIDOverride = -1;
-				Binding.Targets.Add(T);
-			}
-		}
+		// Route to the currently selected protocol format
+		FSpatialAdapterTargetEntry T;
+		T.AdapterType      = Mgr->ActiveAdapterType;
+		T.ObjectIDOverride = -1;
+		T.bEnabled         = true;
+		Binding.Targets.Add(T);
 
 		Mgr->ObjectBindings.Add(MoveTemp(Binding));
 		bAnyAdded = true;
@@ -633,40 +670,42 @@ void SSpatialFabricPanel::RemoveBinding(int32 Index)
 	RebuildBindingList();
 }
 
-void SSpatialFabricPanel::ToggleAdapterTarget(int32 BindingIndex, ESpatialAdapterType Type)
+void SSpatialFabricPanel::SetActiveFormat(ESpatialAdapterType Type)
 {
 	ASpatialFabricManagerActor* Mgr = GetManager();
-	if (!Mgr || !Mgr->ObjectBindings.IsValidIndex(BindingIndex)) return;
+	if (!Mgr) return;
 
-	FSpatialObjectBinding& B = Mgr->ObjectBindings[BindingIndex];
+	Mgr->ActiveAdapterType = Type;
 
-	const int32 Found = B.Targets.IndexOfByPredicate(
-		[Type](const FSpatialAdapterTargetEntry& T) { return T.AdapterType == Type; });
-
-	if (Found != INDEX_NONE)
+	// Enable only the selected adapter; disable all Phase-1 adapters' configs
+	static const ESpatialAdapterType Phase1[] = {
+		ESpatialAdapterType::ADMOSC,
+		ESpatialAdapterType::DS100,
+		ESpatialAdapterType::RTTrPM,
+		ESpatialAdapterType::QLabObject,
+	};
+	for (const ESpatialAdapterType T : Phase1)
 	{
-		B.Targets.RemoveAt(Found);
+		if (FSpatialAdapterConfig* Config = Mgr->AdapterConfigs.Find((uint8)T))
+			Config->bEnabled = (T == Type);
 	}
-	else
+
+	// Re-route every existing binding to the new format
+	for (FSpatialObjectBinding& B : Mgr->ObjectBindings)
 	{
-		FSpatialAdapterTargetEntry T;
-		T.AdapterType      = Type;
-		T.ObjectIDOverride = -1;
-		B.Targets.Add(T);
+		B.Targets.Empty();
+		FSpatialAdapterTargetEntry Entry;
+		Entry.AdapterType      = Type;
+		Entry.ObjectIDOverride = -1;
+		Entry.bEnabled         = true;
+		B.Targets.Add(Entry);
 	}
 
 	Mgr->MarkPackageDirty();
-	// No list rebuild needed — badge colors are driven by ButtonColorAndOpacity_Lambda
-	// which re-queries on every paint frame automatically.
-}
 
-bool SSpatialFabricPanel::HasAdapterTarget(int32 BindingIndex, ESpatialAdapterType Type) const
-{
-	const ASpatialFabricManagerActor* Mgr = GetManager();
-	if (!Mgr || !Mgr->ObjectBindings.IsValidIndex(BindingIndex)) return false;
-	const FSpatialObjectBinding& B = Mgr->ObjectBindings[BindingIndex];
-	return B.Targets.ContainsByPredicate(
-		[Type](const FSpatialAdapterTargetEntry& T) { return T.AdapterType == Type; });
+	// Re-initialize the router if we are in PIE so the new bEnabled state takes effect
+	if (Mgr->GetRouter())
+		Mgr->InitializeAdapters();
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
