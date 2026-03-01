@@ -23,15 +23,22 @@ ASpatialStageVolume::ASpatialStageVolume()
 
 FVector ASpatialStageVolume::ComputeLocalVector(FVector WorldPos) const
 {
-	// Determine current origin (listener or box)
 	const FVector Origin = CachedListenerPos;
-
 	FVector Local = WorldPos - Origin;
 
-	// Rotate into listener-local space if requested
-	if (bListenerResolved && bListenerRelativeOrientation && !CachedListenerRot.IsNearlyZero())
+	if (bListenerResolved && bListenerRelativeOrientation)
 	{
-		Local = CachedListenerRot.UnrotateVector(Local);
+		// Listener-relative orientation: axes follow the listener's facing direction.
+		if (!CachedListenerRot.IsNearlyZero())
+			Local = CachedListenerRot.UnrotateVector(Local);
+	}
+	else
+	{
+		// Stage-relative: transform into the box's local coordinate frame so that
+		// dividing by GetScaledBoxExtent() (which is in box-local space) gives
+		// correct [-1, 1] results regardless of the box's orientation in the level.
+		// For an axis-aligned box this is a no-op.
+		Local = StageBox->GetComponentQuat().UnrotateVector(Local);
 	}
 
 	return Local;
