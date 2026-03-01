@@ -1,0 +1,26 @@
+# Unreal Engine build artifacts
+Binaries/
+Intermediate/
+Saved/
+*.pdb
+*.lib
+*.exp
+*.dll
+*.dylib
+*.so
+
+# Visual Studio
+.vs/
+*.suo
+*.user
+*.sln
+*.vcxproj
+*.vcxproj.filters
+
+# JetBrains Rider
+.idea/
+*.DotSettings.user
+
+# OS
+.DS_Store
+Thumbs.db

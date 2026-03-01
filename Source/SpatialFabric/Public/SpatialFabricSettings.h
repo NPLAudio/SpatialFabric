@@ -1,0 +1,73 @@
+// Copyright (c) 2026 SpatialFabric Contributors. Licensed under the MIT License.
+
+#pragma once
+
+#include "CoreMinimal.h"
+#include "Engine/DeveloperSettings.h"
+#include "SpatialFabricSettings.generated.h"
+
+/**
+ * USpatialFabricSettings
+ *
+ * Project-wide defaults for SpatialFabric.  Accessible via
+ * Project Settings → Plugins → Spatial Fabric.
+ *
+ * Networking is disabled in packaged builds by default (mirrors
+ * Remote Control's -RCWebInterfaceEnable pattern).  Users must opt-in
+ * via config or at runtime.
+ */
+UCLASS(config = Engine, defaultconfig, meta = (DisplayName = "Spatial Fabric"))
+class SPATIALFABRIC_API USpatialFabricSettings : public UDeveloperSettings
+{
+	GENERATED_BODY()
+
+public:
+	USpatialFabricSettings();
+
+	/** When true, SpatialFabric networking is active in the editor. */
+	UPROPERTY(EditAnywhere, config, Category = "SpatialFabric")
+	bool bEnableInEditor = true;
+
+	/**
+	 * When true, SpatialFabric networking is active in packaged builds.
+	 * Off by default — set via config or command-line to avoid unintended
+	 * network traffic in shipped games.
+	 */
+	UPROPERTY(EditAnywhere, config, Category = "SpatialFabric")
+	bool bEnableInPackagedBuilds = false;
+
+	// ── Default listen port for incoming OSC (tracking-in / feedback) ──────
+	UPROPERTY(EditAnywhere, config, Category = "SpatialFabric|Ports",
+		meta = (ClampMin = "1024", ClampMax = "65535"))
+	int32 DefaultOSCListenPort = 8100;
+
+	// ── Default outgoing ports per adapter ─────────────────────────────────
+	UPROPERTY(EditAnywhere, config, Category = "SpatialFabric|Ports",
+		meta = (ClampMin = "1024", ClampMax = "65535"))
+	int32 DefaultDS100Port = 50010;
+
+	UPROPERTY(EditAnywhere, config, Category = "SpatialFabric|Ports",
+		meta = (ClampMin = "1024", ClampMax = "65535"))
+	int32 DefaultADMOSCPort = 9000;
+
+	UPROPERTY(EditAnywhere, config, Category = "SpatialFabric|Ports",
+		meta = (ClampMin = "1024", ClampMax = "65535"))
+	int32 DefaultQLabPort = 53000;
+
+	UPROPERTY(EditAnywhere, config, Category = "SpatialFabric|Ports",
+		meta = (ClampMin = "1024", ClampMax = "65535"))
+	int32 DefaultRTTrPMPort = 36700;
+
+	UPROPERTY(EditAnywhere, config, Category = "SpatialFabric|Ports",
+		meta = (ClampMin = "1024", ClampMax = "65535"))
+	int32 DefaultSpaceMapGoPort = 38033;
+
+	// ── Default send rate ───────────────────────────────────────────────────
+	/** Default maximum packets-per-second for all adapters (overridable per-adapter). */
+	UPROPERTY(EditAnywhere, config, Category = "SpatialFabric",
+		meta = (ClampMin = "1.0", ClampMax = "120.0"))
+	float DefaultSendRateHz = 50.f;
+
+	// UDeveloperSettings overrides
+	virtual FName GetCategoryName() const override { return FName("Plugins"); }
+};
