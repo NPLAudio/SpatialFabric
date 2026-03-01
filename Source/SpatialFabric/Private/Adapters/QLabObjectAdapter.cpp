@@ -20,10 +20,7 @@ void FQLabObjectAdapter::ProcessFrame(const FSpatialFrameSnapshot& Snapshot, flo
 	if (!Config.bEnabled || !Client) { return; }
 	if (!ShouldSendThisFrame(DeltaTime)) { return; }
 
-	if (!Client->IsConnected())
-	{
-		Client->Connect(Config.TargetIP, Config.TargetPort);
-	}
+	Client->Connect(Config.TargetIP, Config.TargetPort);
 
 	for (const FSpatialNormalizedState& State : Snapshot.Objects)
 	{

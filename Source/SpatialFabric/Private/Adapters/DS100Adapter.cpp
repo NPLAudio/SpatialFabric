@@ -32,10 +32,10 @@ void FDS100Adapter::ProcessFrame(const FSpatialFrameSnapshot& Snapshot, float De
 	if (!Config.bEnabled || !Client) { return; }
 	if (!ShouldSendThisFrame(DeltaTime)) { return; }
 
-	if (!Client->IsConnected())
-	{
-		Client->Connect(Config.TargetIP, Config.TargetPort);
-	}
+	// Always set the target endpoint before sending. The shared OSC client may
+	// be connected to a different adapter's port (e.g. ADM-OSC :9000) from a
+	// previous frame. For UDP this is just a destination-address update — free.
+	Client->Connect(Config.TargetIP, Config.TargetPort);
 
 	for (const FSpatialNormalizedState& State : Snapshot.Objects)
 	{

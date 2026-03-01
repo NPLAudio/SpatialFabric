@@ -19,10 +19,7 @@ void FADMOSCAdapter::ProcessFrame(const FSpatialFrameSnapshot& Snapshot, float D
 	if (!Config.bEnabled || !Client) { return; }
 	if (!ShouldSendThisFrame(DeltaTime)) { return; }
 
-	if (!Client->IsConnected())
-	{
-		Client->Connect(Config.TargetIP, Config.TargetPort);
-	}
+	Client->Connect(Config.TargetIP, Config.TargetPort);
 
 	for (const FSpatialNormalizedState& State : Snapshot.Objects)
 	{
