@@ -5,32 +5,22 @@
 #include "CoreMinimal.h"
 #include "Widgets/SCompoundWidget.h"
 #include "Widgets/Views/SListView.h"
+#include "Widgets/Layout/SWidgetSwitcher.h"
 #include "SpatialFabricTypes.h"
 
 class ASpatialFabricManagerActor;
+class ASpatialStageVolume;
 
 /**
  * SSpatialFabricPanel
  *
- * Dockable Slate editor panel for SpatialFabric.  Spawned by
- * FSpatialFabricEditorModule when the "Spatial Fabric" tab is opened.
+ * Dockable Slate editor panel for SpatialFabric.  Four tabs:
  *
- * Layout (four tabs):
- *
- *  [Stage]    — Assign ASpatialStageVolume, configure physical dimensions,
- *               axis flips, and optional listener actor.
- *
- *  [Objects]  — List of FSpatialObjectBinding entries.  Add/remove actors
- *               from the scene, set IDs, assign adapter targets per binding.
- *
- *  [Adapters] — Per-adapter enable/disable, IP, port, send-rate controls.
- *               One row per ESpatialAdapterType.
- *
- *  [Log]      — Scrolling FSpatialFabricLogEntry list showing real-time
- *               adapter output (address, value, adapter name, timestamp).
- *
- * The panel polls the manager actor each tick via a timer.  Manager
- * resolution uses ASpatialFabricManagerActor::GetOrSpawnManager.
+ *  [Stage]    — Stage Volume setup and listener assignment.
+ *  [Objects]  — Spatial object binding list with Add Selected Actors,
+ *               per-binding ID editing, adapter badge toggles, and remove.
+ *  [Adapters] — Per-adapter endpoint info (configure via Details panel).
+ *  [Log]      — Real-time adapter output log.
  */
 class SSpatialFabricPanel : public SCompoundWidget
 {
@@ -45,20 +35,46 @@ private:
 	ASpatialFabricManagerActor* GetManager() const;
 	void RefreshFromManager();
 
-	// ── Tab construction ─────────────────────────────────────────────────────
+	// ── Tab switching ────────────────────────────────────────────────────────
+	TSharedPtr<SWidgetSwitcher> TabSwitcher;
+
+	FSlateColor GetTabColor(int32 TabIdx) const;
+	FSlateFontInfo GetTabFont(int32 TabIdx) const;
+
+	// ── Tab builders ─────────────────────────────────────────────────────────
 	TSharedRef<SWidget> BuildStageTab();
 	TSharedRef<SWidget> BuildObjectsTab();
 	TSharedRef<SWidget> BuildAdaptersTab();
 	TSharedRef<SWidget> BuildLogTab();
 
+	// ── Binding list (Objects tab) ───────────────────────────────────────────
+
+	/** Index-based list items — each int32 is a direct index into
+	 *  Manager->ObjectBindings.  Rebuilt whenever bindings change. */
+	TArray<TSharedPtr<int32>>                BindingRows;
+	TSharedPtr<SListView<TSharedPtr<int32>>> BindingListView;
+
+	void RebuildBindingList();
+	void OnAddSelectedActors();
+	int32 GetNewActorCount() const;   // selected actors not yet bound
+	FText GetAddButtonText() const;
+
+	TSharedRef<ITableRow> GenerateBindingRow(
+		TSharedPtr<int32>                  RowIndex,
+		const TSharedRef<STableViewBase>&  OwnerTable);
+
+	void RemoveBinding(int32 Index);
+	void ToggleAdapterTarget(int32 BindingIndex, ESpatialAdapterType Type);
+	bool HasAdapterTarget(int32 BindingIndex, ESpatialAdapterType Type) const;
+
 	// ── Log list ─────────────────────────────────────────────────────────────
 	TSharedRef<ITableRow> GenerateLogRow(
-		TSharedPtr<FSpatialFabricLogEntry> Item,
-		const TSharedRef<STableViewBase>& OwnerTable);
+		TSharedPtr<FSpatialFabricLogEntry>        Item,
+		const TSharedRef<STableViewBase>&          OwnerTable);
 
 	void RefreshLog();
 
-	TArray<TSharedPtr<FSpatialFabricLogEntry>> LogItems;
+	TArray<TSharedPtr<FSpatialFabricLogEntry>>             LogItems;
 	TSharedPtr<SListView<TSharedPtr<FSpatialFabricLogEntry>>> LogListView;
 
 	// ── Timer ────────────────────────────────────────────────────────────────

@@ -21,6 +21,9 @@ Saved/
 .idea/
 *.DotSettings.user
 
+# Claude Code session data
+.claude/
+
 # OS
 .DS_Store
 Thumbs.db
