@@ -6,8 +6,9 @@
 
 void FDS100Adapter::Configure(const FSpatialAdapterConfig& InConfig)
 {
-	Config = InConfig;
+	Config           = InConfig;
 	CachedSendRateHz = InConfig.SendRateHz;
+	LastSentByID.Reset(); // invalidate cache when mode / settings change
 }
 
 void FDS100Adapter::SetClientComponent(ULiveOSCClientComponent* InClient)
@@ -69,80 +70,92 @@ void FDS100Adapter::SendObject(const FSpatialNormalizedState& State,
 
 	const int32 ID = State.ObjectID + Config.DS100ChannelOffset;
 
+	FDS100LastSent& Cache = LastSentByID.FindOrAdd(State.ObjectID);
+
 	FDateTime Now = FDateTime::Now();
 	const FString Timestamp = FString::Printf(TEXT("%02d:%02d:%02d"),
 		Now.GetHour(), Now.GetMinute(), Now.GetSecond());
 
-	// ── Position ──────────────────────────────────────────────────────────────
+	// ── Position (only if moved) ──────────────────────────────────────────────
 
-	if (Config.bDS100AbsoluteMode)
+	if (!State.StageNormalized.Equals(Cache.PosNorm, UE_KINDA_SMALL_NUMBER))
 	{
-		// Absolute position in metres
-		// /dbaudio1/positioning/source_position/{id}  x  y  z
-		const FVector& M   = State.StageMeters;
-		const FString  Addr = FString::Printf(
-			TEXT("/dbaudio1/positioning/source_position/%d"), ID);
-		Client->SendMultiArg(Addr, { (float)M.X, (float)M.Y, (float)M.Z });
+		Cache.PosNorm = State.StageNormalized;
+
+		if (Config.bDS100AbsoluteMode)
+		{
+			// /dbaudio1/positioning/source_position/{id}  x  y  z
+			const FVector& M   = State.StageMeters;
+			const FString  Addr = FString::Printf(
+				TEXT("/dbaudio1/positioning/source_position/%d"), ID);
+			Client->SendMultiArg(Addr, { (float)M.X, (float)M.Y, (float)M.Z });
+
+			if (OnLog)
+			{
+				FSpatialFabricLogEntry Entry;
+				Entry.Adapter   = TEXT("DS100");
+				Entry.Direction = TEXT("OUT");
+				Entry.Address   = Addr;
+				Entry.ValueStr  = FString::Printf(TEXT("%.3f %.3f %.3f"), M.X, M.Y, M.Z);
+				Entry.Timestamp = Timestamp;
+				OnLog(Entry);
+			}
+		}
+		else
+		{
+			// /dbaudio1/coordinatemapping/source_position_xy/{area}/{id}  x  y
+			const FVector2D Mapped = FSpatialMath::NormalizedToDS100Mapped(State.StageNormalized);
+			const FString   Addr   = FString::Printf(
+				TEXT("/dbaudio1/coordinatemapping/source_position_xy/%d/%d"),
+				CoordMappingArea, ID);
+			Client->SendMultiArg(Addr, { (float)Mapped.X, (float)Mapped.Y });
+
+			if (OnLog)
+			{
+				FSpatialFabricLogEntry Entry;
+				Entry.Adapter   = TEXT("DS100");
+				Entry.Direction = TEXT("OUT");
+				Entry.Address   = Addr;
+				Entry.ValueStr  = FString::Printf(TEXT("%.3f %.3f"), Mapped.X, Mapped.Y);
+				Entry.Timestamp = Timestamp;
+				OnLog(Entry);
+			}
+		}
+	}
+
+	// ── Spread (only if changed) ──────────────────────────────────────────────
+	// Fixed mode uses Width01; Proximity mode uses inverse-square listener distance.
+	// Proximity spread can change when the listener moves even if the object is static.
+
+	const float Spread = ComputeSpread(State, Snapshot.ListenerNormalized);
+	if (Spread != Cache.Spread)
+	{
+		Cache.Spread = Spread;
+
+		const FString SpreadAddr = FString::Printf(
+			TEXT("/dbaudio1/positioning/source_spread/%d"), ID);
+		Client->SendFloat(SpreadAddr, Spread);
 
 		if (OnLog)
 		{
 			FSpatialFabricLogEntry Entry;
 			Entry.Adapter   = TEXT("DS100");
 			Entry.Direction = TEXT("OUT");
-			Entry.Address   = Addr;
-			Entry.ValueStr  = FString::Printf(TEXT("%.3f %.3f %.3f"), M.X, M.Y, M.Z);
-			Entry.Timestamp = Timestamp;
-			OnLog(Entry);
-		}
-	}
-	else
-	{
-		// Coordinate-mapping mode [0..1]
-		// /dbaudio1/coordinatemapping/source_position_xy/{area}/{id}  x  y
-		const FVector2D Mapped = FSpatialMath::NormalizedToDS100Mapped(State.StageNormalized);
-		const FString   Addr   = FString::Printf(
-			TEXT("/dbaudio1/coordinatemapping/source_position_xy/%d/%d"),
-			CoordMappingArea, ID);
-		Client->SendMultiArg(Addr, { (float)Mapped.X, (float)Mapped.Y });
-
-		if (OnLog)
-		{
-			FSpatialFabricLogEntry Entry;
-			Entry.Adapter   = TEXT("DS100");
-			Entry.Direction = TEXT("OUT");
-			Entry.Address   = Addr;
-			Entry.ValueStr  = FString::Printf(TEXT("%.3f %.3f"), Mapped.X, Mapped.Y);
+			Entry.Address   = SpreadAddr;
+			Entry.ValueStr  = FString::Printf(TEXT("%.3f"), Spread);
 			Entry.Timestamp = Timestamp;
 			OnLog(Entry);
 		}
 	}
 
-	// ── Spread ────────────────────────────────────────────────────────────────
-	// Always sent; Fixed mode uses Width01, Proximity mode uses inverse-square distance.
-
-	const float   Spread     = ComputeSpread(State, Snapshot.ListenerNormalized);
-	const FString SpreadAddr = FString::Printf(
-		TEXT("/dbaudio1/positioning/source_spread/%d"), ID);
-	Client->SendFloat(SpreadAddr, Spread);
-
-	if (OnLog)
-	{
-		FSpatialFabricLogEntry Entry;
-		Entry.Adapter   = TEXT("DS100");
-		Entry.Direction = TEXT("OUT");
-		Entry.Address   = SpreadAddr;
-		Entry.ValueStr  = FString::Printf(TEXT("%.3f"), Spread);
-		Entry.Timestamp = Timestamp;
-		OnLog(Entry);
-	}
-
-	// ── Delay mode ────────────────────────────────────────────────────────────
-	// Sent only when the binding sets DS100DelayMode >= 0.
+	// ── Delay mode (only if changed) ──────────────────────────────────────────
 
 	if (const FSpatialObjectBinding* B = CachedBindingsByObjectID.Find(State.ObjectID))
 	{
-		if (B->DS100DelayMode >= 0)
+		if (B->DS100DelayMode >= 0 && B->DS100DelayMode != Cache.DelayMode)
 		{
+			Cache.DelayMode = B->DS100DelayMode;
+
 			const FString DelayAddr = FString::Printf(
 				TEXT("/dbaudio1/positioning/source_delaymode/%d"), ID);
 			Client->SendInt(DelayAddr, B->DS100DelayMode);

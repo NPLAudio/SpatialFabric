@@ -63,6 +63,15 @@ private:
 	/** Bindings cached by resolved ObjectID — refreshed each frame by SetBindings(). */
 	TMap<int32, FSpatialObjectBinding> CachedBindingsByObjectID;
 
+	/** Per-object values from the last send; sentinel values mean "never sent yet". */
+	struct FDS100LastSent
+	{
+		FVector PosNorm   = FVector(FLT_MAX, FLT_MAX, FLT_MAX);
+		float   Spread    = -999.f;
+		int32   DelayMode = MIN_int32;
+	};
+	TMap<int32, FDS100LastSent> LastSentByID;
+
 	/**
 	 * Compute spread for one object.
 	 * Fixed mode: returns State.Width01 unchanged.

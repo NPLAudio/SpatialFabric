@@ -83,6 +83,11 @@ private:
 	TArray<TSharedPtr<FSpatialFabricLogEntry>>             LogItems;
 	TSharedPtr<SListView<TSharedPtr<FSpatialFabricLogEntry>>> LogListView;
 
+	// ── Stage Volume picker ───────────────────────────────────────────────────
+	/** All ASpatialStageVolume actors in the current world; refreshed by the timer. */
+	TArray<TWeakObjectPtr<ASpatialStageVolume>> SVActorList;
+	void RebuildSVList();
+
 	// ── Radar tab ────────────────────────────────────────────────────────────
 	TSharedPtr<SWidget> RadarView;   // holds the SRadarView (defined in .cpp)
 

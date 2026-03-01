@@ -22,9 +22,11 @@
 #include "Widgets/Input/SNumericEntryBox.h"
 #include "Widgets/Views/SListView.h"
 #include "Widgets/Views/STableRow.h"
+#include "Widgets/Input/SComboButton.h"
 #include "Styling/AppStyle.h"
 #include "Widgets/SLeafWidget.h"
 #include "Rendering/DrawElements.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
 
 #define LOCTEXT_NAMESPACE "SSpatialFabricPanel"
 
@@ -373,44 +375,138 @@ TSharedRef<SWidget> SSpatialFabricPanel::BuildStageTab()
 			+ SVerticalBox::Slot().AutoHeight().Padding(0.f, 8.f, 0.f, 0.f)
 			[
 				SNew(SButton)
-				.Text(LOCTEXT("SpawnStage", "Spawn Stage Volume in Level"))
+				// Label changes: "Select / Assign" when a stage volume exists, "Spawn" when none.
+				.Text_Lambda([this]()
+				{
+					UWorld* W = GEditor ? GEditor->GetEditorWorldContext().World() : nullptr;
+					if (W)
+						for (TActorIterator<ASpatialStageVolume> It(W); It; ++It)
+							return LOCTEXT("SelectStage", "Select / Assign Stage Volume");
+					return LOCTEXT("SpawnStage", "Spawn Stage Volume in Level");
+				})
 				.HAlign(HAlign_Center)
 				.ButtonColorAndOpacity(FLinearColor(0.15f, 0.45f, 0.80f))
-				.OnClicked_Lambda([]() -> FReply
+				.OnClicked_Lambda([this]() -> FReply
 				{
-					if (GEditor)
+					if (!GEditor) return FReply::Handled();
+					UWorld* W = GEditor->GetEditorWorldContext().World();
+					if (!W) return FReply::Handled();
+
+					// Reuse existing stage volume if one is already in the level.
+					ASpatialStageVolume* SV = nullptr;
+					for (TActorIterator<ASpatialStageVolume> It(W); It; ++It)
 					{
-						UWorld* W = GEditor->GetEditorWorldContext().World();
-						if (W) { W->SpawnActor<ASpatialStageVolume>(); }
+						SV = *It;
+						break;
 					}
+					if (!SV)
+					{
+						SV = W->SpawnActor<ASpatialStageVolume>();
+					}
+					if (!SV) return FReply::Handled();
+
+					// Auto-assign to the manager if not already set.
+					if (ASpatialFabricManagerActor* Mgr = GetManager())
+					{
+						if (Mgr->StageVolume.Get() != SV)
+						{
+							Mgr->StageVolume = SV;
+							Mgr->MarkPackageDirty();
+						}
+					}
+
+					// Select it in the viewport.
+					GEditor->SelectNone(false, true);
+					GEditor->SelectActor(SV, true, true);
+
 					return FReply::Handled();
 				})
 			]
 
-			// ── Stage volume link status ──────────────────────────────────
+			// ── Stage volume link status + Assign picker ──────────────────
 			+ SVerticalBox::Slot().AutoHeight().Padding(0.f, 8.f, 0.f, 2.f)
 			[
-				SNew(STextBlock)
-				.Text_Lambda([this]()
-				{
-					const ASpatialFabricManagerActor* Mgr = GetManager();
-					if (!Mgr)
-						return LOCTEXT("NoMgr", "No Manager actor found in level.");
-					const ASpatialStageVolume* SV = Mgr->StageVolume.Get();
-					if (!SV)
-						return LOCTEXT("NoSV", "Stage Volume not assigned — set it on the Manager actor.");
-					return FText::Format(LOCTEXT("SVStatus", "Linked: {0}"),
-						FText::FromString(SV->GetActorLabel()));
-				})
-				.ColorAndOpacity_Lambda([this]()
-				{
-					const ASpatialFabricManagerActor* Mgr = GetManager();
-					const ASpatialStageVolume* SV = Mgr ? Mgr->StageVolume.Get() : nullptr;
-					return SV
-						? FSlateColor(FLinearColor(0.30f, 0.85f, 0.30f))
-						: FSlateColor(FLinearColor(1.00f, 0.50f, 0.10f));
-				})
-				.AutoWrapText(true)
+				SNew(SHorizontalBox)
+
+				// Status text (green = linked, orange = not set)
+				+ SHorizontalBox::Slot().FillWidth(1.f).VAlign(VAlign_Center)
+				[
+					SNew(STextBlock)
+					.Text_Lambda([this]()
+					{
+						const ASpatialFabricManagerActor* Mgr = GetManager();
+						if (!Mgr)
+							return LOCTEXT("NoMgr", "No Manager actor found in level.");
+						const ASpatialStageVolume* SV = Mgr->StageVolume.Get();
+						if (!SV)
+							return LOCTEXT("NoSV", "Stage Volume not assigned — use Assign ▼");
+						return FText::Format(LOCTEXT("SVStatus", "Linked: {0}"),
+							FText::FromString(SV->GetActorLabel()));
+					})
+					.ColorAndOpacity_Lambda([this]()
+					{
+						const ASpatialFabricManagerActor* Mgr = GetManager();
+						const ASpatialStageVolume* SV = Mgr ? Mgr->StageVolume.Get() : nullptr;
+						return SV
+							? FSlateColor(FLinearColor(0.30f, 0.85f, 0.30f))
+							: FSlateColor(FLinearColor(1.00f, 0.50f, 0.10f));
+					})
+					.AutoWrapText(true)
+				]
+
+				// Assign combo button — lists stage volumes in the level
+				+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center).Padding(8.f, 0.f, 0.f, 0.f)
+				[
+					SNew(SComboButton)
+					.ButtonStyle(FAppStyle::Get(), "FlatButton")
+					.ButtonColorAndOpacity(FLinearColor(0.18f, 0.18f, 0.18f))
+					.ContentPadding(FMargin(6.f, 2.f))
+					.ButtonContent()
+					[
+						SNew(STextBlock)
+						.Text(LOCTEXT("AssignBtn", "Assign \u25bc"))
+						.ColorAndOpacity(FLinearColor::White)
+					]
+					.OnGetMenuContent_Lambda([this]() -> TSharedRef<SWidget>
+					{
+						FMenuBuilder MenuBuilder(true, nullptr);
+
+						if (SVActorList.IsEmpty())
+						{
+							MenuBuilder.AddMenuEntry(
+								LOCTEXT("NoSVInLevel", "No Stage Volume in level"),
+								FText::GetEmpty(),
+								FSlateIcon(),
+								FUIAction(FExecuteAction(), FCanExecuteAction::CreateLambda([]{ return false; })));
+						}
+						else
+						{
+							for (const TWeakObjectPtr<ASpatialStageVolume>& WeakSV : SVActorList)
+							{
+								ASpatialStageVolume* SV = WeakSV.Get();
+								if (!SV) { continue; }
+
+								const FText Label = FText::FromString(SV->GetActorLabel());
+								MenuBuilder.AddMenuEntry(
+									Label,
+									FText::GetEmpty(),
+									FSlateIcon(),
+									FUIAction(FExecuteAction::CreateLambda([this, WeakSV]()
+									{
+										ASpatialStageVolume* PickedSV = WeakSV.Get();
+										if (!PickedSV) { return; }
+										if (ASpatialFabricManagerActor* Mgr = GetManager())
+										{
+											Mgr->StageVolume = PickedSV;
+											Mgr->MarkPackageDirty();
+										}
+									})));
+							}
+						}
+
+						return MenuBuilder.MakeWidget();
+					})
+				]
 			]
 
 			// ── Listener / Player Mode ────────────────────────────────────
@@ -1465,6 +1561,20 @@ void SSpatialFabricPanel::RefreshFromManager()
 	RefreshLog();
 }
 
+void SSpatialFabricPanel::RebuildSVList()
+{
+	SVActorList.Reset();
+	UWorld* World = GEditor
+		? (GEditor->PlayWorld ? GEditor->PlayWorld.Get()
+		                      : GEditor->GetEditorWorldContext().World())
+		: nullptr;
+	if (!World) { return; }
+	for (TActorIterator<ASpatialStageVolume> It(World); It; ++It)
+	{
+		SVActorList.Add(*It);
+	}
+}
+
 EActiveTimerReturnType SSpatialFabricPanel::OnRefreshTimer(
 	double InCurrentTime, float InDeltaTime)
 {
@@ -1480,6 +1590,7 @@ EActiveTimerReturnType SSpatialFabricPanel::OnRefreshTimer(
 	}
 
 	RefreshLog();
+	RebuildSVList();
 
 	// Push the latest snapshot into the radar widget and trigger a repaint.
 	// We push here (not in OnPaint) so the widget always reads from the correct
