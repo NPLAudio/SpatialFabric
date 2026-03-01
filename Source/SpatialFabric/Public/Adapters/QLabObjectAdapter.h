@@ -40,7 +40,7 @@ public:
 
 	virtual void Configure(const FSpatialAdapterConfig& InConfig) override;
 	virtual void SetClientComponent(ULiveOSCClientComponent* InClient) override;
-	virtual void ProcessFrame(const FSpatialFrameSnapshot& Snapshot) override;
+	virtual void ProcessFrame(const FSpatialFrameSnapshot& Snapshot, float DeltaTime) override;
 	virtual bool IsEnabled() const override { return Config.bEnabled; }
 
 private:

@@ -18,12 +18,202 @@
 #include "Widgets/Text/STextBlock.h"
 #include "Widgets/Input/SButton.h"
 #include "Widgets/Input/SCheckBox.h"
+#include "Widgets/Input/SEditableTextBox.h"
 #include "Widgets/Input/SNumericEntryBox.h"
 #include "Widgets/Views/SListView.h"
 #include "Widgets/Views/STableRow.h"
 #include "Styling/AppStyle.h"
+#include "Widgets/SLeafWidget.h"
+#include "Rendering/DrawElements.h"
 
 #define LOCTEXT_NAMESPACE "SSpatialFabricPanel"
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  SRadarView — live 2-D top-down position display
+// ─────────────────────────────────────────────────────────────────────────────
+
+class SRadarView : public SLeafWidget
+{
+public:
+	SLATE_BEGIN_ARGS(SRadarView) {}
+	SLATE_END_ARGS()
+
+	void Construct(const FArguments& InArgs) {}
+
+	/** Called from OnRefreshTimer — pushes the current PIE snapshot into the widget. */
+	void SetSnapshot(const FSpatialFrameSnapshot& Snap)
+	{
+		CachedSnapshot = Snap;
+		bHasSnapshot   = true;
+	}
+
+	virtual FVector2D ComputeDesiredSize(float) const override
+	{
+		return FVector2D(300.f, 300.f);
+	}
+
+	virtual int32 OnPaint(
+		const FPaintArgs& Args,
+		const FGeometry& AllottedGeometry,
+		const FSlateRect& MyCullingRect,
+		FSlateWindowElementList& OutDrawElements,
+		int32 LayerId,
+		const FWidgetStyle& InWidgetStyle,
+		bool bParentEnabled) const override
+	{
+		const FVector2D Size    = AllottedGeometry.GetLocalSize();
+		const float     cx      = Size.X * 0.5f;
+		const float     cy      = Size.Y * 0.5f;
+		const float     R       = FMath::Min(Size.X, Size.Y) * 0.44f;
+
+		const FSlateBrush* WhiteBrush = FAppStyle::GetBrush("WhiteTexture");
+
+		// ── Background ──────────────────────────────────────────────────────
+		FSlateDrawElement::MakeBox(
+			OutDrawElements, LayerId,
+			AllottedGeometry.ToPaintGeometry(),
+			WhiteBrush,
+			ESlateDrawEffect::None,
+			FLinearColor(0.06f, 0.06f, 0.06f, 1.f));
+		++LayerId;
+
+		// ── Stage boundary (±1 rectangle) ───────────────────────────────────
+		{
+			TArray<FVector2D> Rect;
+			Rect.Add(FVector2D(cx - R, cy - R));
+			Rect.Add(FVector2D(cx + R, cy - R));
+			Rect.Add(FVector2D(cx + R, cy + R));
+			Rect.Add(FVector2D(cx - R, cy + R));
+			Rect.Add(FVector2D(cx - R, cy - R));
+			FSlateDrawElement::MakeLines(
+				OutDrawElements, LayerId,
+				AllottedGeometry.ToPaintGeometry(),
+				Rect, ESlateDrawEffect::None,
+				FLinearColor(1.f, 1.f, 1.f, 0.3f), true, 1.f);
+		}
+
+		// ── Crosshairs ───────────────────────────────────────────────────────
+		{
+			TArray<FVector2D> HLine = { FVector2D(cx - R, cy), FVector2D(cx + R, cy) };
+			TArray<FVector2D> VLine = { FVector2D(cx, cy - R), FVector2D(cx, cy + R) };
+			const FLinearColor Gray(0.25f, 0.25f, 0.25f, 1.f);
+			FSlateDrawElement::MakeLines(OutDrawElements, LayerId,
+				AllottedGeometry.ToPaintGeometry(), HLine, ESlateDrawEffect::None, Gray, true, 1.f);
+			FSlateDrawElement::MakeLines(OutDrawElements, LayerId,
+				AllottedGeometry.ToPaintGeometry(), VLine, ESlateDrawEffect::None, Gray, true, 1.f);
+		}
+		++LayerId;
+
+		// ── No-data hint ────────────────────────────────────────────────────
+		if (!bHasSnapshot || CachedSnapshot.Objects.IsEmpty())
+		{
+			const FString HintStr = bHasSnapshot
+				? TEXT("No objects tracked")
+				: TEXT("No data -- start PIE");
+			FSlateDrawElement::MakeText(
+				OutDrawElements, LayerId,
+				AllottedGeometry.ToPaintGeometry(
+					FVector2f(160.f, 16.f),
+					FSlateLayoutTransform(FVector2f(cx - 80.f, cy - 8.f))),
+				FText::FromString(HintStr),
+				FAppStyle::GetFontStyle("SmallFont"),
+				ESlateDrawEffect::None,
+				FLinearColor(0.5f, 0.5f, 0.5f));
+			return LayerId;
+		}
+
+		const FSpatialFrameSnapshot& Snap = CachedSnapshot;
+
+		// Helper: StageNormalized → screen position
+		// +X = front → screen top  |  +Y = stage-left → screen left
+		auto NormToScreen = [&](float NormX, float NormY) -> FVector2D
+		{
+			return FVector2D(cx - NormY * R, cy - NormX * R);
+		};
+
+		// ── Object dots ─────────────────────────────────────────────────────
+		// Objects with |StageNormalized| > 1.1 are off-screen (usually because
+		// no Stage Volume is assigned and raw meter values are used instead).
+		const float DotHalf = 4.f;
+		int32 OffScreenCount = 0;
+		for (const FSpatialNormalizedState& Obj : Snap.Objects)
+		{
+			const float NX = Obj.StageNormalized.X;
+			const float NY = Obj.StageNormalized.Y;
+			if (FMath::Abs(NX) > 1.1f || FMath::Abs(NY) > 1.1f)
+			{
+				++OffScreenCount;
+				continue; // skip — would plot outside the stage boundary rect
+			}
+
+			FLinearColor DotColor = Obj.bMuted
+				? FLinearColor(1.f, 0.5f, 0.0f)   // orange = muted
+				: FLinearColor(0.2f, 1.f, 0.3f);  // green  = active
+
+			const FVector2D Pos = NormToScreen(NX, NY);
+			FSlateDrawElement::MakeBox(
+				OutDrawElements, LayerId,
+				AllottedGeometry.ToPaintGeometry(
+					FVector2f(DotHalf * 2.f, DotHalf * 2.f),
+					FSlateLayoutTransform(FVector2f(Pos.X - DotHalf, Pos.Y - DotHalf))),
+				WhiteBrush, ESlateDrawEffect::None, DotColor);
+
+			// Label below dot
+			FSlateDrawElement::MakeText(
+				OutDrawElements, LayerId,
+				AllottedGeometry.ToPaintGeometry(
+					FVector2f(60.f, 14.f),
+					FSlateLayoutTransform(FVector2f(Pos.X - 30.f, Pos.Y + DotHalf + 2.f))),
+				FText::FromString(Obj.Label),
+				FAppStyle::GetFontStyle("SmallFont"),
+				ESlateDrawEffect::None,
+				FLinearColor(0.85f, 0.85f, 0.85f));
+		}
+
+		// ── Off-screen warning ───────────────────────────────────────────────
+		if (OffScreenCount > 0)
+		{
+			const FString WarnStr = FString::Printf(
+				TEXT("%d object(s) off-screen\n(Assign Stage Volume to Manager)"),
+				OffScreenCount);
+			FSlateDrawElement::MakeText(
+				OutDrawElements, LayerId,
+				AllottedGeometry.ToPaintGeometry(
+					FVector2f(Size.X - 8.f, 32.f),
+					FSlateLayoutTransform(FVector2f(4.f, Size.Y - 36.f))),
+				FText::FromString(WarnStr),
+				FAppStyle::GetFontStyle("SmallFont"),
+				ESlateDrawEffect::None,
+				FLinearColor(1.f, 0.55f, 0.1f));
+		}
+		++LayerId;
+
+		// ── Listener marker (yellow diamond) ────────────────────────────────
+		if (Snap.bHasListener)
+		{
+			const FVector2D LP = NormToScreen(
+				Snap.ListenerNormalized.X, Snap.ListenerNormalized.Y);
+			const float D = 5.f;
+			TArray<FVector2D> Diamond;
+			Diamond.Add(LP + FVector2D(0.f, -D));
+			Diamond.Add(LP + FVector2D(D,   0.f));
+			Diamond.Add(LP + FVector2D(0.f,  D));
+			Diamond.Add(LP + FVector2D(-D,  0.f));
+			Diamond.Add(LP + FVector2D(0.f, -D));
+			FSlateDrawElement::MakeLines(
+				OutDrawElements, LayerId,
+				AllottedGeometry.ToPaintGeometry(),
+				Diamond, ESlateDrawEffect::None,
+				FLinearColor(1.f, 0.95f, 0.1f), true, 1.5f);
+		}
+
+		return LayerId;
+	}
+
+private:
+	FSpatialFrameSnapshot CachedSnapshot;
+	bool bHasSnapshot = false;
+};
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  Format selector definitions (Phase-1 adapters)
@@ -54,7 +244,8 @@ void SSpatialFabricPanel::Construct(const FArguments& InArgs)
 	TSharedRef<SWidgetSwitcher> Switcher = SAssignNew(TabSwitcher, SWidgetSwitcher)
 		+ SWidgetSwitcher::Slot()[ BuildStageTab()   ]   // 0
 		+ SWidgetSwitcher::Slot()[ BuildObjectsTab() ]   // 1
-		+ SWidgetSwitcher::Slot()[ BuildAdaptersTab() ]; // 2
+		+ SWidgetSwitcher::Slot()[ BuildAdaptersTab() ]  // 2
+		+ SWidgetSwitcher::Slot()[ BuildRadarTab()   ];  // 3
 
 	// ── Tab button row ──────────────────────────────────────────────────────
 	auto MakeTabBtn = [this](FText Label, int32 Idx) -> TSharedRef<SWidget>
@@ -119,6 +310,8 @@ void SSpatialFabricPanel::Construct(const FArguments& InArgs)
 				[ MakeTabBtn(LOCTEXT("TabObjects",  "Objects"),  1) ]
 				+ SHorizontalBox::Slot().AutoWidth().Padding(0.f, 0.f, 2.f, 0.f)
 				[ MakeTabBtn(LOCTEXT("TabAdapters", "Adapters"), 2) ]
+				+ SHorizontalBox::Slot().AutoWidth().Padding(0.f, 0.f, 2.f, 0.f)
+				[ MakeTabBtn(LOCTEXT("TabRadar",    "Radar"),    3) ]
 				+ SHorizontalBox::Slot().FillWidth(1.f) // spacer
 			]
 
@@ -145,11 +338,20 @@ void SSpatialFabricPanel::Construct(const FArguments& InArgs)
 
 TSharedRef<SWidget> SSpatialFabricPanel::BuildStageTab()
 {
+	// Helper shared between lambdas: get the linked stage volume (may be null).
+	// Works both in editor and PIE because GetManager() already picks the right world.
+	auto GetSV = [this]() -> ASpatialStageVolume*
+	{
+		ASpatialFabricManagerActor* Mgr = GetManager();
+		return Mgr ? Mgr->StageVolume.Get() : nullptr;
+	};
+
 	return SNew(SScrollBox)
 		+ SScrollBox::Slot().Padding(6.f, 4.f)
 		[
 			SNew(SVerticalBox)
 
+			// ── Stage Volume header ───────────────────────────────────────
 			+ SVerticalBox::Slot().AutoHeight().Padding(0.f, 0.f, 0.f, 6.f)
 			[
 				SNew(STextBlock)
@@ -163,8 +365,7 @@ TSharedRef<SWidget> SSpatialFabricPanel::BuildStageTab()
 				.Text(LOCTEXT("StageHelp",
 					"1. Place an ASpatialStageVolume in the level (or click Spawn below).\n"
 					"2. Assign it to the SpatialFabricManagerActor → StageVolume property.\n"
-					"3. Set Physical Width / Depth / Height on the Stage Volume to match your real space.\n"
-					"4. Optional: tick Auto-Follow Player on the Stage Volume to track the player camera."))
+					"3. Set Physical Width / Depth / Height on the Stage Volume to match your real space."))
 				.AutoWrapText(true)
 				.ColorAndOpacity(FLinearColor(0.75f, 0.75f, 0.75f))
 			]
@@ -184,6 +385,108 @@ TSharedRef<SWidget> SSpatialFabricPanel::BuildStageTab()
 					}
 					return FReply::Handled();
 				})
+			]
+
+			// ── Stage volume link status ──────────────────────────────────
+			+ SVerticalBox::Slot().AutoHeight().Padding(0.f, 8.f, 0.f, 2.f)
+			[
+				SNew(STextBlock)
+				.Text_Lambda([this]()
+				{
+					const ASpatialFabricManagerActor* Mgr = GetManager();
+					if (!Mgr)
+						return LOCTEXT("NoMgr", "No Manager actor found in level.");
+					const ASpatialStageVolume* SV = Mgr->StageVolume.Get();
+					if (!SV)
+						return LOCTEXT("NoSV", "Stage Volume not assigned — set it on the Manager actor.");
+					return FText::Format(LOCTEXT("SVStatus", "Linked: {0}"),
+						FText::FromString(SV->GetActorLabel()));
+				})
+				.ColorAndOpacity_Lambda([this]()
+				{
+					const ASpatialFabricManagerActor* Mgr = GetManager();
+					const ASpatialStageVolume* SV = Mgr ? Mgr->StageVolume.Get() : nullptr;
+					return SV
+						? FSlateColor(FLinearColor(0.30f, 0.85f, 0.30f))
+						: FSlateColor(FLinearColor(1.00f, 0.50f, 0.10f));
+				})
+				.AutoWrapText(true)
+			]
+
+			// ── Listener / Player Mode ────────────────────────────────────
+			+ SVerticalBox::Slot().AutoHeight().Padding(0.f, 10.f, 0.f, 4.f)
+			[
+				SNew(STextBlock)
+				.Text(LOCTEXT("ListenerHeader", "Listener / Player Mode"))
+				.Font(FAppStyle::GetFontStyle("BoldFont"))
+			]
+
+			// Auto-Follow Player
+			+ SVerticalBox::Slot().AutoHeight().Padding(4.f, 3.f)
+			[
+				SNew(SHorizontalBox)
+				+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center).Padding(0.f, 0.f, 8.f, 0.f)
+				[
+					SNew(SCheckBox)
+					.IsEnabled_Lambda([GetSV]() { return GetSV() != nullptr; })
+					.IsChecked_Lambda([GetSV]()
+					{
+						const ASpatialStageVolume* SV = GetSV();
+						return (SV && SV->bAutoFollowPlayer)
+							? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
+					})
+					.OnCheckStateChanged_Lambda([GetSV](ECheckBoxState State)
+					{
+						if (ASpatialStageVolume* SV = GetSV())
+						{
+							SV->bAutoFollowPlayer = (State == ECheckBoxState::Checked);
+							SV->MarkPackageDirty();
+						}
+					})
+				]
+				+ SHorizontalBox::Slot().FillWidth(1.f).VAlign(VAlign_Center)
+				[
+					SNew(STextBlock)
+					.Text(LOCTEXT("AutoFollowPlayer", "Auto-Follow Player"))
+					.ToolTipText(LOCTEXT("AutoFollowPlayerTip",
+						"Stage volume tracks the local player camera each frame.\n"
+						"Sound objects are positioned relative to the player (player is always the origin).\n"
+						"Requires Player Controller with a possessed Pawn or View Target."))
+				]
+			]
+
+			// Listener-Relative Orientation
+			+ SVerticalBox::Slot().AutoHeight().Padding(4.f, 3.f)
+			[
+				SNew(SHorizontalBox)
+				+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center).Padding(0.f, 0.f, 8.f, 0.f)
+				[
+					SNew(SCheckBox)
+					.IsEnabled_Lambda([GetSV]() { return GetSV() != nullptr; })
+					.IsChecked_Lambda([GetSV]()
+					{
+						const ASpatialStageVolume* SV = GetSV();
+						return (SV && SV->bListenerRelativeOrientation)
+							? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
+					})
+					.OnCheckStateChanged_Lambda([GetSV](ECheckBoxState State)
+					{
+						if (ASpatialStageVolume* SV = GetSV())
+						{
+							SV->bListenerRelativeOrientation = (State == ECheckBoxState::Checked);
+							SV->MarkPackageDirty();
+						}
+					})
+				]
+				+ SHorizontalBox::Slot().FillWidth(1.f).VAlign(VAlign_Center)
+				[
+					SNew(STextBlock)
+					.Text(LOCTEXT("ListenerRelOrientation", "Listener-Relative Orientation"))
+					.ToolTipText(LOCTEXT("ListenerRelOrientationTip",
+						"Object axes follow the listener's facing direction.\n"
+						"Enable for head-tracked binaural audio where the renderer\n"
+						"needs coordinates in the listener's own local frame (forward = listener facing)."))
+				]
 			]
 		];
 }
@@ -250,30 +553,70 @@ TSharedRef<SWidget> SSpatialFabricPanel::BuildObjectsTab()
 			];
 	}
 
-	// Endpoint label — shows IP:port for the active format
-	FormatRow->AddSlot()
-		.FillWidth(1.f);
+	// Editable IP : Port for the active adapter
+	FormatRow->AddSlot().FillWidth(1.f);
 
 	FormatRow->AddSlot()
 		.AutoWidth()
 		.VAlign(VAlign_Center)
-		.Padding(6.f, 0.f, 0.f, 0.f)
+		.Padding(6.f, 0.f, 2.f, 0.f)
 		[
-			SNew(STextBlock)
-			.Text_Lambda([this]() -> FText
-			{
-				const ASpatialFabricManagerActor* Mgr = GetManager();
-				if (!Mgr) return FText::GetEmpty();
-				const uint8 Key = (uint8)Mgr->ActiveAdapterType;
-				if (const FSpatialAdapterConfig* C = Mgr->AdapterConfigs.Find(Key))
-					return FText::Format(LOCTEXT("EndpointFmt", "{0}:{1}"),
-						FText::FromString(C->TargetIP), C->TargetPort);
-				return FText::GetEmpty();
-			})
-			.ColorAndOpacity(FLinearColor(0.45f, 0.45f, 0.45f))
-			.ToolTipText(LOCTEXT("EndpointTip",
-				"IP and port for the selected protocol.\n"
-				"Edit in the SpatialFabricManagerActor Details panel under AdapterConfigs."))
+			SNew(SBox).WidthOverride(110.f)
+			[
+				SNew(SEditableTextBox)
+				.Text_Lambda([this]() -> FText
+				{
+					const ASpatialFabricManagerActor* Mgr = GetManager();
+					if (!Mgr) return FText::GetEmpty();
+					if (const FSpatialAdapterConfig* C = Mgr->AdapterConfigs.Find((uint8)Mgr->ActiveAdapterType))
+						return FText::FromString(C->TargetIP);
+					return FText::GetEmpty();
+				})
+				.OnTextCommitted_Lambda([this](const FText& Val, ETextCommit::Type)
+				{
+					if (ASpatialFabricManagerActor* Mgr = GetManager())
+						if (FSpatialAdapterConfig* C = Mgr->AdapterConfigs.Find((uint8)Mgr->ActiveAdapterType))
+						{
+							C->TargetIP = Val.ToString();
+							Mgr->MarkPackageDirty();
+							if (Mgr->GetRouter()) Mgr->InitializeAdapters();
+						}
+				})
+				.ToolTipText(LOCTEXT("IPTip", "Target IP address for the active protocol adapter"))
+			]
+		];
+
+	FormatRow->AddSlot()
+		.AutoWidth()
+		.VAlign(VAlign_Center)
+		.Padding(0.f, 0.f, 0.f, 0.f)
+		[
+			SNew(SBox).WidthOverride(62.f)
+			[
+				SNew(SNumericEntryBox<int32>)
+				.Value_Lambda([this]() -> TOptional<int32>
+				{
+					const ASpatialFabricManagerActor* Mgr = GetManager();
+					if (!Mgr) return TOptional<int32>();
+					if (const FSpatialAdapterConfig* C = Mgr->AdapterConfigs.Find((uint8)Mgr->ActiveAdapterType))
+						return C->TargetPort;
+					return TOptional<int32>();
+				})
+				.OnValueCommitted_Lambda([this](int32 Val, ETextCommit::Type)
+				{
+					if (ASpatialFabricManagerActor* Mgr = GetManager())
+						if (FSpatialAdapterConfig* C = Mgr->AdapterConfigs.Find((uint8)Mgr->ActiveAdapterType))
+						{
+							C->TargetPort = FMath::Clamp(Val, 1024, 65535);
+							Mgr->MarkPackageDirty();
+							if (Mgr->GetRouter()) Mgr->InitializeAdapters();
+						}
+				})
+				.MinValue(1024)
+				.MaxValue(65535)
+				.AllowSpin(false)
+				.ToolTipText(LOCTEXT("PortTip", "Target UDP port for the active protocol adapter"))
+			]
 		];
 
 	// ── List view ─────────────────────────────────────────────────────────
@@ -435,130 +778,369 @@ TSharedRef<ITableRow> SSpatialFabricPanel::GenerateBindingRow(
 	return SNew(STableRow<TSharedPtr<int32>>, OwnerTable)
 		.Padding(FMargin(2.f, 2.f))
 		[
-			SNew(SHorizontalBox)
+			SNew(SVerticalBox)
 
-			// ── Actor name ────────────────────────────────────────────────
-			+ SHorizontalBox::Slot()
-			.FillWidth(1.f)
-			.VAlign(VAlign_Center)
-			.Padding(4.f, 0.f, 6.f, 0.f)
-			[
-				SNew(STextBlock)
-				.Text(FText::FromString(DisplayName))
-				.ColorAndOpacity_Lambda([WeakMgr, BIdx]()
-				{
-					if (ASpatialFabricManagerActor* M = WeakMgr.Get())
-						if (M->ObjectBindings.IsValidIndex(BIdx))
-						{
-							if (!M->ObjectBindings[BIdx].TargetActor.Get())
-								return FLinearColor(1.0f, 0.65f, 0.1f); // orange = unresolved
-							if (!M->ObjectBindings[BIdx].bEnabled)
-								return FLinearColor(0.45f, 0.45f, 0.45f); // gray = disabled
-						}
-					return FLinearColor(0.90f, 0.90f, 0.90f);
-				})
-				.ToolTipText(FText::FromString(
-					bResolved ? Actor->GetPathName() : TEXT("Actor not found in level")))
-			]
-
-			// ── Object ID ─────────────────────────────────────────────────
-			+ SHorizontalBox::Slot()
-			.AutoWidth()
-			.VAlign(VAlign_Center)
-			.Padding(0.f, 0.f, 6.f, 0.f)
+			// ── Main row ──────────────────────────────────────────────────
+			+ SVerticalBox::Slot()
+			.AutoHeight()
 			[
 				SNew(SHorizontalBox)
-				+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center).Padding(0.f, 0.f, 4.f, 0.f)
+
+				// Actor name
+				+ SHorizontalBox::Slot()
+				.FillWidth(1.f)
+				.VAlign(VAlign_Center)
+				.Padding(4.f, 0.f, 6.f, 0.f)
 				[
 					SNew(STextBlock)
-					.Text(LOCTEXT("IDLabel", "ID"))
-					.ColorAndOpacity(FLinearColor(0.55f, 0.55f, 0.55f))
+					.Text(FText::FromString(DisplayName))
+					.ColorAndOpacity_Lambda([WeakMgr, BIdx]()
+					{
+						if (ASpatialFabricManagerActor* M = WeakMgr.Get())
+							if (M->ObjectBindings.IsValidIndex(BIdx))
+							{
+								if (!M->ObjectBindings[BIdx].TargetActor.Get())
+									return FLinearColor(1.0f, 0.65f, 0.1f);
+								if (!M->ObjectBindings[BIdx].bEnabled)
+									return FLinearColor(0.45f, 0.45f, 0.45f);
+							}
+						return FLinearColor(0.90f, 0.90f, 0.90f);
+					})
+					.ToolTipText(FText::FromString(
+						bResolved ? Actor->GetPathName() : TEXT("Actor not found in level")))
 				]
-				+ SHorizontalBox::Slot().AutoWidth()
+
+				// Object ID
+				+ SHorizontalBox::Slot()
+				.AutoWidth()
+				.VAlign(VAlign_Center)
+				.Padding(0.f, 0.f, 6.f, 0.f)
 				[
-					SNew(SBox).WidthOverride(52.f)
+					SNew(SHorizontalBox)
+					+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center).Padding(0.f, 0.f, 4.f, 0.f)
 					[
-						SNew(SNumericEntryBox<int32>)
-						.Value_Lambda([WeakMgr, BIdx]() -> TOptional<int32>
+						SNew(STextBlock)
+						.Text(LOCTEXT("IDLabel", "ID"))
+						.ColorAndOpacity(FLinearColor(0.55f, 0.55f, 0.55f))
+					]
+					+ SHorizontalBox::Slot().AutoWidth()
+					[
+						SNew(SBox).WidthOverride(52.f)
+						[
+							SNew(SNumericEntryBox<int32>)
+							.Value_Lambda([WeakMgr, BIdx]() -> TOptional<int32>
+							{
+								if (ASpatialFabricManagerActor* M = WeakMgr.Get())
+									if (M->ObjectBindings.IsValidIndex(BIdx))
+										return M->ObjectBindings[BIdx].DefaultObjectID;
+								return TOptional<int32>();
+							})
+							.OnValueCommitted_Lambda([WeakMgr, BIdx](int32 Val, ETextCommit::Type)
+							{
+								if (ASpatialFabricManagerActor* M = WeakMgr.Get())
+									if (M->ObjectBindings.IsValidIndex(BIdx))
+									{
+										M->ObjectBindings[BIdx].DefaultObjectID = FMath::Max(1, Val);
+										M->MarkPackageDirty();
+									}
+							})
+							.MinValue(1)
+							.AllowSpin(false)
+						]
+					]
+				]
+
+				// Enable toggle
+				+ SHorizontalBox::Slot()
+				.AutoWidth()
+				.VAlign(VAlign_Center)
+				.Padding(2.f, 0.f)
+				[
+					SNew(SCheckBox)
+					.Style(FAppStyle::Get(), "ToggleButtonCheckbox")
+					.IsChecked_Lambda([WeakMgr, BIdx]()
+					{
+						if (ASpatialFabricManagerActor* M = WeakMgr.Get())
+							if (M->ObjectBindings.IsValidIndex(BIdx))
+								return M->ObjectBindings[BIdx].bEnabled
+									? ECheckBoxState::Checked
+									: ECheckBoxState::Unchecked;
+						return ECheckBoxState::Unchecked;
+					})
+					.OnCheckStateChanged_Lambda([WeakMgr, BIdx](ECheckBoxState State)
+					{
+						if (ASpatialFabricManagerActor* M = WeakMgr.Get())
+							if (M->ObjectBindings.IsValidIndex(BIdx))
+							{
+								M->ObjectBindings[BIdx].bEnabled = (State == ECheckBoxState::Checked);
+								M->MarkPackageDirty();
+							}
+					})
+					.ToolTipText(LOCTEXT("EnableToggle", "Enable / disable this binding"))
+				]
+
+				// Remove button
+				+ SHorizontalBox::Slot()
+				.AutoWidth()
+				.VAlign(VAlign_Center)
+				.Padding(4.f, 0.f, 2.f, 0.f)
+				[
+					SNew(SBox).WidthOverride(28.f).HeightOverride(28.f)
+					[
+						SNew(SButton)
+						.ButtonStyle(FAppStyle::Get(), "FlatButton")
+						.ButtonColorAndOpacity(FLinearColor(0.45f, 0.08f, 0.08f))
+						.HAlign(HAlign_Center).VAlign(VAlign_Center)
+						.ToolTipText(LOCTEXT("RemoveBinding", "Remove this binding"))
+						.OnClicked_Lambda([this, BIdx]() -> FReply
 						{
-							if (ASpatialFabricManagerActor* M = WeakMgr.Get())
-								if (M->ObjectBindings.IsValidIndex(BIdx))
-									return M->ObjectBindings[BIdx].DefaultObjectID;
-							return TOptional<int32>();
+							RemoveBinding(BIdx);
+							return FReply::Handled();
 						})
-						.OnValueCommitted_Lambda([WeakMgr, BIdx](int32 Val, ETextCommit::Type)
-						{
-							if (ASpatialFabricManagerActor* M = WeakMgr.Get())
-								if (M->ObjectBindings.IsValidIndex(BIdx))
-								{
-									M->ObjectBindings[BIdx].DefaultObjectID = FMath::Max(1, Val);
-									M->MarkPackageDirty();
-								}
-						})
-						.MinValue(1)
-						.AllowSpin(false)
+						[
+							SNew(STextBlock)
+							.Text(LOCTEXT("RemoveX", "X"))
+							.Font(FAppStyle::GetFontStyle("SmallFont"))
+							.ColorAndOpacity(FLinearColor(1.f, 0.5f, 0.5f))
+						]
 					]
 				]
 			]
 
-			// ── Enable toggle ─────────────────────────────────────────────
-			+ SHorizontalBox::Slot()
-			.AutoWidth()
-			.VAlign(VAlign_Center)
-			.Padding(2.f, 0.f)
+			// ── DS100 sub-row (visible only when DS100 is the active format) ──
+			+ SVerticalBox::Slot()
+			.AutoHeight()
+			.Padding(4.f, 2.f, 4.f, 2.f)
 			[
-				SNew(SCheckBox)
-				.Style(FAppStyle::Get(), "ToggleButtonCheckbox")
-				.IsChecked_Lambda([WeakMgr, BIdx]()
+				SNew(SBorder)
+				.BorderImage(FAppStyle::GetBrush("ToolPanel.DarkGroupBorder"))
+				.Padding(FMargin(6.f, 3.f))
+				.Visibility_Lambda([WeakMgr]()
 				{
-					if (ASpatialFabricManagerActor* M = WeakMgr.Get())
-						if (M->ObjectBindings.IsValidIndex(BIdx))
-							return M->ObjectBindings[BIdx].bEnabled
-								? ECheckBoxState::Checked
-								: ECheckBoxState::Unchecked;
-					return ECheckBoxState::Unchecked;
-				})
-				.OnCheckStateChanged_Lambda([WeakMgr, BIdx](ECheckBoxState State)
-				{
-					if (ASpatialFabricManagerActor* M = WeakMgr.Get())
-						if (M->ObjectBindings.IsValidIndex(BIdx))
-						{
-							M->ObjectBindings[BIdx].bEnabled = (State == ECheckBoxState::Checked);
-							M->MarkPackageDirty();
-						}
-				})
-				.ToolTipText(LOCTEXT("EnableToggle", "Enable / disable this binding"))
-			]
-
-			// ── Remove button ─────────────────────────────────────────────
-			+ SHorizontalBox::Slot()
-			.AutoWidth()
-			.VAlign(VAlign_Center)
-			.Padding(4.f, 0.f, 2.f, 0.f)
-			[
-			SNew(SBox)
-			.WidthOverride(28.f)
-			.HeightOverride(28.f)
-			[
-				SNew(SButton)
-				.ButtonStyle(FAppStyle::Get(), "FlatButton")
-				.ButtonColorAndOpacity(FLinearColor(0.45f, 0.08f, 0.08f))
-				.HAlign(HAlign_Center).VAlign(VAlign_Center)
-				.ToolTipText(LOCTEXT("RemoveBinding", "Remove this binding"))
-				.OnClicked_Lambda([this, BIdx]() -> FReply
-				{
-					RemoveBinding(BIdx);
-					return FReply::Handled();
+					const ASpatialFabricManagerActor* M = WeakMgr.Get();
+					return (M && M->ActiveAdapterType == ESpatialAdapterType::DS100)
+						? EVisibility::Visible : EVisibility::Collapsed;
 				})
 				[
-					SNew(STextBlock)
-					.Text(LOCTEXT("RemoveX", "X"))
-					.Font(FAppStyle::GetFontStyle("SmallFont"))
-					.ColorAndOpacity(FLinearColor(1.f, 0.5f, 0.5f))
+					SNew(SHorizontalBox)
+
+					// "Spread:" label
+					+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center).Padding(0.f, 0.f, 4.f, 0.f)
+					[
+						SNew(STextBlock)
+						.Text(LOCTEXT("SpreadLabel", "Spread:"))
+						.ColorAndOpacity(FLinearColor(0.6f, 0.6f, 0.6f))
+						.Font(FAppStyle::GetFontStyle("SmallFont"))
+					]
+
+					// Fixed button
+					+ SHorizontalBox::Slot().AutoWidth().Padding(0.f, 0.f, 2.f, 0.f)
+					[
+						SNew(SBox).HeightOverride(22.f).MinDesiredWidth(46.f)
+						[
+							SNew(SButton)
+							.ButtonStyle(FAppStyle::Get(), "FlatButton")
+							.HAlign(HAlign_Center)
+							.ButtonColorAndOpacity_Lambda([WeakMgr, BIdx]()
+							{
+								if (ASpatialFabricManagerActor* M = WeakMgr.Get())
+									if (M->ObjectBindings.IsValidIndex(BIdx))
+										if (M->ObjectBindings[BIdx].DS100SpreadMode == EDS100SpreadMode::Fixed)
+											return FLinearColor(1.00f, 0.42f, 0.10f);
+								return FLinearColor(0.18f, 0.18f, 0.18f);
+							})
+							.ToolTipText(LOCTEXT("SpreadFixedTip", "Fixed: send Width01 as spread unchanged"))
+							.OnClicked_Lambda([WeakMgr, BIdx]() -> FReply
+							{
+								if (ASpatialFabricManagerActor* M = WeakMgr.Get())
+									if (M->ObjectBindings.IsValidIndex(BIdx))
+									{
+										M->ObjectBindings[BIdx].DS100SpreadMode = EDS100SpreadMode::Fixed;
+										M->MarkPackageDirty();
+									}
+								return FReply::Handled();
+							})
+							[ SNew(STextBlock).Text(LOCTEXT("Fixed", "Fixed")).Font(FAppStyle::GetFontStyle("SmallFont")).ColorAndOpacity(FLinearColor::White) ]
+						]
+					]
+
+					// Proximity button
+					+ SHorizontalBox::Slot().AutoWidth().Padding(0.f, 0.f, 8.f, 0.f)
+					[
+						SNew(SBox).HeightOverride(22.f).MinDesiredWidth(64.f)
+						[
+							SNew(SButton)
+							.ButtonStyle(FAppStyle::Get(), "FlatButton")
+							.HAlign(HAlign_Center)
+							.ButtonColorAndOpacity_Lambda([WeakMgr, BIdx]()
+							{
+								if (ASpatialFabricManagerActor* M = WeakMgr.Get())
+									if (M->ObjectBindings.IsValidIndex(BIdx))
+										if (M->ObjectBindings[BIdx].DS100SpreadMode == EDS100SpreadMode::Proximity)
+											return FLinearColor(0.10f, 0.72f, 0.80f);
+								return FLinearColor(0.18f, 0.18f, 0.18f);
+							})
+							.ToolTipText(LOCTEXT("SpreadProxTip",
+								"Proximity: spread grows inverse-square as listener nears source.\n"
+								"Min = far spread, Max = at-source spread, Dist = reference distance."))
+							.OnClicked_Lambda([WeakMgr, BIdx]() -> FReply
+							{
+								if (ASpatialFabricManagerActor* M = WeakMgr.Get())
+									if (M->ObjectBindings.IsValidIndex(BIdx))
+									{
+										M->ObjectBindings[BIdx].DS100SpreadMode = EDS100SpreadMode::Proximity;
+										M->MarkPackageDirty();
+									}
+								return FReply::Handled();
+							})
+							[ SNew(STextBlock).Text(LOCTEXT("Proximity", "Proximity")).Font(FAppStyle::GetFontStyle("SmallFont")).ColorAndOpacity(FLinearColor::White) ]
+						]
+					]
+
+					// Proximity controls — only shown in Proximity mode
+					+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center)
+					[
+						SNew(SBox)
+						.Visibility_Lambda([WeakMgr, BIdx]()
+						{
+							if (ASpatialFabricManagerActor* M = WeakMgr.Get())
+								if (M->ObjectBindings.IsValidIndex(BIdx))
+									return M->ObjectBindings[BIdx].DS100SpreadMode == EDS100SpreadMode::Proximity
+										? EVisibility::Visible : EVisibility::Collapsed;
+							return EVisibility::Collapsed;
+						})
+						[
+							SNew(SHorizontalBox)
+
+							// Min label + spinner
+							+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center).Padding(0.f, 0.f, 3.f, 0.f)
+							[ SNew(STextBlock).Text(LOCTEXT("MinLabel", "Min")).ColorAndOpacity(FLinearColor(0.55f,0.55f,0.55f)).Font(FAppStyle::GetFontStyle("SmallFont")) ]
+							+ SHorizontalBox::Slot().AutoWidth().Padding(0.f, 0.f, 6.f, 0.f)
+							[
+								SNew(SBox).WidthOverride(48.f)
+								[
+									SNew(SNumericEntryBox<float>)
+									.Value_Lambda([WeakMgr, BIdx]() -> TOptional<float>
+									{
+										if (ASpatialFabricManagerActor* M = WeakMgr.Get())
+											if (M->ObjectBindings.IsValidIndex(BIdx))
+												return M->ObjectBindings[BIdx].DS100SpreadMin;
+										return TOptional<float>();
+									})
+									.OnValueCommitted_Lambda([WeakMgr, BIdx](float Val, ETextCommit::Type)
+									{
+										if (ASpatialFabricManagerActor* M = WeakMgr.Get())
+											if (M->ObjectBindings.IsValidIndex(BIdx))
+											{
+												M->ObjectBindings[BIdx].DS100SpreadMin = FMath::Clamp(Val, 0.f, 1.f);
+												M->MarkPackageDirty();
+											}
+									})
+									.MinValue(0.f).MaxValue(1.f).AllowSpin(true)
+									.Font(FAppStyle::GetFontStyle("SmallFont"))
+								]
+							]
+
+							// Max label + spinner
+							+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center).Padding(0.f, 0.f, 3.f, 0.f)
+							[ SNew(STextBlock).Text(LOCTEXT("MaxLabel", "Max")).ColorAndOpacity(FLinearColor(0.55f,0.55f,0.55f)).Font(FAppStyle::GetFontStyle("SmallFont")) ]
+							+ SHorizontalBox::Slot().AutoWidth().Padding(0.f, 0.f, 6.f, 0.f)
+							[
+								SNew(SBox).WidthOverride(48.f)
+								[
+									SNew(SNumericEntryBox<float>)
+									.Value_Lambda([WeakMgr, BIdx]() -> TOptional<float>
+									{
+										if (ASpatialFabricManagerActor* M = WeakMgr.Get())
+											if (M->ObjectBindings.IsValidIndex(BIdx))
+												return M->ObjectBindings[BIdx].DS100SpreadMax;
+										return TOptional<float>();
+									})
+									.OnValueCommitted_Lambda([WeakMgr, BIdx](float Val, ETextCommit::Type)
+									{
+										if (ASpatialFabricManagerActor* M = WeakMgr.Get())
+											if (M->ObjectBindings.IsValidIndex(BIdx))
+											{
+												M->ObjectBindings[BIdx].DS100SpreadMax = FMath::Clamp(Val, 0.f, 1.f);
+												M->MarkPackageDirty();
+											}
+									})
+									.MinValue(0.f).MaxValue(1.f).AllowSpin(true)
+									.Font(FAppStyle::GetFontStyle("SmallFont"))
+								]
+							]
+
+							// Dist label + spinner
+							+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center).Padding(0.f, 0.f, 3.f, 0.f)
+							[ SNew(STextBlock).Text(LOCTEXT("DistLabel", "Dist")).ColorAndOpacity(FLinearColor(0.55f,0.55f,0.55f)).Font(FAppStyle::GetFontStyle("SmallFont")) ]
+							+ SHorizontalBox::Slot().AutoWidth()
+							[
+								SNew(SBox).WidthOverride(48.f)
+								[
+									SNew(SNumericEntryBox<float>)
+									.Value_Lambda([WeakMgr, BIdx]() -> TOptional<float>
+									{
+										if (ASpatialFabricManagerActor* M = WeakMgr.Get())
+											if (M->ObjectBindings.IsValidIndex(BIdx))
+												return M->ObjectBindings[BIdx].DS100ProximityMaxDistance;
+										return TOptional<float>();
+									})
+									.OnValueCommitted_Lambda([WeakMgr, BIdx](float Val, ETextCommit::Type)
+									{
+										if (ASpatialFabricManagerActor* M = WeakMgr.Get())
+											if (M->ObjectBindings.IsValidIndex(BIdx))
+											{
+												M->ObjectBindings[BIdx].DS100ProximityMaxDistance = FMath::Max(Val, 0.01f);
+												M->MarkPackageDirty();
+											}
+									})
+									.MinValue(0.01f).AllowSpin(true)
+									.Font(FAppStyle::GetFontStyle("SmallFont"))
+								]
+							]
+						]
+					]
+
+					// Spacer
+					+ SHorizontalBox::Slot().FillWidth(1.f)
+
+					// "Delay:" label + spinner
+					+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center).Padding(0.f, 0.f, 4.f, 0.f)
+					[
+						SNew(STextBlock)
+						.Text(LOCTEXT("DelayLabel", "Delay:"))
+						.ColorAndOpacity(FLinearColor(0.6f, 0.6f, 0.6f))
+						.Font(FAppStyle::GetFontStyle("SmallFont"))
+						.ToolTipText(LOCTEXT("DelayTip", "DS100 delay mode: -1=off (not sent), 0=off, 1=tight, 2=full"))
+					]
+					+ SHorizontalBox::Slot().AutoWidth()
+					[
+						SNew(SBox).WidthOverride(48.f)
+						[
+							SNew(SNumericEntryBox<int32>)
+							.Value_Lambda([WeakMgr, BIdx]() -> TOptional<int32>
+							{
+								if (ASpatialFabricManagerActor* M = WeakMgr.Get())
+									if (M->ObjectBindings.IsValidIndex(BIdx))
+										return M->ObjectBindings[BIdx].DS100DelayMode;
+								return TOptional<int32>();
+							})
+							.OnValueCommitted_Lambda([WeakMgr, BIdx](int32 Val, ETextCommit::Type)
+							{
+								if (ASpatialFabricManagerActor* M = WeakMgr.Get())
+									if (M->ObjectBindings.IsValidIndex(BIdx))
+									{
+										M->ObjectBindings[BIdx].DS100DelayMode = FMath::Clamp(Val, -1, 2);
+										M->MarkPackageDirty();
+									}
+							})
+							.MinValue(-1).MaxValue(2).AllowSpin(true)
+							.Font(FAppStyle::GetFontStyle("SmallFont"))
+						]
+					]
 				]
 			]
-		]
-	];
+		];
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -898,6 +1480,17 @@ EActiveTimerReturnType SSpatialFabricPanel::OnRefreshTimer(
 	}
 
 	RefreshLog();
+
+	// Push the latest snapshot into the radar widget and trigger a repaint.
+	// We push here (not in OnPaint) so the widget always reads from the correct
+	// PIE-world manager, regardless of which world was active at construction time.
+	if (RadarView.IsValid())
+	{
+		if (ASpatialFabricManagerActor* RadarMgr = GetManager())
+			StaticCastSharedPtr<SRadarView>(RadarView)->SetSnapshot(RadarMgr->GetLastSnapshot());
+		RadarView->Invalidate(EInvalidateWidgetReason::Paint);
+	}
+
 	return EActiveTimerReturnType::Continue;
 }
 
@@ -914,6 +1507,36 @@ FSlateFontInfo SSpatialFabricPanel::GetTabFont(int32 TabIdx) const
 	return (TabSwitcher.IsValid() && TabSwitcher->GetActiveWidgetIndex() == TabIdx)
 		? FAppStyle::GetFontStyle("BoldFont")
 		: FAppStyle::GetFontStyle("NormalFont");
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  Tab — Radar
+// ─────────────────────────────────────────────────────────────────────────────
+
+TSharedRef<SWidget> SSpatialFabricPanel::BuildRadarTab()
+{
+	TSharedPtr<SRadarView> View;
+	SAssignNew(View, SRadarView);
+	RadarView = View;
+
+	return SNew(SBox)
+		.HAlign(HAlign_Center)
+		.VAlign(VAlign_Center)
+		.Padding(FMargin(8.f))
+		[
+			SNew(SVerticalBox)
+			+ SVerticalBox::Slot().AutoHeight().Padding(0.f, 0.f, 0.f, 4.f)
+			[
+				SNew(STextBlock)
+				.Text(LOCTEXT("RadarHelp",
+					"Top-down view — front at top, stage-left at left.\n"
+					"Outer rectangle = stage box bounds (±1 normalized)."))
+				.AutoWrapText(true)
+				.ColorAndOpacity(FLinearColor(0.6f, 0.6f, 0.6f))
+			]
+			+ SVerticalBox::Slot().AutoHeight()
+			[ View.ToSharedRef() ]
+		];
 }
 
 #undef LOCTEXT_NAMESPACE

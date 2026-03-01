@@ -31,10 +31,10 @@ void FRTTrPMAdapter::Configure(const FSpatialAdapterConfig& InConfig)
 	}
 }
 
-void FRTTrPMAdapter::ProcessFrame(const FSpatialFrameSnapshot& Snapshot)
+void FRTTrPMAdapter::ProcessFrame(const FSpatialFrameSnapshot& Snapshot, float DeltaTime)
 {
 	if (!Config.bEnabled || !UDPSocket) { return; }
-	if (!ShouldSendThisFrame(1.f / 60.f)) { return; }
+	if (!ShouldSendThisFrame(DeltaTime)) { return; }
 
 	for (const FSpatialNormalizedState& State : Snapshot.Objects)
 	{

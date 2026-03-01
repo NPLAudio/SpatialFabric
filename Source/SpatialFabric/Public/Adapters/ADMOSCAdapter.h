@@ -36,14 +36,12 @@ public:
 
 	virtual void Configure(const FSpatialAdapterConfig& InConfig) override;
 	virtual void SetClientComponent(ULiveOSCClientComponent* InClient) override;
-	virtual void ProcessFrame(const FSpatialFrameSnapshot& Snapshot) override;
+	virtual void ProcessFrame(const FSpatialFrameSnapshot& Snapshot, float DeltaTime) override;
 	virtual bool IsEnabled() const override { return Config.bEnabled; }
 
 private:
 	FSpatialAdapterConfig Config;
 	ULiveOSCClientComponent* Client = nullptr;
-
-	float LastSendTime = 0.f;
 
 	/** Send all OSC messages for one object. */
 	void SendObject(const FSpatialNormalizedState& State);

@@ -130,6 +130,9 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "SpatialFabric|Log")
 	TArray<FSpatialFabricLogEntry> GetRecentLog(int32 Count = 10) const;
 
+	/** Returns the most recent per-frame snapshot (updated every Tick during PIE/editor tick). */
+	const FSpatialFrameSnapshot& GetLastSnapshot() const { return LastSnapshot; }
+
 	/** Append a log entry; trims to MaxLogEntries. */
 	void AppendLog(const FSpatialFabricLogEntry& Entry);
 
@@ -161,6 +164,9 @@ private:
 
 	/** Protocol router — plain C++ object, not a UPROPERTY. */
 	TUniquePtr<FProtocolRouter> Router;
+
+	/** Cached snapshot from the most recent ProcessFrame call. */
+	FSpatialFrameSnapshot LastSnapshot;
 
 	/** Cached resolved pointer to the stage volume (updated each tick). */
 	UPROPERTY()

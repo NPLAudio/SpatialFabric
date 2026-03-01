@@ -31,7 +31,8 @@ void FProtocolRouter::ProcessFrame(
 		// (or if it is a listener-only adapter like ADM-OSC with bHasListener).
 		if (Filtered.Objects.Num() > 0 || Filtered.bHasListener)
 		{
-			Adapter->ProcessFrame(Filtered);
+			Adapter->SetBindings(Bindings);
+			Adapter->ProcessFrame(Filtered, DeltaTime);
 		}
 	}
 }

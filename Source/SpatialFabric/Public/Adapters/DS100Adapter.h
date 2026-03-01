@@ -27,6 +27,14 @@
  *
  * Spread:
  *   /dbaudio1/positioning/source_spread/{id}  s   (s in [0..1])
+ *   Two modes per binding (EDS100SpreadMode):
+ *     Fixed     — s = binding.Width01 (constant)
+ *     Proximity — s = inverse-square interpolation between DS100SpreadMin and
+ *                 DS100SpreadMax based on listener distance in stage-normalized space.
+ *
+ * Delay mode:
+ *   /dbaudio1/positioning/source_delaymode/{id}  n  (n: 0=off, 1=tight, 2=full)
+ *   Sent per-frame when binding.DS100DelayMode >= 0; suppressed when -1.
  */
 class SPATIALFABRIC_API FDS100Adapter : public ISpatialProtocolAdapter
 {
@@ -38,7 +46,8 @@ public:
 
 	virtual void Configure(const FSpatialAdapterConfig& InConfig) override;
 	virtual void SetClientComponent(ULiveOSCClientComponent* InClient) override;
-	virtual void ProcessFrame(const FSpatialFrameSnapshot& Snapshot) override;
+	virtual void SetBindings(const TArray<FSpatialObjectBinding>& Bindings) override;
+	virtual void ProcessFrame(const FSpatialFrameSnapshot& Snapshot, float DeltaTime) override;
 	virtual bool IsEnabled() const override { return Config.bEnabled; }
 
 private:
@@ -51,5 +60,18 @@ private:
 	 */
 	int32 CoordMappingArea = 1;
 
-	void SendObject(const FSpatialNormalizedState& State);
+	/** Bindings cached by resolved ObjectID — refreshed each frame by SetBindings(). */
+	TMap<int32, FSpatialObjectBinding> CachedBindingsByObjectID;
+
+	/**
+	 * Compute spread for one object.
+	 * Fixed mode: returns State.Width01 unchanged.
+	 * Proximity mode: inverse-square curve between DS100SpreadMin/DS100SpreadMax
+	 *   using distance from ListenerNorm to State.StageNormalized.
+	 */
+	float ComputeSpread(const FSpatialNormalizedState& State,
+	                    const FVector& ListenerNorm) const;
+
+	void SendObject(const FSpatialNormalizedState& State,
+	                const FSpatialFrameSnapshot& Snapshot);
 };

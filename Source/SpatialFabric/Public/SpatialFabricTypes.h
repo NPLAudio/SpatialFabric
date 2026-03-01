@@ -241,6 +241,17 @@ struct SPATIALFABRIC_API FSpatialAdapterTargetEntry
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
+//  Enum: DS100 spread mode
+// ─────────────────────────────────────────────────────────────────────────────
+
+UENUM(BlueprintType)
+enum class EDS100SpreadMode : uint8
+{
+	Fixed     UMETA(DisplayName = "Fixed (use Width01)"),
+	Proximity UMETA(DisplayName = "Proximity (inverse-square with listener)"),
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
 //  Struct: one actor → N adapter targets binding
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -284,6 +295,39 @@ struct SPATIALFABRIC_API FSpatialObjectBinding
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SpatialFabric",
 		meta = (ClampMin = "0.0", ClampMax = "1.0"))
 	float Width01 = 0.f;
+
+	/** DS100: spread mode — Fixed sends Width01 as-is; Proximity scales with listener distance. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SpatialFabric|DS100")
+	EDS100SpreadMode DS100SpreadMode = EDS100SpreadMode::Fixed;
+
+	/** DS100 Proximity: spread value when source is at or beyond DS100ProximityMaxDistance from listener. [0..1] */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SpatialFabric|DS100",
+		meta = (ClampMin = "0.0", ClampMax = "1.0",
+		        EditCondition = "DS100SpreadMode==EDS100SpreadMode::Proximity"))
+	float DS100SpreadMin = 0.1f;
+
+	/** DS100 Proximity: spread value when listener is co-located with the source. [0..1] */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SpatialFabric|DS100",
+		meta = (ClampMin = "0.0", ClampMax = "1.0",
+		        EditCondition = "DS100SpreadMode==EDS100SpreadMode::Proximity"))
+	float DS100SpreadMax = 0.8f;
+
+	/**
+	 * DS100 Proximity: stage-normalized distance [0..1] at which spread reaches DS100SpreadMin.
+	 * 1.0 = edge of the stage volume.
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SpatialFabric|DS100",
+		meta = (ClampMin = "0.01", ClampMax = "2.0",
+		        EditCondition = "DS100SpreadMode==EDS100SpreadMode::Proximity"))
+	float DS100ProximityMaxDistance = 1.0f;
+
+	/**
+	 * DS100 delay mode sent each frame on /dbaudio1/positioning/source_delaymode/{id}.
+	 * 0 = off, 1 = tight, 2 = full.  Set to -1 to suppress sending.
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SpatialFabric|DS100",
+		meta = (ClampMin = "-1", ClampMax = "2"))
+	int32 DS100DelayMode = -1;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SpatialFabric")
 	bool bMuted = false;

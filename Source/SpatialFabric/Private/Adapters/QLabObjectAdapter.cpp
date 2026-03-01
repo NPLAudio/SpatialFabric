@@ -15,10 +15,10 @@ void FQLabObjectAdapter::SetClientComponent(ULiveOSCClientComponent* InClient)
 	Client = InClient;
 }
 
-void FQLabObjectAdapter::ProcessFrame(const FSpatialFrameSnapshot& Snapshot)
+void FQLabObjectAdapter::ProcessFrame(const FSpatialFrameSnapshot& Snapshot, float DeltaTime)
 {
 	if (!Config.bEnabled || !Client) { return; }
-	if (!ShouldSendThisFrame(1.f / 60.f)) { return; }
+	if (!ShouldSendThisFrame(DeltaTime)) { return; }
 
 	if (!Client->IsConnected())
 	{

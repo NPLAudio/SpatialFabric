@@ -21,6 +21,9 @@
 ASpatialFabricManagerActor::ASpatialFabricManagerActor()
 {
 	PrimaryActorTick.bCanEverTick = true;
+	// Must tick after the stage volume (PostPhysics), which itself runs after
+	// character movement, so the listener position is always current.
+	PrimaryActorTick.TickGroup = TG_PostPhysics;
 
 	ServerComponent    = CreateDefaultSubobject<ULiveOSCServerComponent>(TEXT("ServerComponent"));
 	ClientComponent    = CreateDefaultSubobject<ULiveOSCClientComponent>(TEXT("ClientComponent"));
@@ -39,8 +42,12 @@ void ASpatialFabricManagerActor::BeginPlay()
 	const bool bIsPackaged = !GIsEditor;
 	if (bIsPackaged && !Settings->bEnableInPackagedBuilds) { return; }
 
-	// Resolve stage volume
+	// Resolve stage volume and ensure it ticks before this actor
 	ResolvedStageVolume = StageVolume.Get();
+	if (IsValid(ResolvedStageVolume))
+	{
+		AddTickPrerequisiteActor(ResolvedStageVolume);
+	}
 
 	// Wire incoming OSC to router
 	ServerComponent->OnMessageReceived.AddDynamic(this,
@@ -71,6 +78,10 @@ void ASpatialFabricManagerActor::Tick(float DeltaTime)
 	if (!IsValid(ResolvedStageVolume) && !StageVolume.IsNull())
 	{
 		ResolvedStageVolume = StageVolume.Get();
+		if (IsValid(ResolvedStageVolume))
+		{
+			AddTickPrerequisiteActor(ResolvedStageVolume);
+		}
 	}
 
 	ProcessFrame(DeltaTime);
@@ -82,16 +93,10 @@ void ASpatialFabricManagerActor::ProcessFrame(float DeltaTime)
 {
 	if (!Router) { return; }
 
-	// Tick the stage volume listener resolution
-	if (IsValid(ResolvedStageVolume))
-	{
-		ResolvedStageVolume->ResolveListenerThisFrame();
-	}
-
-	const FSpatialFrameSnapshot Snapshot =
+	LastSnapshot =
 		RegistryComponent->BuildSnapshot(ObjectBindings, ResolvedStageVolume.Get());
 
-	Router->ProcessFrame(Snapshot, ObjectBindings, DeltaTime);
+	Router->ProcessFrame(LastSnapshot, ObjectBindings, DeltaTime);
 }
 
 // ── Server/Client controls ────────────────────────────────────────────────

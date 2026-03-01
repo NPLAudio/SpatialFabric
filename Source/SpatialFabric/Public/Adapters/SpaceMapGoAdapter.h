@@ -30,7 +30,7 @@ public:
 
 	virtual void Configure(const FSpatialAdapterConfig& InConfig) override { Config = InConfig; }
 	virtual void SetClientComponent(ULiveOSCClientComponent* InClient) override { Client = InClient; }
-	virtual void ProcessFrame(const FSpatialFrameSnapshot& Snapshot) override { /* Phase 2 */ }
+	virtual void ProcessFrame(const FSpatialFrameSnapshot& Snapshot, float DeltaTime) override { /* Phase 2 */ }
 	virtual bool IsEnabled() const override { return Config.bEnabled; }
 
 	/** Recall a SpaceMap Go system snapshot by ID (900–3000). */

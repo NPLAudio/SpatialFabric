@@ -14,12 +14,11 @@ void FADMOSCAdapter::SetClientComponent(ULiveOSCClientComponent* InClient)
 	Client = InClient;
 }
 
-void FADMOSCAdapter::ProcessFrame(const FSpatialFrameSnapshot& Snapshot)
+void FADMOSCAdapter::ProcessFrame(const FSpatialFrameSnapshot& Snapshot, float DeltaTime)
 {
-	if (!Config.bEnabled || !Client || !Client->IsConnected()) { return; }
-	if (!ShouldSendThisFrame(1.f / 60.f)) { return; } // approx per-frame delta
+	if (!Config.bEnabled || !Client) { return; }
+	if (!ShouldSendThisFrame(DeltaTime)) { return; }
 
-	// Reconnect client to current config if needed
 	if (!Client->IsConnected())
 	{
 		Client->Connect(Config.TargetIP, Config.TargetPort);

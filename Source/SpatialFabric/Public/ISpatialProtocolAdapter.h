@@ -45,11 +45,22 @@ public:
 	virtual void SetClientComponent(ULiveOSCClientComponent* InClient) {}
 
 	/**
+	 * Optional: supply the full binding array so adapters that need per-binding
+	 * overrides (e.g. DS100 spread mode, delay mode) can look them up by ObjectID.
+	 * Called by FProtocolRouter before each ProcessFrame.
+	 */
+	virtual void SetBindings(const TArray<FSpatialObjectBinding>& /*Bindings*/) {}
+
+	/**
 	 * Process one frame: read relevant objects from Snapshot and emit
 	 * protocol packets.  Rate limiting (FSpatialAdapterConfig::SendRateHz)
 	 * is enforced internally.  Called each game tick.
+	 *
+	 * @param Snapshot    Per-adapter filtered frame snapshot.
+	 * @param DeltaTime   Elapsed seconds since the last game tick.  Used by
+	 *                    ShouldSendThisFrame() for accurate rate limiting.
 	 */
-	virtual void ProcessFrame(const FSpatialFrameSnapshot& Snapshot) = 0;
+	virtual void ProcessFrame(const FSpatialFrameSnapshot& Snapshot, float DeltaTime) = 0;
 
 	/**
 	 * Handle an incoming OSC message forwarded from the server component.

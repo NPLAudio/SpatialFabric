@@ -11,6 +11,9 @@
 ASpatialStageVolume::ASpatialStageVolume()
 {
 	PrimaryActorTick.bCanEverTick = true;
+	// Run after character movement (PrePhysics) so CachedListenerPos is
+	// up-to-date for the current frame when BuildSnapshot reads it.
+	PrimaryActorTick.TickGroup = TG_PostPhysics;
 
 	StageBox = CreateDefaultSubobject<UBoxComponent>(TEXT("StageBox"));
 	StageBox->SetBoxExtent(FVector(1000.f, 750.f, 400.f)); // default ~20m×15m×8m in cm
@@ -87,6 +90,11 @@ void ASpatialStageVolume::ResolveListenerThisFrame()
 			UGameplayStatics::GetPlayerController(this, AutoFollowPlayerIndex))
 		{
 			ResolvedActor = PC->GetViewTarget(); // pawn in gameplay, cine cam in cutscenes
+			// GetViewTarget() returns the PlayerController itself before a pawn is
+			// possessed (early PIE frames).  Fall back to GetPawn() so that we always
+			// resolve to an actor with a meaningful world location.
+			if (!ResolvedActor || ResolvedActor == PC)
+				ResolvedActor = PC->GetPawn();
 		}
 	}
 
@@ -132,6 +140,17 @@ void ASpatialStageVolume::ResolveListenerThisFrame()
 			CachedListenerRot = ResolvedActor->GetActorRotation();
 		}
 		bListenerResolved = true;
+
+		// When auto-following the player, teleport the stage volume so its
+		// centre tracks the listener each frame.  Box dimensions stay constant —
+		// the audio bubble moves with the listener.
+		if (bAutoFollowPlayer)
+		{
+			SetActorLocation(CachedListenerPos);
+			if (bListenerRelativeOrientation)
+				SetActorRotation(CachedListenerRot);
+		}
+
 		return;
 	}
 
@@ -190,18 +209,6 @@ void ASpatialStageVolume::Tick(float DeltaTime)
 
 	DrawDebugBox(GetWorld(), BoxCenter, HalfExtent, BoxRot,
 		FColor(0, 200, 255), false, -1.f, 0, 2.f);
-
-	// Label axes
-	const FVector FwdDir = BoxRot.GetForwardVector() * HalfExtent.X;
-	const FVector RightDir = BoxRot.GetRightVector() * HalfExtent.Y;
-	const FVector UpDir = BoxRot.GetUpVector() * HalfExtent.Z;
-
-	DrawDebugDirectionalArrow(GetWorld(), BoxCenter, BoxCenter + FwdDir,
-		30.f, FColor::Red, false, -1.f, 0, 3.f);
-	DrawDebugDirectionalArrow(GetWorld(), BoxCenter, BoxCenter + RightDir,
-		30.f, FColor::Green, false, -1.f, 0, 3.f);
-	DrawDebugDirectionalArrow(GetWorld(), BoxCenter, BoxCenter + UpDir,
-		30.f, FColor::Blue, false, -1.f, 0, 3.f);
 
 	// Stage label
 	DrawDebugString(GetWorld(), BoxCenter + FVector(0, 0, HalfExtent.Z + 30.f),

@@ -52,7 +52,7 @@ public:
 	virtual ESpatialAdapterType GetAdapterType() const override { return ESpatialAdapterType::RTTrPM; }
 
 	virtual void Configure(const FSpatialAdapterConfig& InConfig) override;
-	virtual void ProcessFrame(const FSpatialFrameSnapshot& Snapshot) override;
+	virtual void ProcessFrame(const FSpatialFrameSnapshot& Snapshot, float DeltaTime) override;
 	virtual bool IsEnabled() const override { return Config.bEnabled; }
 
 private:
