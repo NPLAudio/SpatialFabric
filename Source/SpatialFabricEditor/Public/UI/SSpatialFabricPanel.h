@@ -79,4 +79,7 @@ private:
 
 	// ── Timer ────────────────────────────────────────────────────────────────
 	EActiveTimerReturnType OnRefreshTimer(double InCurrentTime, float InDeltaTime);
+
+	/** Cached binding count — list is only rebuilt when this changes. */
+	int32 LastKnownBindingCount = -1;
 };

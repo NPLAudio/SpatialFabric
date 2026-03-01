@@ -1,4 +1,4 @@
-// Copyright (c) 2026 SpatialFabric Contributors. Licensed under the MIT License.
+﻿// Copyright (c) 2026 SpatialFabric Contributors. Licensed under the MIT License.
 
 #include "UI/SSpatialFabricPanel.h"
 #include "SpatialFabricManagerActor.h"
@@ -348,11 +348,11 @@ TSharedRef<ITableRow> SSpatialFabricPanel::GenerateBindingRow(
 
 		BadgeRow->AddSlot()
 			.AutoWidth()
-			.Padding(1.f, 0.f)
+			.Padding(2.f, 0.f)
 			[
 				SNew(SBox)
-				.WidthOverride(38.f)
-				.HeightOverride(22.f)
+				.WidthOverride(44.f)
+				.HeightOverride(28.f)
 				[
 					SNew(SButton)
 					.ButtonStyle(FAppStyle::Get(), "FlatButton")
@@ -360,7 +360,7 @@ TSharedRef<ITableRow> SSpatialFabricPanel::GenerateBindingRow(
 					{
 						return HasAdapterTarget(BIdx, BadgeType)
 							? FullColor
-							: FLinearColor(FullColor.R, FullColor.G, FullColor.B, 0.22f);
+							: FLinearColor(FullColor.R * 0.3f, FullColor.G * 0.3f, FullColor.B * 0.3f, 1.f);
 					})
 					.HAlign(HAlign_Center).VAlign(VAlign_Center)
 					.ToolTipText(FText::Format(
@@ -494,8 +494,14 @@ TSharedRef<ITableRow> SSpatialFabricPanel::GenerateBindingRow(
 			.VAlign(VAlign_Center)
 			.Padding(4.f, 0.f, 2.f, 0.f)
 			[
+			SNew(SBox)
+			.WidthOverride(28.f)
+			.HeightOverride(28.f)
+			[
 				SNew(SButton)
-				.ButtonStyle(FAppStyle::Get(), "NoBorder")
+				.ButtonStyle(FAppStyle::Get(), "FlatButton")
+				.ButtonColorAndOpacity(FLinearColor(0.45f, 0.08f, 0.08f))
+				.HAlign(HAlign_Center).VAlign(VAlign_Center)
 				.ToolTipText(LOCTEXT("RemoveBinding", "Remove this binding"))
 				.OnClicked_Lambda([this, BIdx]() -> FReply
 				{
@@ -504,11 +510,13 @@ TSharedRef<ITableRow> SSpatialFabricPanel::GenerateBindingRow(
 				})
 				[
 					SNew(STextBlock)
-					.Text(FText::FromString(TEXT("✕")))
-					.ColorAndOpacity(FLinearColor(0.85f, 0.35f, 0.35f))
+					.Text(LOCTEXT("RemoveX", "X"))
+					.Font(FAppStyle::GetFontStyle("SmallFont"))
+					.ColorAndOpacity(FLinearColor(1.f, 0.5f, 0.5f))
 				]
 			]
-		];
+		]
+	];
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -648,8 +656,8 @@ void SSpatialFabricPanel::ToggleAdapterTarget(int32 BindingIndex, ESpatialAdapte
 	}
 
 	Mgr->MarkPackageDirty();
-	if (BindingListView.IsValid())
-		BindingListView->RebuildList();
+	// No list rebuild needed — badge colors are driven by ButtonColorAndOpacity_Lambda
+	// which re-queries on every paint frame automatically.
 }
 
 bool SSpatialFabricPanel::HasAdapterTarget(int32 BindingIndex, ESpatialAdapterType Type) const
@@ -839,7 +847,18 @@ void SSpatialFabricPanel::RefreshFromManager()
 EActiveTimerReturnType SSpatialFabricPanel::OnRefreshTimer(
 	double InCurrentTime, float InDeltaTime)
 {
-	RefreshFromManager();
+	// Only rebuild the row list when the binding count changes.
+	// Row widgets use _Lambda callbacks that re-query live each paint frame,
+	// so they never need a full row rebuild just because values changed.
+	const ASpatialFabricManagerActor* Mgr = GetManager();
+	const int32 CurCount = Mgr ? Mgr->ObjectBindings.Num() : 0;
+	if (CurCount != LastKnownBindingCount)
+	{
+		LastKnownBindingCount = CurCount;
+		RebuildBindingList();
+	}
+
+	RefreshLog();
 	return EActiveTimerReturnType::Continue;
 }
 
