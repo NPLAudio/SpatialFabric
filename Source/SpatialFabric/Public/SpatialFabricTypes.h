@@ -100,6 +100,14 @@ struct SPATIALFABRIC_API FSpatialNormalizedState
 	UPROPERTY(BlueprintReadOnly, Category = "SpatialFabric")
 	bool bMuted = false;
 
+	/** ADM-OSC distance reference: normalized distance where physics-based rendering begins. */
+	UPROPERTY(BlueprintReadOnly, Category = "SpatialFabric")
+	float Dref = 1.0f;
+
+	/** ADM-OSC max distance in metres corresponding to dref = 1.0. 0 = not set. */
+	UPROPERTY(BlueprintReadOnly, Category = "SpatialFabric")
+	float Dmax = 0.0f;
+
 	/**
 	 * Protocol object/channel ID resolved from the binding's DefaultObjectID
 	 * or an adapter-specific ObjectIDOverride.
@@ -140,6 +148,18 @@ struct SPATIALFABRIC_API FSpatialFrameSnapshot
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
+//  Enum: ADM-OSC coordinate mode
+// ─────────────────────────────────────────────────────────────────────────────
+
+UENUM(BlueprintType)
+enum class EADMCoordinateMode : uint8
+{
+	Cartesian   UMETA(DisplayName = "Cartesian (xyz)"),
+	Polar       UMETA(DisplayName = "Polar (aed)"),
+	Both        UMETA(DisplayName = "Both (xyz + aed)"),
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
 //  Struct: adapter endpoint configuration
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -169,6 +189,14 @@ struct SPATIALFABRIC_API FSpatialAdapterConfig
 	/** When false, this adapter is completely skipped each frame. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SpatialFabric|Adapter")
 	bool bEnabled = true;
+
+	/**
+	 * ADM-OSC: coordinate format to send each frame.
+	 * Cartesian sends /xyz, Polar sends /aed, Both sends both.
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SpatialFabric|Adapter",
+		meta = (EditCondition = "false"))
+	EADMCoordinateMode ADMCoordinateMode = EADMCoordinateMode::Cartesian;
 
 	/**
 	 * QLab-only: workspace ID string (e.g. "1" or a QLab workspace GUID).
@@ -295,6 +323,22 @@ struct SPATIALFABRIC_API FSpatialObjectBinding
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SpatialFabric",
 		meta = (ClampMin = "0.0", ClampMax = "1.0"))
 	float Width01 = 0.f;
+
+	/**
+	 * ADM-OSC: normalized distance where physics-based rendering replaces dimensionless rendering.
+	 * Default 1.0 per spec.  Sent as /adm/obj/{n}/dref.
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SpatialFabric|ADMOSC",
+		meta = (ClampMin = "0.0", ClampMax = "1.0"))
+	float ADMDref = 1.0f;
+
+	/**
+	 * ADM-OSC: distance in metres signified by dref = 1.0.
+	 * 0 = suppress sending /dmax.  Sent as /adm/obj/{n}/dmax.
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SpatialFabric|ADMOSC",
+		meta = (ClampMin = "0.0"))
+	float ADMDmax = 0.0f;
 
 	/** DS100: spread mode — Fixed sends Width01 as-is; Proximity scales with listener distance. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SpatialFabric|DS100")

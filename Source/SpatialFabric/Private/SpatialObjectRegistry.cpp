@@ -55,6 +55,8 @@ FSpatialFrameSnapshot USpatialObjectRegistry::BuildSnapshot(
 		State.GainLinear = Binding.GainLinear;
 		State.Width01    = Binding.Width01;
 		State.bMuted     = Binding.bMuted;
+		State.Dref       = Binding.ADMDref;
+		State.Dmax       = Binding.ADMDmax;
 		State.Orientation = WorldRot;
 
 		if (Stage)

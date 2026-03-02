@@ -4,27 +4,32 @@
 
 #include "CoreMinimal.h"
 #include "ISpatialProtocolAdapter.h"
+#include "SpatialFabricTypes.h"
 
 /**
  * FADMOSCAdapter
  *
- * Implements the ADM-OSC object metadata standard (immersive-audio-live.github.io/ADM-OSC).
- * Sends normalized xyz, gain, width (w), and mute state for each spatial object.
- * When a listener is present in the snapshot, also emits /adm/lis/xyz and /adm/lis/ypr.
+ * Implements the ADM-OSC v1.0 object metadata standard
+ * (immersive-audio-live.github.io/ADM-OSC).
+ *
+ * Full message set per object:
+ *   Position (configurable):
+ *     Cartesian:  /adm/obj/{n}/xyz   x y z   (normalized, [-1..1])
+ *     Polar:      /adm/obj/{n}/aed   azim elev dist
+ *     Both:       sends xyz and aed
+ *   Properties:
+ *     /adm/obj/{n}/gain   float   linear amplitude
+ *     /adm/obj/{n}/w      float   horizontal extent [0..1]
+ *     /adm/obj/{n}/mute   int32   0 or 1
+ *     /adm/obj/{n}/name   string  object label
+ *     /adm/obj/{n}/dref   float   distance-ref [0..1] (if non-default)
+ *     /adm/obj/{n}/dmax   float   max distance in metres (if set)
+ *   Listener (when present):
+ *     /adm/lis/xyz   x y z
+ *     /adm/lis/ypr   yaw pitch roll
  *
  * Default target port: 9000 (L-ISA Controller default).
  * Recommended send rate: ≤50 Hz (per ADM-OSC spec).
- *
- * OSC address examples:
- *   /adm/obj/4/xyz   -0.9  0.15  0.70
- *   /adm/obj/4/gain   0.707
- *   /adm/obj/4/w      0.20
- *   /adm/obj/4/mute   0
- *   /adm/lis/xyz      0.0   0.5  -0.2
- *   /adm/lis/ypr    -45.0  30.0   5.0
- *
- * Coordinates: x/y/z are the FSpatialNormalizedState.StageNormalized values,
- * which are already in [-1,1] per ADM-OSC convention.
  */
 class SPATIALFABRIC_API FADMOSCAdapter : public ISpatialProtocolAdapter
 {
@@ -41,10 +46,15 @@ public:
 
 private:
 	FSpatialAdapterConfig Config;
+	EADMCoordinateMode CoordMode = EADMCoordinateMode::Cartesian;
 	ULiveOSCClientComponent* Client = nullptr;
 
-	/** Send all OSC messages for one object. */
+	/** Send all ADM-OSC v1.0 messages for one object. */
 	void SendObject(const FSpatialNormalizedState& State);
+	/** Send Cartesian position (/xyz). */
+	void SendCartesian(int32 ID, const FVector& Norm);
+	/** Send Polar position (/aed) computed from Cartesian. */
+	void SendPolar(int32 ID, const FVector& Norm);
 	/** Send listener position and orientation. */
 	void SendListener(const FSpatialFrameSnapshot& Snapshot);
 };

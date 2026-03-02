@@ -105,13 +105,27 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FADMOSCAddressTest::RunTest(const FString& Parameters)
 {
-	// Test vector: obj 4 at (-0.9, 0.15, 0.70)
 	const int32 ObjID = 4;
-	const FString ExpectedAddr = TEXT("/adm/obj/4/xyz");
-	const FString ActualAddr = FString::Printf(TEXT("/adm/obj/%d/xyz"), ObjID);
-	TestEqual("ADM-OSC xyz address", ActualAddr, ExpectedAddr);
 
-	// Values pass-through: normalized coords should equal input
+	// Cartesian address format
+	const FString ExpectedXYZ = TEXT("/adm/obj/4/xyz");
+	TestEqual("ADM-OSC xyz address", FString::Printf(TEXT("/adm/obj/%d/xyz"), ObjID), ExpectedXYZ);
+
+	// Polar address format
+	const FString ExpectedAED = TEXT("/adm/obj/4/aed");
+	TestEqual("ADM-OSC aed address", FString::Printf(TEXT("/adm/obj/%d/aed"), ObjID), ExpectedAED);
+
+	// Property addresses
+	TestEqual("ADM-OSC gain address",
+		FString::Printf(TEXT("/adm/obj/%d/gain"), ObjID), TEXT("/adm/obj/4/gain"));
+	TestEqual("ADM-OSC mute address",
+		FString::Printf(TEXT("/adm/obj/%d/mute"), ObjID), TEXT("/adm/obj/4/mute"));
+	TestEqual("ADM-OSC name address",
+		FString::Printf(TEXT("/adm/obj/%d/name"), ObjID), TEXT("/adm/obj/4/name"));
+	TestEqual("ADM-OSC dref address",
+		FString::Printf(TEXT("/adm/obj/%d/dref"), ObjID), TEXT("/adm/obj/4/dref"));
+
+	// Normalized coordinate range validation
 	const float X = -0.9f, Y = 0.15f, Z = 0.70f;
 	TestTrue("ADM X in range", X >= -1.f && X <= 1.f);
 	TestTrue("ADM Y in range", Y >= -1.f && Y <= 1.f);
