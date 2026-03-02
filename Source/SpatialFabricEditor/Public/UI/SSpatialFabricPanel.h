@@ -14,13 +14,14 @@ class ASpatialStageVolume;
 /**
  * SSpatialFabricPanel
  *
- * Dockable Slate editor panel for SpatialFabric.  Four tabs:
+ * Dockable Slate editor panel for SpatialFabric.  Five tabs:
  *
  *  [Stage]    — Stage Volume setup and listener assignment.
  *  [Objects]  — Spatial object binding list with Add Selected Actors,
  *               per-binding ID editing, adapter badge toggles, and remove.
  *  [Adapters] — Per-adapter endpoint info (configure via Details panel).
  *  [Radar]    — Live 2D top-down view of tracked objects with coordinates.
+ *  [Output]   — Live preview of protocol output (state table + message log).
  */
 class SSpatialFabricPanel : public SCompoundWidget
 {
@@ -46,6 +47,7 @@ private:
 	TSharedRef<SWidget> BuildObjectsTab();
 	TSharedRef<SWidget> BuildAdaptersTab();
 	TSharedRef<SWidget> BuildRadarTab();
+	TSharedRef<SWidget> BuildOutputTab();
 
 	// ── Binding list (Objects tab) ───────────────────────────────────────────
 
@@ -78,6 +80,16 @@ private:
 
 	// ── Radar tab ────────────────────────────────────────────────────────────
 	TSharedPtr<SWidget> RadarView;   // holds the SRadarView (defined in .cpp)
+
+	// ── Output tab (message log) ─────────────────────────────────────────────
+	TArray<TSharedPtr<FSpatialFabricLogEntry>>                LogItems;
+	TSharedPtr<SListView<TSharedPtr<FSpatialFabricLogEntry>>> LogListView;
+
+	TSharedRef<ITableRow> GenerateLogRow(
+		TSharedPtr<FSpatialFabricLogEntry>       Item,
+		const TSharedRef<STableViewBase>&         OwnerTable);
+
+	void RefreshLog();
 
 	// ── Timer ────────────────────────────────────────────────────────────────
 	EActiveTimerReturnType OnRefreshTimer(double InCurrentTime, float InDeltaTime);

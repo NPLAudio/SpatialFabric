@@ -4,6 +4,7 @@
 #include "SpatialFabricManagerActor.h"
 #include "SpatialStageVolume.h"
 #include "SpatialFabricTypes.h"
+#include "SpatialMath.h"
 
 #include "Editor.h"
 #include "EngineUtils.h"
@@ -318,7 +319,8 @@ void SSpatialFabricPanel::Construct(const FArguments& InArgs)
 		+ SWidgetSwitcher::Slot()[ BuildStageTab()   ]   // 0
 		+ SWidgetSwitcher::Slot()[ BuildObjectsTab() ]   // 1
 		+ SWidgetSwitcher::Slot()[ BuildAdaptersTab() ]  // 2
-		+ SWidgetSwitcher::Slot()[ BuildRadarTab()   ];  // 3
+		+ SWidgetSwitcher::Slot()[ BuildRadarTab()   ]   // 3
+		+ SWidgetSwitcher::Slot()[ BuildOutputTab()  ];  // 4
 
 	// ── Tab button row ──────────────────────────────────────────────────────
 	auto MakeTabBtn = [this](FText Label, int32 Idx) -> TSharedRef<SWidget>
@@ -385,6 +387,8 @@ void SSpatialFabricPanel::Construct(const FArguments& InArgs)
 				[ MakeTabBtn(LOCTEXT("TabAdapters", "Adapters"), 2) ]
 				+ SHorizontalBox::Slot().AutoWidth().Padding(0.f, 0.f, 2.f, 0.f)
 				[ MakeTabBtn(LOCTEXT("TabRadar",    "Radar"),    3) ]
+				+ SHorizontalBox::Slot().AutoWidth().Padding(0.f, 0.f, 2.f, 0.f)
+				[ MakeTabBtn(LOCTEXT("TabOutput",   "Output"),   4) ]
 				+ SHorizontalBox::Slot().FillWidth(1.f) // spacer
 			]
 
@@ -1670,6 +1674,7 @@ EActiveTimerReturnType SSpatialFabricPanel::OnRefreshTimer(
 	}
 
 	RebuildSVList();
+	RefreshLog();
 
 	// Push the latest snapshot into the radar widget and trigger a repaint.
 	// We push here (not in OnPaint) so the widget always reads from the correct
@@ -1729,6 +1734,207 @@ TSharedRef<SWidget> SSpatialFabricPanel::BuildRadarTab()
 		]
 		+ SVerticalBox::Slot().FillHeight(1.f).Padding(4.f)
 		[ View.ToSharedRef() ];
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  Tab — Output
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Format a preview line for one object given the active adapter type. */
+static FString FormatOutputPreview(
+	ESpatialAdapterType AdapterType,
+	const FSpatialNormalizedState& Obj,
+	bool bDS100Absolute)
+{
+	const int32 ID = Obj.ObjectID;
+	switch (AdapterType)
+	{
+	case ESpatialAdapterType::ADMOSC:
+	{
+		const FVector& N = Obj.StageNormalized;
+		return FString::Printf(TEXT("/adm/obj/%d/xyz  %.3f %.3f %.3f"), ID, N.X, N.Y, N.Z);
+	}
+	case ESpatialAdapterType::DS100:
+	{
+		if (bDS100Absolute)
+		{
+			const FVector& M = Obj.StageMeters;
+			return FString::Printf(TEXT("/dbaudio1/positioning/source_position/%d  %.3f %.3f %.3f"), ID, M.X, M.Y, M.Z);
+		}
+		else
+		{
+			const FVector2D Mapped = FSpatialMath::NormalizedToDS100Mapped(Obj.StageNormalized);
+			return FString::Printf(TEXT("/dbaudio1/coordinatemapping/source_position_xy/1/%d  %.3f %.3f"), ID, Mapped.X, Mapped.Y);
+		}
+	}
+	case ESpatialAdapterType::RTTrPM:
+	{
+		const FVector& M = Obj.StageMeters;
+		return FString::Printf(TEXT("Trackable[%d] '%s'  %.3fm %.3fm %.3fm"), ID, *Obj.Label, M.X, M.Y, M.Z);
+	}
+	case ESpatialAdapterType::QLabObject:
+	{
+		// Parse packed label: "<label>|<cueID>|<objectName>"
+		FString CueID, ObjName;
+		TArray<FString> Parts;
+		Obj.Label.ParseIntoArray(Parts, TEXT("|"), false);
+		if (Parts.Num() >= 3 && !Parts[1].IsEmpty() && !Parts[2].IsEmpty())
+		{
+			CueID = Parts[1];
+			ObjName = Parts[2];
+		}
+		else
+		{
+			CueID = FString::FromInt(ID);
+			ObjName = Obj.Label;
+		}
+		const FVector QL = FSpatialMath::NormalizedToQLab2D(Obj.StageNormalized);
+		return FString::Printf(TEXT("/cue/%s/object/%s/position/live  %.3f %.3f"), *CueID, *ObjName, QL.X, QL.Y);
+	}
+	default:
+		return FString::Printf(TEXT("[%d] %.3f %.3f %.3f"), ID,
+			Obj.StageNormalized.X, Obj.StageNormalized.Y, Obj.StageNormalized.Z);
+	}
+}
+
+TSharedRef<SWidget> SSpatialFabricPanel::BuildOutputTab()
+{
+	return SNew(SVerticalBox)
+
+		// ── Per-object state preview ─────────────────────────────────────
+		+ SVerticalBox::Slot()
+		.AutoHeight()
+		.Padding(6.f, 4.f)
+		[
+			SNew(STextBlock)
+			.Text(LOCTEXT("OutputHeader", "Live Output Preview"))
+			.Font(FAppStyle::GetFontStyle("BoldFont"))
+		]
+		+ SVerticalBox::Slot()
+		.AutoHeight()
+		.MaxHeight(300.f)
+		.Padding(6.f, 0.f, 6.f, 4.f)
+		[
+			SNew(SScrollBox)
+			+ SScrollBox::Slot()
+			[
+				SNew(STextBlock)
+				.Text_Lambda([this]() -> FText
+				{
+					ASpatialFabricManagerActor* Mgr = GetManager();
+					if (!Mgr) { return LOCTEXT("OutputNoMgr", "No SpatialFabricManagerActor in level"); }
+
+					const FSpatialFrameSnapshot& Snap = Mgr->GetLastSnapshot();
+					if (Snap.Objects.IsEmpty()) { return LOCTEXT("OutputEmpty", "No objects tracked"); }
+
+					const ESpatialAdapterType Type = Mgr->ActiveAdapterType;
+					const uint8 TypeKey = static_cast<uint8>(Type);
+					const FSpatialAdapterConfig* Cfg = Mgr->AdapterConfigs.Find(TypeKey);
+					const bool bAbsolute = Cfg ? Cfg->bDS100AbsoluteMode : true;
+
+					FString Result;
+					for (const FSpatialNormalizedState& Obj : Snap.Objects)
+					{
+						const FString Muted = Obj.bMuted ? TEXT(" [MUTED]") : TEXT("");
+						Result += FString::Printf(TEXT("%s (ID %d)%s\n  %s\n"),
+							*Obj.Label, Obj.ObjectID, *Muted,
+							*FormatOutputPreview(Type, Obj, bAbsolute));
+					}
+
+					if (Snap.bHasListener)
+					{
+						const FVector& LP = Snap.ListenerNormalized;
+						const FRotator& LR = Snap.ListenerYPR;
+						Result += FString::Printf(TEXT("\nListener\n  xyz: %.3f %.3f %.3f  ypr: %.1f %.1f %.1f"),
+							LP.X, LP.Y, LP.Z, LR.Yaw, LR.Pitch, LR.Roll);
+					}
+
+					return FText::FromString(Result);
+				})
+				.Font(FAppStyle::GetFontStyle("SmallFont"))
+				.AutoWrapText(false)
+				.ColorAndOpacity(FLinearColor(0.8f, 0.9f, 0.7f))
+			]
+		]
+
+		// ── Message log header + clear button ────────────────────────────
+		+ SVerticalBox::Slot()
+		.AutoHeight()
+		.Padding(6.f, 4.f, 6.f, 2.f)
+		[
+			SNew(SHorizontalBox)
+			+ SHorizontalBox::Slot().FillWidth(1.f).VAlign(VAlign_Center)
+			[
+				SNew(STextBlock)
+				.Text(LOCTEXT("LogHeader", "Protocol Log"))
+				.Font(FAppStyle::GetFontStyle("BoldFont"))
+			]
+			+ SHorizontalBox::Slot().AutoWidth()
+			[
+				SNew(SButton)
+				.Text(LOCTEXT("ClearLog", "Clear"))
+				.ButtonStyle(FAppStyle::Get(), "NoBorder")
+				.OnClicked_Lambda([this]() -> FReply
+				{
+					LogItems.Empty();
+					if (LogListView.IsValid()) LogListView->RequestListRefresh();
+					return FReply::Handled();
+				})
+			]
+		]
+
+		// ── Scrolling log list ───────────────────────────────────────────
+		+ SVerticalBox::Slot()
+		.FillHeight(1.f)
+		.Padding(6.f, 0.f, 6.f, 4.f)
+		[
+			SAssignNew(LogListView, SListView<TSharedPtr<FSpatialFabricLogEntry>>)
+			.ListItemsSource(&LogItems)
+			.OnGenerateRow(this, &SSpatialFabricPanel::GenerateLogRow)
+			.SelectionMode(ESelectionMode::None)
+		];
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  Output tab — log helpers
+// ─────────────────────────────────────────────────────────────────────────────
+
+TSharedRef<ITableRow> SSpatialFabricPanel::GenerateLogRow(
+	TSharedPtr<FSpatialFabricLogEntry>       Item,
+	const TSharedRef<STableViewBase>&         OwnerTable)
+{
+	if (!Item.IsValid())
+		return SNew(STableRow<TSharedPtr<FSpatialFabricLogEntry>>, OwnerTable);
+
+	return SNew(STableRow<TSharedPtr<FSpatialFabricLogEntry>>, OwnerTable)
+		[
+			SNew(SHorizontalBox)
+			+ SHorizontalBox::Slot().AutoWidth().Padding(2.f, 0.f)
+			[ SNew(STextBlock).Text(FText::FromString(Item->Timestamp)).ColorAndOpacity(FLinearColor(0.45f, 0.45f, 0.45f)) ]
+			+ SHorizontalBox::Slot().AutoWidth().Padding(4.f, 0.f)
+			[ SNew(STextBlock).Text(FText::FromString(Item->Adapter)).ColorAndOpacity(FLinearColor(0.4f, 0.8f, 1.f)) ]
+			+ SHorizontalBox::Slot().FillWidth(1.f).Padding(4.f, 0.f)
+			[ SNew(STextBlock).Text(FText::FromString(Item->Address)) ]
+			+ SHorizontalBox::Slot().AutoWidth().Padding(4.f, 0.f)
+			[ SNew(STextBlock).Text(FText::FromString(Item->ValueStr)).ColorAndOpacity(FLinearColor(0.8f, 1.f, 0.4f)) ]
+		];
+}
+
+void SSpatialFabricPanel::RefreshLog()
+{
+	ASpatialFabricManagerActor* Manager = GetManager();
+	if (!Manager) return;
+
+	const TArray<FSpatialFabricLogEntry> Recent = Manager->GetRecentLog(100);
+	LogItems.Empty(Recent.Num());
+	for (const FSpatialFabricLogEntry& E : Recent)
+		LogItems.Add(MakeShared<FSpatialFabricLogEntry>(E));
+
+	if (LogListView.IsValid())
+	{
+		LogListView->RequestListRefresh();
+		LogListView->ScrollToBottom();
+	}
 }
 
 #undef LOCTEXT_NAMESPACE
