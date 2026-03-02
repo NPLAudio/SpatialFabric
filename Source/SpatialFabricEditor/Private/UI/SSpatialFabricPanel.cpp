@@ -11,7 +11,6 @@
 
 #include "Widgets/Layout/SBorder.h"
 #include "Widgets/Layout/SBox.h"
-#include "Widgets/Layout/SSplitter.h"
 #include "Widgets/Layout/SScrollBox.h"
 #include "Widgets/Layout/SWidgetSwitcher.h"
 #include "Widgets/Layout/SWrapBox.h"
@@ -49,9 +48,16 @@ public:
 		bHasSnapshot   = true;
 	}
 
+	/** Update the cached stage physical dimensions for aspect-correct drawing. */
+	void SetStageDimensions(float InWidthM, float InDepthM)
+	{
+		StageWidthM = FMath::Max(InWidthM, 0.1f);
+		StageDepthM = FMath::Max(InDepthM, 0.1f);
+	}
+
 	virtual FVector2D ComputeDesiredSize(float) const override
 	{
-		return FVector2D(300.f, 300.f);
+		return FVector2D(2000.f, 2000.f);
 	}
 
 	virtual int32 OnPaint(
@@ -63,10 +69,29 @@ public:
 		const FWidgetStyle& InWidgetStyle,
 		bool bParentEnabled) const override
 	{
-		const FVector2D Size    = AllottedGeometry.GetLocalSize();
-		const float     cx      = Size.X * 0.5f;
-		const float     cy      = Size.Y * 0.5f;
-		const float     R       = FMath::Min(Size.X, Size.Y) * 0.44f;
+		const FVector2D Size = AllottedGeometry.GetLocalSize();
+		const float     cx   = Size.X * 0.5f;
+		const float     cy   = Size.Y * 0.5f;
+
+		// Available half-size on screen (with margin for edge labels)
+		const float Margin   = 56.f;
+		const float AvailHalfX = FMath::Max((Size.X - Margin * 2.f) * 0.5f, 20.f);
+		const float AvailHalfY = FMath::Max((Size.Y - Margin * 2.f) * 0.5f, 20.f);
+
+		// Compute Rx (screen horizontal = StageDepthM, Y axis = left/right)
+		// and     Ry (screen vertical   = StageWidthM, X axis = front/back)
+		// preserving the stage volume's aspect ratio.
+		float Rx, Ry;
+		{
+			const float Aspect = StageDepthM / StageWidthM; // horizontal / vertical
+			Ry = AvailHalfY;
+			Rx = Ry * Aspect;
+			if (Rx > AvailHalfX)
+			{
+				Rx = AvailHalfX;
+				Ry = Rx / Aspect;
+			}
+		}
 
 		const FSlateBrush* WhiteBrush = FAppStyle::GetBrush("WhiteTexture");
 
@@ -79,14 +104,14 @@ public:
 			FLinearColor(0.06f, 0.06f, 0.06f, 1.f));
 		++LayerId;
 
-		// ── Stage boundary (±1 rectangle) ───────────────────────────────────
+		// ── Stage boundary (±1 rectangle, aspect-correct) ───────────────────
 		{
 			TArray<FVector2D> Rect;
-			Rect.Add(FVector2D(cx - R, cy - R));
-			Rect.Add(FVector2D(cx + R, cy - R));
-			Rect.Add(FVector2D(cx + R, cy + R));
-			Rect.Add(FVector2D(cx - R, cy + R));
-			Rect.Add(FVector2D(cx - R, cy - R));
+			Rect.Add(FVector2D(cx - Rx, cy - Ry));
+			Rect.Add(FVector2D(cx + Rx, cy - Ry));
+			Rect.Add(FVector2D(cx + Rx, cy + Ry));
+			Rect.Add(FVector2D(cx - Rx, cy + Ry));
+			Rect.Add(FVector2D(cx - Rx, cy - Ry));
 			FSlateDrawElement::MakeLines(
 				OutDrawElements, LayerId,
 				AllottedGeometry.ToPaintGeometry(),
@@ -96,8 +121,8 @@ public:
 
 		// ── Crosshairs ───────────────────────────────────────────────────────
 		{
-			TArray<FVector2D> HLine = { FVector2D(cx - R, cy), FVector2D(cx + R, cy) };
-			TArray<FVector2D> VLine = { FVector2D(cx, cy - R), FVector2D(cx, cy + R) };
+			TArray<FVector2D> HLine = { FVector2D(cx - Rx, cy), FVector2D(cx + Rx, cy) };
+			TArray<FVector2D> VLine = { FVector2D(cx, cy - Ry), FVector2D(cx, cy + Ry) };
 			const FLinearColor Gray(0.25f, 0.25f, 0.25f, 1.f);
 			FSlateDrawElement::MakeLines(OutDrawElements, LayerId,
 				AllottedGeometry.ToPaintGeometry(), HLine, ESlateDrawEffect::None, Gray, true, 1.f);
@@ -105,6 +130,39 @@ public:
 				AllottedGeometry.ToPaintGeometry(), VLine, ESlateDrawEffect::None, Gray, true, 1.f);
 		}
 		++LayerId;
+
+		// ── Dimension labels at boundary edges ──────────────────────────────
+		{
+			const FSlateFontInfo SmallFont = FAppStyle::GetFontStyle("SmallFont");
+			const FLinearColor DimColor(0.45f, 0.55f, 0.45f);
+			const float HalfW = StageWidthM * 0.5f;  // vertical (front/back)
+			const float HalfD = StageDepthM * 0.5f;  // horizontal (left/right)
+
+			// Top: front (+X)
+			FSlateDrawElement::MakeText(OutDrawElements, LayerId,
+				AllottedGeometry.ToPaintGeometry(FVector2f(60.f, 14.f),
+					FSlateLayoutTransform(FVector2f(cx - 30.f, cy - Ry - 16.f))),
+				FText::FromString(FString::Printf(TEXT("Front +%.0fm"), HalfW)),
+				SmallFont, ESlateDrawEffect::None, DimColor);
+			// Bottom: back (-X)
+			FSlateDrawElement::MakeText(OutDrawElements, LayerId,
+				AllottedGeometry.ToPaintGeometry(FVector2f(60.f, 14.f),
+					FSlateLayoutTransform(FVector2f(cx - 30.f, cy + Ry + 4.f))),
+				FText::FromString(FString::Printf(TEXT("Back -%.0fm"), HalfW)),
+				SmallFont, ESlateDrawEffect::None, DimColor);
+			// Left: stage-left (+Y)
+			FSlateDrawElement::MakeText(OutDrawElements, LayerId,
+				AllottedGeometry.ToPaintGeometry(FVector2f(50.f, 14.f),
+					FSlateLayoutTransform(FVector2f(cx - Rx - 52.f, cy - 7.f))),
+				FText::FromString(FString::Printf(TEXT("L +%.0fm"), HalfD)),
+				SmallFont, ESlateDrawEffect::None, DimColor);
+			// Right: stage-right (-Y)
+			FSlateDrawElement::MakeText(OutDrawElements, LayerId,
+				AllottedGeometry.ToPaintGeometry(FVector2f(50.f, 14.f),
+					FSlateLayoutTransform(FVector2f(cx + Rx + 4.f, cy - 7.f))),
+				FText::FromString(FString::Printf(TEXT("R -%.0fm"), HalfD)),
+				SmallFont, ESlateDrawEffect::None, DimColor);
+		}
 
 		// ── No-data hint ────────────────────────────────────────────────────
 		if (!bHasSnapshot || CachedSnapshot.Objects.IsEmpty())
@@ -130,12 +188,10 @@ public:
 		// +X = front → screen top  |  +Y = stage-left → screen left
 		auto NormToScreen = [&](float NormX, float NormY) -> FVector2D
 		{
-			return FVector2D(cx - NormY * R, cy - NormX * R);
+			return FVector2D(cx - NormY * Rx, cy - NormX * Ry);
 		};
 
 		// ── Object dots ─────────────────────────────────────────────────────
-		// Objects with |StageNormalized| > 1.1 are off-screen (usually because
-		// no Stage Volume is assigned and raw meter values are used instead).
 		const float DotHalf = 4.f;
 		int32 OffScreenCount = 0;
 		for (const FSpatialNormalizedState& Obj : Snap.Objects)
@@ -145,7 +201,7 @@ public:
 			if (FMath::Abs(NX) > 1.1f || FMath::Abs(NY) > 1.1f)
 			{
 				++OffScreenCount;
-				continue; // skip — would plot outside the stage boundary rect
+				continue;
 			}
 
 			FLinearColor DotColor = Obj.bMuted
@@ -164,12 +220,25 @@ public:
 			FSlateDrawElement::MakeText(
 				OutDrawElements, LayerId,
 				AllottedGeometry.ToPaintGeometry(
-					FVector2f(60.f, 14.f),
-					FSlateLayoutTransform(FVector2f(Pos.X - 30.f, Pos.Y + DotHalf + 2.f))),
+					FVector2f(80.f, 14.f),
+					FSlateLayoutTransform(FVector2f(Pos.X - 40.f, Pos.Y + DotHalf + 2.f))),
 				FText::FromString(Obj.Label),
 				FAppStyle::GetFontStyle("SmallFont"),
 				ESlateDrawEffect::None,
 				FLinearColor(0.85f, 0.85f, 0.85f));
+
+			// Coordinates below label (metres)
+			const FString CoordStr = FString::Printf(TEXT("(%.1f, %.1f)m"),
+				Obj.StageMeters.X, Obj.StageMeters.Y);
+			FSlateDrawElement::MakeText(
+				OutDrawElements, LayerId,
+				AllottedGeometry.ToPaintGeometry(
+					FVector2f(80.f, 12.f),
+					FSlateLayoutTransform(FVector2f(Pos.X - 40.f, Pos.Y + DotHalf + 16.f))),
+				FText::FromString(CoordStr),
+				FAppStyle::GetFontStyle("SmallFont"),
+				ESlateDrawEffect::None,
+				FLinearColor(0.55f, 0.65f, 0.55f));
 		}
 
 		// ── Off-screen warning ───────────────────────────────────────────────
@@ -215,6 +284,8 @@ public:
 private:
 	FSpatialFrameSnapshot CachedSnapshot;
 	bool bHasSnapshot = false;
+	float StageWidthM  = 20.f;  // PhysicalWidthMeters  (X axis = radar vertical)
+	float StageDepthM  = 15.f;  // PhysicalDepthMeters  (Y axis = radar horizontal)
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -317,19 +388,10 @@ void SSpatialFabricPanel::Construct(const FArguments& InArgs)
 				+ SHorizontalBox::Slot().FillWidth(1.f) // spacer
 			]
 
-			// ── Switcher + log splitter ───────────────────────────────────
+			// ── Content ──────────────────────────────────────────────────
 			+ SVerticalBox::Slot()
 			.FillHeight(1.f)
-			[
-				SNew(SSplitter)
-				.Orientation(EOrientation::Orient_Vertical)
-
-				+ SSplitter::Slot().Value(0.62f)
-				[ Switcher ]
-
-				+ SSplitter::Slot().Value(0.38f)
-				[ BuildLogTab() ]
-			]
+			[ Switcher ]
 		]
 	];
 }
@@ -1558,91 +1620,6 @@ TSharedRef<SWidget> SSpatialFabricPanel::BuildAdaptersTab()
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-//  Tab — Log
-// ─────────────────────────────────────────────────────────────────────────────
-
-TSharedRef<SWidget> SSpatialFabricPanel::BuildLogTab()
-{
-	return SNew(SVerticalBox)
-
-		+ SVerticalBox::Slot()
-		.AutoHeight()
-		.Padding(4.f, 2.f)
-		[
-			SNew(SHorizontalBox)
-			+ SHorizontalBox::Slot().FillWidth(1.f).VAlign(VAlign_Center)
-			[
-				SNew(STextBlock)
-				.Text(LOCTEXT("LogHeader", "Protocol Log"))
-				.Font(FAppStyle::GetFontStyle("BoldFont"))
-			]
-			+ SHorizontalBox::Slot().AutoWidth()
-			[
-				SNew(SButton)
-				.Text(LOCTEXT("ClearLog", "Clear"))
-				.ButtonStyle(FAppStyle::Get(), "NoBorder")
-				.OnClicked_Lambda([this]() -> FReply
-				{
-					LogItems.Empty();
-					if (LogListView.IsValid()) LogListView->RequestListRefresh();
-					return FReply::Handled();
-				})
-			]
-		]
-
-		+ SVerticalBox::Slot()
-		.FillHeight(1.f)
-		[
-			SAssignNew(LogListView, SListView<TSharedPtr<FSpatialFabricLogEntry>>)
-			.ListItemsSource(&LogItems)
-			.OnGenerateRow(this, &SSpatialFabricPanel::GenerateLogRow)
-			.SelectionMode(ESelectionMode::None)
-		];
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-//  Log helpers
-// ─────────────────────────────────────────────────────────────────────────────
-
-TSharedRef<ITableRow> SSpatialFabricPanel::GenerateLogRow(
-	TSharedPtr<FSpatialFabricLogEntry>       Item,
-	const TSharedRef<STableViewBase>&         OwnerTable)
-{
-	if (!Item.IsValid())
-		return SNew(STableRow<TSharedPtr<FSpatialFabricLogEntry>>, OwnerTable);
-
-	return SNew(STableRow<TSharedPtr<FSpatialFabricLogEntry>>, OwnerTable)
-		[
-			SNew(SHorizontalBox)
-			+ SHorizontalBox::Slot().AutoWidth().Padding(2.f, 0.f)
-			[ SNew(STextBlock).Text(FText::FromString(Item->Timestamp)).ColorAndOpacity(FLinearColor(0.45f, 0.45f, 0.45f)) ]
-			+ SHorizontalBox::Slot().AutoWidth().Padding(4.f, 0.f)
-			[ SNew(STextBlock).Text(FText::FromString(Item->Adapter)).ColorAndOpacity(FLinearColor(0.4f, 0.8f, 1.f)) ]
-			+ SHorizontalBox::Slot().FillWidth(1.f).Padding(4.f, 0.f)
-			[ SNew(STextBlock).Text(FText::FromString(Item->Address)) ]
-			+ SHorizontalBox::Slot().AutoWidth().Padding(4.f, 0.f)
-			[ SNew(STextBlock).Text(FText::FromString(Item->ValueStr)).ColorAndOpacity(FLinearColor(0.8f, 1.f, 0.4f)) ]
-		];
-}
-
-void SSpatialFabricPanel::RefreshLog()
-{
-	ASpatialFabricManagerActor* Manager = GetManager();
-	if (!Manager) return;
-
-	const TArray<FSpatialFabricLogEntry> Recent = Manager->GetRecentLog(100);
-	LogItems.Empty(Recent.Num());
-	for (const FSpatialFabricLogEntry& E : Recent)
-		LogItems.Add(MakeShared<FSpatialFabricLogEntry>(E));
-
-	if (LogListView.IsValid())
-	{
-		LogListView->RequestListRefresh();
-		LogListView->ScrollToBottom();
-	}
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
 //  Manager resolution
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -1662,7 +1639,6 @@ ASpatialFabricManagerActor* SSpatialFabricPanel::GetManager() const
 void SSpatialFabricPanel::RefreshFromManager()
 {
 	RebuildBindingList();
-	RefreshLog();
 }
 
 void SSpatialFabricPanel::RebuildSVList()
@@ -1693,7 +1669,6 @@ EActiveTimerReturnType SSpatialFabricPanel::OnRefreshTimer(
 		RebuildBindingList();
 	}
 
-	RefreshLog();
 	RebuildSVList();
 
 	// Push the latest snapshot into the radar widget and trigger a repaint.
@@ -1702,7 +1677,15 @@ EActiveTimerReturnType SSpatialFabricPanel::OnRefreshTimer(
 	if (RadarView.IsValid())
 	{
 		if (ASpatialFabricManagerActor* RadarMgr = GetManager())
-			StaticCastSharedPtr<SRadarView>(RadarView)->SetSnapshot(RadarMgr->GetLastSnapshot());
+		{
+			TSharedPtr<SRadarView> Radar = StaticCastSharedPtr<SRadarView>(RadarView);
+			Radar->SetSnapshot(RadarMgr->GetLastSnapshot());
+
+			if (ASpatialStageVolume* SV = RadarMgr->StageVolume.Get())
+			{
+				Radar->SetStageDimensions(SV->PhysicalWidthMeters, SV->PhysicalDepthMeters);
+			}
+		}
 		RadarView->Invalidate(EInvalidateWidgetReason::Paint);
 	}
 
@@ -1734,24 +1717,18 @@ TSharedRef<SWidget> SSpatialFabricPanel::BuildRadarTab()
 	SAssignNew(View, SRadarView);
 	RadarView = View;
 
-	return SNew(SBox)
-		.HAlign(HAlign_Center)
-		.VAlign(VAlign_Center)
-		.Padding(FMargin(8.f))
+	return SNew(SVerticalBox)
+		+ SVerticalBox::Slot().AutoHeight().Padding(8.f, 4.f, 8.f, 4.f)
 		[
-			SNew(SVerticalBox)
-			+ SVerticalBox::Slot().AutoHeight().Padding(0.f, 0.f, 0.f, 4.f)
-			[
-				SNew(STextBlock)
-				.Text(LOCTEXT("RadarHelp",
-					"Top-down view — front at top, stage-left at left.\n"
-					"Outer rectangle = stage box bounds (±1 normalized)."))
-				.AutoWrapText(true)
-				.ColorAndOpacity(FLinearColor(0.6f, 0.6f, 0.6f))
-			]
-			+ SVerticalBox::Slot().AutoHeight()
-			[ View.ToSharedRef() ]
-		];
+			SNew(STextBlock)
+			.Text(LOCTEXT("RadarHelp",
+				"Top-down view — front at top, stage-left at left. "
+				"Rectangle matches stage volume aspect ratio; coordinates in metres."))
+			.AutoWrapText(true)
+			.ColorAndOpacity(FLinearColor(0.6f, 0.6f, 0.6f))
+		]
+		+ SVerticalBox::Slot().FillHeight(1.f).Padding(4.f)
+		[ View.ToSharedRef() ];
 }
 
 #undef LOCTEXT_NAMESPACE
