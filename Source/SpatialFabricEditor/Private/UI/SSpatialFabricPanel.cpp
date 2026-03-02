@@ -1236,6 +1236,110 @@ TSharedRef<ITableRow> SSpatialFabricPanel::GenerateBindingRow(
 					]
 				]
 			]
+
+			// ── QLab sub-row (visible only when QLabObject is the active format) ──
+			+ SVerticalBox::Slot()
+			.AutoHeight()
+			.Padding(4.f, 2.f, 4.f, 2.f)
+			[
+				SNew(SBorder)
+				.BorderImage(FAppStyle::GetBrush("ToolPanel.DarkGroupBorder"))
+				.Padding(FMargin(6.f, 3.f))
+				.Visibility_Lambda([WeakMgr]()
+				{
+					const ASpatialFabricManagerActor* M = WeakMgr.Get();
+					return (M && M->ActiveAdapterType == ESpatialAdapterType::QLabObject)
+						? EVisibility::Visible : EVisibility::Collapsed;
+				})
+				[
+					SNew(SHorizontalBox)
+
+					// "Cue ID:" label
+					+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center).Padding(0.f, 0.f, 4.f, 0.f)
+					[
+						SNew(STextBlock)
+						.Text(LOCTEXT("QLabCueIDLabel", "Cue ID:"))
+						.ColorAndOpacity(FLinearColor(0.6f, 0.6f, 0.6f))
+						.Font(FAppStyle::GetFontStyle("SmallFont"))
+						.ToolTipText(LOCTEXT("QLabCueIDTip",
+							"QLab cue number or name (VAR).\nExample: 5"))
+					]
+
+					// Cue ID text box
+					+ SHorizontalBox::Slot().AutoWidth().Padding(0.f, 0.f, 8.f, 0.f)
+					[
+						SNew(SBox).WidthOverride(80.f)
+						[
+							SNew(SEditableTextBox)
+							.Font(FAppStyle::GetFontStyle("SmallFont"))
+							.Text_Lambda([WeakMgr, BIdx]() -> FText
+							{
+								if (ASpatialFabricManagerActor* M = WeakMgr.Get())
+									if (M->ObjectBindings.IsValidIndex(BIdx))
+										for (const FSpatialAdapterTargetEntry& T : M->ObjectBindings[BIdx].Targets)
+											if (T.AdapterType == ESpatialAdapterType::QLabObject)
+												return FText::FromString(T.QLabCueID);
+								return FText::GetEmpty();
+							})
+							.OnTextCommitted_Lambda([WeakMgr, BIdx](const FText& Text, ETextCommit::Type)
+							{
+								if (ASpatialFabricManagerActor* M = WeakMgr.Get())
+									if (M->ObjectBindings.IsValidIndex(BIdx))
+										for (FSpatialAdapterTargetEntry& T : M->ObjectBindings[BIdx].Targets)
+											if (T.AdapterType == ESpatialAdapterType::QLabObject)
+											{
+												T.QLabCueID = Text.ToString();
+												M->MarkPackageDirty();
+												break;
+											}
+							})
+						]
+					]
+
+					// "Object:" label
+					+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center).Padding(0.f, 0.f, 4.f, 0.f)
+					[
+						SNew(STextBlock)
+						.Text(LOCTEXT("QLabObjNameLabel", "Object:"))
+						.ColorAndOpacity(FLinearColor(0.6f, 0.6f, 0.6f))
+						.Font(FAppStyle::GetFontStyle("SmallFont"))
+						.ToolTipText(LOCTEXT("QLabObjNameTip",
+							"Audio object name within the cue.\n"
+							"Maps to {name} in /cue/{id}/object/{name}/position/live"))
+					]
+
+					// Object Name text box
+					+ SHorizontalBox::Slot().AutoWidth()
+					[
+						SNew(SBox).WidthOverride(100.f)
+						[
+							SNew(SEditableTextBox)
+							.Font(FAppStyle::GetFontStyle("SmallFont"))
+							.Text_Lambda([WeakMgr, BIdx]() -> FText
+							{
+								if (ASpatialFabricManagerActor* M = WeakMgr.Get())
+									if (M->ObjectBindings.IsValidIndex(BIdx))
+										for (const FSpatialAdapterTargetEntry& T : M->ObjectBindings[BIdx].Targets)
+											if (T.AdapterType == ESpatialAdapterType::QLabObject)
+												return FText::FromString(T.QLabObjectName);
+								return FText::GetEmpty();
+							})
+							.OnTextCommitted_Lambda([WeakMgr, BIdx](const FText& Text, ETextCommit::Type)
+							{
+								if (ASpatialFabricManagerActor* M = WeakMgr.Get())
+									if (M->ObjectBindings.IsValidIndex(BIdx))
+										for (FSpatialAdapterTargetEntry& T : M->ObjectBindings[BIdx].Targets)
+											if (T.AdapterType == ESpatialAdapterType::QLabObject)
+											{
+												T.QLabObjectName = Text.ToString();
+												M->MarkPackageDirty();
+												break;
+											}
+							})
+						]
+					]
+				]
+			]
 		];
 }
 
