@@ -115,7 +115,7 @@ SpatialFabric
    - In the Place Actors panel, search **"Spatial Stage Volume"** and drag it
      into the viewport.
    - Scale and position the box to match your physical audio space.
-   - Set **Physical Width/Depth/Height (metres)** in the Details panel to match
+   - Set **Physical Width/Depth/Height (meters)** in the Details panel to match
      real-world dimensions.
 
 2. **Place a Manager Actor**:
@@ -180,10 +180,10 @@ handle the conversion internally at the point of send.
 
 A box-shaped actor that defines the physical coordinate space. All tracked
 actor positions are **normalized to [-1, 1]** relative to this volume — an
-actor at the centre maps to (0, 0, 0), an actor at the +X face maps to
+actor at the center maps to (0, 0, 0), an actor at the +X face maps to
 (1, 0, 0). Positions outside the box are clamped.
 
-- **Physical dimensions** (metres) for absolute-position protocols (DS100)
+- **Physical dimensions** (meters) for absolute-position protocols (DS100)
 - **Axis flip** (X/Y/Z) checkboxes for convention overrides
 - **Listener actor** (optional) shifts the coordinate origin to a player pawn,
   camera, or any actor — enables binaural/head-tracked output
@@ -261,7 +261,7 @@ head-tracking.
 | `/adm/obj/{n}/mute` | 0/1 | Mute state |
 | `/adm/obj/{n}/name` | string | Object label |
 | `/adm/obj/{n}/dref` | 0-1 | Distance reference |
-| `/adm/obj/{n}/dmax` | metres | Max distance |
+| `/adm/obj/{n}/dmax` | meters | Max distance |
 | `/adm/lis/xyz` | x y z | Listener position |
 | `/adm/lis/ypr` | yaw pitch roll | Listener orientation |
 
@@ -405,7 +405,7 @@ Each tick:
     → resolve soft actor pointers (with cached label fallback)
     → read world transforms
     → normalize to stage volume [-1, 1]
-    → compute physical metres
+    → compute physical meters
     → produce FSpatialFrameSnapshot
 
   FProtocolRouter::ProcessFrame(Snapshot, Bindings, DeltaTime)
@@ -423,7 +423,7 @@ Each adapter converts to its wire format at the point of send:
 |---------|----------------|------------|
 | ADM-OSC Cartesian | +Y = left | Negate Y |
 | ADM-OSC Polar | Azimuth +left (CCW) | Negate Y before atan2 |
-| DS100 (absolute) | Direct metres | No conversion needed |
+| DS100 (absolute) | Direct meters | No conversion needed |
 | DS100 (mapped) | X: 0=left, 1=right | `(NormY + 1) * 0.5` |
 | QLab | X: left=-1, right=+1 | Direct from NormY |
 | SpaceMap Go | X: left=-1000, right=+1000; Y: back=-1000, front=+1000 | `NormY * 1000` / `NormX * 1000` |
@@ -454,7 +454,7 @@ SpatialFabricEditor (editor-only):
 | `InitializeAdapters` | Re-create all adapters from current config (safe at runtime) |
 | `GetRecentLog` | Retrieve recent protocol log entries |
 | `WorldToNormalized` | Convert a world position to stage-normalized [-1, 1] coordinates |
-| `WorldToMeters` | Convert a world position to physical metres relative to stage origin |
+| `WorldToMeters` | Convert a world position to physical meters relative to stage origin |
 | `AssignListenerToPlayerPawn` | Set the player pawn as the listener actor |
 | `AssignListenerToPlayerCamera` | Set the player camera as the listener actor |
 | `ClearListener` | Remove listener assignment (revert to stage-fixed mode) |
@@ -489,7 +489,7 @@ Each adapter entry in `AdapterConfigs` on the Manager Actor supports:
 | `SendRateHz` | Per-adapter rate limit (1-120 Hz) |
 | `bEnabled` | Enable/disable this adapter |
 | `ADMCoordinateMode` | Cartesian / Polar / Both (ADM-OSC only) |
-| `bDS100AbsoluteMode` | Absolute metres vs normalized coordinates (DS100 only) |
+| `bDS100AbsoluteMode` | Absolute meters vs normalized coordinates (DS100 only) |
 | `DS100ChannelOffset` | Channel ID offset (DS100 only) |
 | `QLabWorkspaceID` | Workspace identifier (QLab only) |
 
@@ -504,8 +504,8 @@ Automation → SpatialFabric):
 
 | # | Test | Description |
 |---|------|-------------|
-| 1 | `Math.Centre` | Object at stage centre → normalized (0, 0, 0) |
-| 2 | `Math.Corner` | Corner positions, clamping, metre conversion |
+| 1 | `Math.Center` | Object at stage center → normalized (0, 0, 0) |
+| 2 | `Math.Corner` | Corner positions, clamping, meter conversion |
 | 3 | `Adapters.ADMOSCAddress` | ADM-OSC address format and value range validation |
 | 4 | `Adapters.DS100Address` | DS100 address format (absolute + coord-mapping + spread) |
 | 5 | `Adapters.QLabObjectAddress` | QLab position/live and spread/live format |

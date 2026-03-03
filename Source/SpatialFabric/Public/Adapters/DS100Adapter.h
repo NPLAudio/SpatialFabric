@@ -17,8 +17,8 @@
  *
  *   Absolute mode (default):
  *     /dbaudio1/positioning/source_position/{id}  x  y  z
- *     Coordinates in metres relative to the DS100 room model origin.
- *     SpatialFabric supplies StageMeters (physical metres from stage volume).
+ *     Coordinates in meters relative to the DS100 room model origin.
+ *     SpatialFabric supplies StageMeters (physical meters from stage volume).
  *
  *   Coordinate-mapping mode (bDS100AbsoluteMode = false):
  *     /dbaudio1/coordinatemapping/source_position_xy/{area}/{id}  x  y

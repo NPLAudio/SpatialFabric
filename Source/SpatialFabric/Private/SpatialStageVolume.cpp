@@ -130,7 +130,7 @@ void ASpatialStageVolume::ResolveListenerThisFrame()
 			CachedListenerRot = ResolvedActor->GetActorRotation();
 		bListenerResolved = true;
 
-		// Move the stage box so it stays centred on the listener.
+		// Move the stage box so it stays centered on the listener.
 		SetActorLocation(CachedListenerPos);
 		if (ListenerMode == EListenerMode::FollowPositionAndOrientation)
 			SetActorRotation(CachedListenerRot);

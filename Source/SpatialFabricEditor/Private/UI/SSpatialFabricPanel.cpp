@@ -229,7 +229,7 @@ public:
 				ESlateDrawEffect::None,
 				FLinearColor(0.85f, 0.85f, 0.85f));
 
-			// Coordinates below label (metres)
+			// Coordinates below label (meters)
 			const FString CoordStr = FString::Printf(TEXT("(%.1f, %.1f)m"),
 				Obj.StageMeters.X, Obj.StageMeters.Y);
 			FSlateDrawElement::MakeText(
@@ -606,7 +606,7 @@ TSharedRef<SWidget> SSpatialFabricPanel::BuildStageTab()
 					})
 					.ToolTipText(LOCTEXT("ListenerOffTip",
 						"Stage is fixed at its design-time location.\n"
-						"All coordinates are relative to the box centre."))
+						"All coordinates are relative to the box center."))
 					[ SNew(STextBlock).Text(LOCTEXT("ListenerOff", "Off")).ColorAndOpacity(FLinearColor::White) ]
 				]
 
@@ -1585,6 +1585,112 @@ TSharedRef<ITableRow> SSpatialFabricPanel::GenerateBindingRow(
 					]
 				]
 
+				// "send:" label before optional message toggles
+				+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center).Padding(8.f, 0.f, 4.f, 0.f)
+				[
+					SNew(STextBlock)
+					.Text(LOCTEXT("ADMOptLabel", "send:"))
+					.ColorAndOpacity(FLinearColor(0.45f, 0.45f, 0.45f))
+					.Font(FAppStyle::GetFontStyle("SmallFont"))
+					.ToolTipText(LOCTEXT("ADMOptTip", "Enable optional ADM-OSC messages for this object."))
+				]
+
+				// gain toggle
+				+ SHorizontalBox::Slot().AutoWidth().Padding(0.f, 0.f, 2.f, 0.f)
+				[
+					SNew(SBox).HeightOverride(22.f).MinDesiredWidth(42.f)
+					[
+						SNew(SButton)
+						.ButtonStyle(FAppStyle::Get(), "FlatButton")
+						.HAlign(HAlign_Center)
+						.ButtonColorAndOpacity_Lambda([WeakMgr, BIdx]()
+						{
+							if (const ASpatialFabricManagerActor* M = WeakMgr.Get())
+								if (M->ObjectBindings.IsValidIndex(BIdx))
+									if (M->ObjectBindings[BIdx].bADMSendGain)
+										return FLinearColor(0.10f, 0.45f, 0.85f);
+							return FLinearColor(0.18f, 0.18f, 0.18f);
+						})
+						.ToolTipText(LOCTEXT("ADMGainTip",
+							"Toggle: send /adm/obj/{n}/gain (linear amplitude) each frame."))
+						.OnClicked_Lambda([WeakMgr, BIdx]() -> FReply
+						{
+							if (ASpatialFabricManagerActor* M = WeakMgr.Get())
+								if (M->ObjectBindings.IsValidIndex(BIdx))
+								{
+									M->ObjectBindings[BIdx].bADMSendGain = !M->ObjectBindings[BIdx].bADMSendGain;
+									M->MarkPackageDirty();
+								}
+							return FReply::Handled();
+						})
+						[ SNew(STextBlock).Text(LOCTEXT("ADMGainBtn", "gain")).Font(FAppStyle::GetFontStyle("SmallFont")).ColorAndOpacity(FLinearColor::White) ]
+					]
+				]
+
+				// mute toggle
+				+ SHorizontalBox::Slot().AutoWidth().Padding(0.f, 0.f, 2.f, 0.f)
+				[
+					SNew(SBox).HeightOverride(22.f).MinDesiredWidth(42.f)
+					[
+						SNew(SButton)
+						.ButtonStyle(FAppStyle::Get(), "FlatButton")
+						.HAlign(HAlign_Center)
+						.ButtonColorAndOpacity_Lambda([WeakMgr, BIdx]()
+						{
+							if (const ASpatialFabricManagerActor* M = WeakMgr.Get())
+								if (M->ObjectBindings.IsValidIndex(BIdx))
+									if (M->ObjectBindings[BIdx].bADMSendMute)
+										return FLinearColor(0.10f, 0.45f, 0.85f);
+							return FLinearColor(0.18f, 0.18f, 0.18f);
+						})
+						.ToolTipText(LOCTEXT("ADMMuteTip",
+							"Toggle: send /adm/obj/{n}/mute (0 = active, 1 = muted) each frame."))
+						.OnClicked_Lambda([WeakMgr, BIdx]() -> FReply
+						{
+							if (ASpatialFabricManagerActor* M = WeakMgr.Get())
+								if (M->ObjectBindings.IsValidIndex(BIdx))
+								{
+									M->ObjectBindings[BIdx].bADMSendMute = !M->ObjectBindings[BIdx].bADMSendMute;
+									M->MarkPackageDirty();
+								}
+							return FReply::Handled();
+						})
+						[ SNew(STextBlock).Text(LOCTEXT("ADMMuteBtn", "mute")).Font(FAppStyle::GetFontStyle("SmallFont")).ColorAndOpacity(FLinearColor::White) ]
+					]
+				]
+
+				// name toggle
+				+ SHorizontalBox::Slot().AutoWidth().Padding(0.f, 0.f, 0.f, 0.f)
+				[
+					SNew(SBox).HeightOverride(22.f).MinDesiredWidth(42.f)
+					[
+						SNew(SButton)
+						.ButtonStyle(FAppStyle::Get(), "FlatButton")
+						.HAlign(HAlign_Center)
+						.ButtonColorAndOpacity_Lambda([WeakMgr, BIdx]()
+						{
+							if (const ASpatialFabricManagerActor* M = WeakMgr.Get())
+								if (M->ObjectBindings.IsValidIndex(BIdx))
+									if (M->ObjectBindings[BIdx].bADMSendName)
+										return FLinearColor(0.10f, 0.45f, 0.85f);
+							return FLinearColor(0.18f, 0.18f, 0.18f);
+						})
+						.ToolTipText(LOCTEXT("ADMNameTip",
+							"Toggle: send /adm/obj/{n}/name (string label) each frame."))
+						.OnClicked_Lambda([WeakMgr, BIdx]() -> FReply
+						{
+							if (ASpatialFabricManagerActor* M = WeakMgr.Get())
+								if (M->ObjectBindings.IsValidIndex(BIdx))
+								{
+									M->ObjectBindings[BIdx].bADMSendName = !M->ObjectBindings[BIdx].bADMSendName;
+									M->MarkPackageDirty();
+								}
+							return FReply::Handled();
+						})
+						[ SNew(STextBlock).Text(LOCTEXT("ADMNameBtn", "name")).Font(FAppStyle::GetFontStyle("SmallFont")).ColorAndOpacity(FLinearColor::White) ]
+					]
+				]
+
 				// Spacer
 				+ SHorizontalBox::Slot().FillWidth(1.f)
 			]
@@ -2162,7 +2268,7 @@ TSharedRef<SWidget> SSpatialFabricPanel::BuildRadarTab()
 			SNew(STextBlock)
 			.Text(LOCTEXT("RadarHelp",
 				"Top-down view — front at top, stage-left at left. "
-				"Rectangle matches stage volume aspect ratio; coordinates in metres."))
+				"Rectangle matches stage volume aspect ratio; coordinates in meters."))
 			.AutoWrapText(true)
 			.ColorAndOpacity(FLinearColor(0.6f, 0.6f, 0.6f))
 		]

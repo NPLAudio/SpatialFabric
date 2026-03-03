@@ -38,7 +38,7 @@ struct SPATIALFABRIC_API FSpatialObjectState
 	UPROPERTY(BlueprintReadOnly, Category = "SpatialFabric")
 	FString Label;
 
-	/** Actor world position in UE units (centimetres by default). */
+	/** Actor world position in UE units (centimeters by default). */
 	UPROPERTY(BlueprintReadOnly, Category = "SpatialFabric")
 	FVector WorldPosition = FVector::ZeroVector;
 
@@ -72,14 +72,14 @@ struct SPATIALFABRIC_API FSpatialNormalizedState
 
 	/**
 	 * Stage-normalized position: each axis clamped to [-1, 1].
-	 * Origin is the stage volume centre (or listener actor when set).
+	 * Origin is the stage volume center (or listener actor when set).
 	 * +X = stage front, +Y = stage right (house right), +Z = stage up (after axis remap).
 	 */
 	UPROPERTY(BlueprintReadOnly, Category = "SpatialFabric")
 	FVector StageNormalized = FVector::ZeroVector;
 
 	/**
-	 * Same position expressed in physical metres (StageNormalized * HalfExtentMeters).
+	 * Same position expressed in physical meters (StageNormalized * HalfExtentMeters).
 	 * Used by DS100 absolute-position mode.
 	 */
 	UPROPERTY(BlueprintReadOnly, Category = "SpatialFabric")
@@ -101,9 +101,21 @@ struct SPATIALFABRIC_API FSpatialNormalizedState
 	UPROPERTY(BlueprintReadOnly, Category = "SpatialFabric")
 	float Dref = 1.0f;
 
-	/** ADM-OSC max distance in metres corresponding to dref = 1.0. 0 = not set. */
+	/** ADM-OSC max distance in meters corresponding to dref = 1.0. 0 = not set. */
 	UPROPERTY(BlueprintReadOnly, Category = "SpatialFabric")
 	float Dmax = 0.0f;
+
+	/** When true, the ADM-OSC adapter sends /adm/obj/{n}/gain for this object. */
+	UPROPERTY(BlueprintReadOnly, Category = "SpatialFabric")
+	bool bADMSendGain = false;
+
+	/** When true, the ADM-OSC adapter sends /adm/obj/{n}/mute for this object. */
+	UPROPERTY(BlueprintReadOnly, Category = "SpatialFabric")
+	bool bADMSendMute = false;
+
+	/** When true, the ADM-OSC adapter sends /adm/obj/{n}/name for this object. */
+	UPROPERTY(BlueprintReadOnly, Category = "SpatialFabric")
+	bool bADMSendName = false;
 
 	/**
 	 * Protocol object/channel ID resolved from the binding's DefaultObjectID
@@ -213,7 +225,7 @@ struct SPATIALFABRIC_API FSpatialAdapterConfig
 
 	/**
 	 * DS100-only: when true, send absolute-position messages
-	 * (/dbaudio1/positioning/source_position/{id} x y z in metres)
+	 * (/dbaudio1/positioning/source_position/{id} x y z in meters)
 	 * instead of normalized coordinate-mapping messages.
 	 */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SpatialFabric|Adapter",
@@ -321,6 +333,20 @@ struct SPATIALFABRIC_API FSpatialObjectBinding
 		meta = (ClampMin = "0.0", ClampMax = "1.0"))
 	float Width01 = 0.f;
 
+	// ── ADM-OSC per-object send flags ───────────────────────────────────────
+
+	/** ADM-OSC: send /adm/obj/{n}/gain each frame (linear amplitude multiplier). */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SpatialFabric|ADMOSC")
+	bool bADMSendGain = false;
+
+	/** ADM-OSC: send /adm/obj/{n}/mute each frame (0 = unmuted, 1 = muted). */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SpatialFabric|ADMOSC")
+	bool bADMSendMute = false;
+
+	/** ADM-OSC: send /adm/obj/{n}/name each frame (string object label). */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SpatialFabric|ADMOSC")
+	bool bADMSendName = false;
+
 	/**
 	 * ADM-OSC: normalized distance where physics-based rendering replaces dimensionless rendering.
 	 * Default 1.0 per spec.  Sent as /adm/obj/{n}/dref.
@@ -330,7 +356,7 @@ struct SPATIALFABRIC_API FSpatialObjectBinding
 	float ADMDref = 1.0f;
 
 	/**
-	 * ADM-OSC: distance in metres signified by dref = 1.0.
+	 * ADM-OSC: distance in meters signified by dref = 1.0.
 	 * 0 = suppress sending /dmax.  Sent as /adm/obj/{n}/dmax.
 	 */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SpatialFabric|ADMOSC",

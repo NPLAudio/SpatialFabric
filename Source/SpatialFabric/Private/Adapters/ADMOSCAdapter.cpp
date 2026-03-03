@@ -69,6 +69,20 @@ void FADMOSCAdapter::SendObject(const FSpatialNormalizedState& State)
 
 	// ── /adm/obj/{n}/w  (float, horizontal extent [0..1]) ───────────────
 	Client->SendFloat(FString::Printf(TEXT("/adm/obj/%d/w"), ID), State.Width01);
+
+	// ── Optional per-object metadata (enabled per-binding) ──────────────
+	if (State.bADMSendGain)
+	{
+		Client->SendFloat(FString::Printf(TEXT("/adm/obj/%d/gain"), ID), State.GainLinear);
+	}
+	if (State.bADMSendMute)
+	{
+		Client->SendInt(FString::Printf(TEXT("/adm/obj/%d/mute"), ID), State.bMuted ? 1 : 0);
+	}
+	if (State.bADMSendName)
+	{
+		Client->SendString(FString::Printf(TEXT("/adm/obj/%d/name"), ID), State.Label);
+	}
 }
 
 void FADMOSCAdapter::SendCartesian(int32 ID, const FVector& Norm)

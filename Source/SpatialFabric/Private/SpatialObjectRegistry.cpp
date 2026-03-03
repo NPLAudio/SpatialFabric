@@ -55,8 +55,11 @@ FSpatialFrameSnapshot USpatialObjectRegistry::BuildSnapshot(
 		State.GainLinear = Binding.GainLinear;
 		State.Width01    = Binding.Width01;
 		State.bMuted     = Binding.bMuted;
-		State.Dref       = Binding.ADMDref;
-		State.Dmax       = Binding.ADMDmax;
+		State.Dref         = Binding.ADMDref;
+		State.Dmax         = Binding.ADMDmax;
+		State.bADMSendGain = Binding.bADMSendGain;
+		State.bADMSendMute = Binding.bADMSendMute;
+		State.bADMSendName = Binding.bADMSendName;
 		State.Orientation = WorldRot;
 
 		if (Stage)
@@ -66,7 +69,7 @@ FSpatialFrameSnapshot USpatialObjectRegistry::BuildSnapshot(
 		}
 		else
 		{
-			// Fallback: raw UE units converted to metres (1 UE unit = 1 cm by default)
+			// Fallback: raw UE units converted to meters (1 UE unit = 1 cm by default)
 			const FVector WorldM = WorldPos * 0.01f;
 			State.StageNormalized = WorldM; // not normalized — adapters should handle this
 			State.StageMeters     = WorldM;

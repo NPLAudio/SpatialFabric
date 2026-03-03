@@ -32,29 +32,29 @@ static FVector TestWorldToMeters(FVector WorldPos, FVector BoxOrigin, FVector Ha
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-//  Test 1: Spatial math — object at stage centre
+//  Test 1: Spatial math — object at stage center
 // ─────────────────────────────────────────────────────────────────────────────
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
-	FSpatialMathCentreTest,
-	"SpatialFabric.Math.Centre",
+	FSpatialMathCenterTest,
+	"SpatialFabric.Math.Center",
 	EAutomationTestFlags::EditorContext | EAutomationTestFlags::SmokeFilter)
 
-bool FSpatialMathCentreTest::RunTest(const FString& Parameters)
+bool FSpatialMathCenterTest::RunTest(const FString& Parameters)
 {
 	const FVector BoxOrigin(0.f);
 	const FVector HalfExtCm(1000.f, 750.f, 400.f);
 	const FVector HalfExtM(10.f, 7.5f, 4.f);
 
-	// Object at box centre → normalized (0,0,0)
+	// Object at box center → normalized (0,0,0)
 	const FVector Norm = TestWorldToNormalized(FVector::ZeroVector, BoxOrigin, HalfExtCm);
-	TestTrue("Centre normalized X == 0", FMath::IsNearlyZero(Norm.X, 0.001f));
-	TestTrue("Centre normalized Y == 0", FMath::IsNearlyZero(Norm.Y, 0.001f));
-	TestTrue("Centre normalized Z == 0", FMath::IsNearlyZero(Norm.Z, 0.001f));
+	TestTrue("Center normalized X == 0", FMath::IsNearlyZero(Norm.X, 0.001f));
+	TestTrue("Center normalized Y == 0", FMath::IsNearlyZero(Norm.Y, 0.001f));
+	TestTrue("Center normalized Z == 0", FMath::IsNearlyZero(Norm.Z, 0.001f));
 
-	// Metres should also be (0,0,0)
-	const FVector Metres = TestWorldToMeters(FVector::ZeroVector, BoxOrigin, HalfExtCm, HalfExtM);
-	TestTrue("Centre metres X == 0", FMath::IsNearlyZero(Metres.X, 0.001f));
+	// Meters should also be (0,0,0)
+	const FVector Meters = TestWorldToMeters(FVector::ZeroVector, BoxOrigin, HalfExtCm, HalfExtM);
+	TestTrue("Center meters X == 0", FMath::IsNearlyZero(Meters.X, 0.001f));
 	return true;
 }
 
@@ -80,10 +80,10 @@ bool FSpatialMathCornerTest::RunTest(const FString& Parameters)
 	TestTrue("Corner Y == 1", FMath::IsNearlyEqual(Norm.Y, 1.f, 0.001f));
 	TestTrue("Corner Z == 1", FMath::IsNearlyEqual(Norm.Z, 1.f, 0.001f));
 
-	const FVector Metres = TestWorldToMeters(CornerCm, BoxOrigin, HalfExtCm, HalfExtM);
-	TestTrue("Corner metres X == 10", FMath::IsNearlyEqual(Metres.X, 10.f, 0.01f));
-	TestTrue("Corner metres Y == 7.5", FMath::IsNearlyEqual(Metres.Y, 7.5f, 0.01f));
-	TestTrue("Corner metres Z == 4", FMath::IsNearlyEqual(Metres.Z, 4.f, 0.01f));
+	const FVector Meters = TestWorldToMeters(CornerCm, BoxOrigin, HalfExtCm, HalfExtM);
+	TestTrue("Corner meters X == 10", FMath::IsNearlyEqual(Meters.X, 10.f, 0.01f));
+	TestTrue("Corner meters Y == 7.5", FMath::IsNearlyEqual(Meters.Y, 7.5f, 0.01f));
+	TestTrue("Corner meters Z == 4", FMath::IsNearlyEqual(Meters.Z, 4.f, 0.01f));
 
 	// Object beyond corner → clamped to 1
 	const FVector BeyondCm(2000.f, 750.f, 400.f);
@@ -298,10 +298,10 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FDS100NormMappedTest::RunTest(const FString& Parameters)
 {
-	// Centre (0,0,0) → DS100 (0.5, 0.5)
-	const FVector2D Centre = FSpatialMath::NormalizedToDS100Mapped(FVector::ZeroVector);
-	TestTrue("DS100 centre X = 0.5", FMath::IsNearlyEqual(Centre.X, 0.5f, 0.001f));
-	TestTrue("DS100 centre Y = 0.5", FMath::IsNearlyEqual(Centre.Y, 0.5f, 0.001f));
+	// Center (0,0,0) → DS100 (0.5, 0.5)
+	const FVector2D Center = FSpatialMath::NormalizedToDS100Mapped(FVector::ZeroVector);
+	TestTrue("DS100 center X = 0.5", FMath::IsNearlyEqual(Center.X, 0.5f, 0.001f));
+	TestTrue("DS100 center Y = 0.5", FMath::IsNearlyEqual(Center.Y, 0.5f, 0.001f));
 
 	// Front-right (norm=(1,1,0): +X=front, +Y=right) → DS100 (1, 1)
 	// DS100: X 0=left 1=right, Y 0=back 1=front

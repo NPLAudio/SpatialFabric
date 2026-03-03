@@ -12,7 +12,7 @@ class UBoxComponent;
  * How the stage volume tracks a listener (player or assigned actor).
  *
  *  Off                          — Stage is fixed at its design-time location.
- *                                 All coordinates are relative to the box centre.
+ *                                 All coordinates are relative to the box center.
  *
  *  FollowPositionAndOrientation — Stage origin AND axes follow the listener.
  *                                 "Forward" always equals the listener's facing direction.
@@ -30,7 +30,7 @@ enum class EListenerMode : uint8
  *
  * A box-shaped level actor that defines the physical audio coordinate space.
  * All SpatialFabric object positions are normalized relative to this volume:
- * an object at the volume centre maps to (0,0,0); an object at the +X face
+ * an object at the volume center maps to (0,0,0); an object at the +X face
  * maps to (1,0,0), etc.  Objects outside the volume are clamped to ±1.
  *
  * The box component's extent (half-size) in UE units determines the coordinate
@@ -58,22 +58,22 @@ public:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Stage")
 	TObjectPtr<UBoxComponent> StageBox;
 
-	// ── Physical dimensions (metres) ────────────────────────────────────────
+	// ── Physical dimensions (meters) ────────────────────────────────────────
 
 	/**
-	 * Physical width of the audio space in metres (maps to the box's X axis).
+	 * Physical width of the audio space in meters (maps to the box's X axis).
 	 * Used by DS100 absolute mode to output real-world coordinates.
 	 */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stage|Physical Dimensions",
 		meta = (ClampMin = "0.1"))
 	float PhysicalWidthMeters = 20.f;
 
-	/** Physical depth of the audio space in metres (maps to the box's Y axis). */
+	/** Physical depth of the audio space in meters (maps to the box's Y axis). */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stage|Physical Dimensions",
 		meta = (ClampMin = "0.1"))
 	float PhysicalDepthMeters = 15.f;
 
-	/** Physical height of the audio space in metres (maps to the box's Z axis). */
+	/** Physical height of the audio space in meters (maps to the box's Z axis). */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stage|Physical Dimensions",
 		meta = (ClampMin = "0.1"))
 	float PhysicalHeightMeters = 8.f;
@@ -100,7 +100,7 @@ public:
 	/**
 	 * Controls whether the stage tracks a listener (player or actor).
 	 *
-	 *  Off                          — stage-fixed; coordinates relative to box centre.
+	 *  Off                          — stage-fixed; coordinates relative to box center.
 	 *  Follow Position & Orientation — origin AND axes follow the listener.
 	 *
 	 * When not Off, the listener is resolved in priority order:
@@ -160,13 +160,13 @@ public:
 	FVector WorldToNormalized(FVector WorldPos) const;
 
 	/**
-	 * Transform a world-space point to physical metres relative to stage origin.
+	 * Transform a world-space point to physical meters relative to stage origin.
 	 */
 	UFUNCTION(BlueprintCallable, Category = "Stage")
 	FVector WorldToMeters(FVector WorldPos) const;
 
 	/**
-	 * Returns the half-extent in physical metres per axis: (W/2, D/2, H/2).
+	 * Returns the half-extent in physical meters per axis: (W/2, D/2, H/2).
 	 */
 	UFUNCTION(BlueprintCallable, Category = "Stage")
 	FVector GetHalfExtentMeters() const

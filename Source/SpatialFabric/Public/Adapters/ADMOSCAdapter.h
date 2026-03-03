@@ -23,7 +23,7 @@
  *     /adm/obj/{n}/mute   int32   0 or 1
  *     /adm/obj/{n}/name   string  object label
  *     /adm/obj/{n}/dref   float   distance-ref [0..1] (if non-default)
- *     /adm/obj/{n}/dmax   float   max distance in metres (if set)
+ *     /adm/obj/{n}/dmax   float   max distance in meters (if set)
  *   Listener (when present):
  *     /adm/lis/xyz   x y z
  *     /adm/lis/ypr   yaw pitch roll
