@@ -1,6 +1,6 @@
 # SpatialFabric [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-Multi-protocol spatial audio show-control overlay for Unreal Engine. Maps UE
+Multi-protocol spatial audio show-control plugin for Unreal Engine. Maps UE
 actor positions to **ADM-OSC**, **d&b DS100**, **RTTrPM**, **QLab**,
 **SpaceMap Go**, and **TiMax** via a configurable Stage Volume bounding box —
 without writing a line of Blueprint or C++.
@@ -15,6 +15,7 @@ need real-time spatial audio positioning from Unreal Engine.
 - [Requirements](#requirements)
 - [Installation](#installation)
 - [Quick Start](#quick-start)
+- [Coordinate Convention](#coordinate-convention)
 - [Feature Overview](#feature-overview)
 - [Supported Protocols](#supported-protocols)
 - [Editor Panel](#editor-panel)
@@ -34,8 +35,9 @@ need real-time spatial audio positioning from Unreal Engine.
 | Visual Studio | 2022 (Windows) or Xcode 15+ (macOS) |
 | UE Plugin | **OSC** (built-in, must be enabled) |
 
-SpatialFabric includes its own OSC client/server components that wrap UE's
-built-in OSC plugin. No additional plugins are required beyond OSC.
+SpatialFabric includes its own `USpatialOSCClientComponent` and
+`USpatialOSCServerComponent` that wrap UE's built-in OSC plugin directly.
+No additional plugins are required beyond OSC.
 
 ---
 
@@ -54,7 +56,7 @@ built-in OSC plugin. No additional plugins are required beyond OSC.
    ```
    YourProject/
    └── Plugins/
-       └── SpatialFabric/    ← copy from Plugins/SpatialFabric/
+       └── SpatialFabric/
    ```
 
 3. **Enable the built-in OSC plugin** (dependency):
@@ -88,7 +90,7 @@ regenerate project files.
 ```batch
 "C:\Program Files\Epic Games\UE_5.7\Engine\Build\BatchFiles\Build.bat" ^
     YourProjectEditor Win64 Development ^
-    "C:\path\to\YourProject.uproject" -WaitMutex
+    -Project="C:\path\to\YourProject.uproject" -WaitMutex -FromMsBuild
 ```
 
 Adjust the UE path and target name to match your installation.
@@ -123,16 +125,48 @@ SpatialFabric
 4. **Add object bindings**:
    - In the **Objects** tab, click **+ Add Binding**.
    - Pick the actor you want to track and assign an Object ID.
+   - Optionally set QLab Cue ID and Object Name for QLab adapters.
    - The actor's position will now be tracked relative to the Stage Volume.
 
-5. **Select an output format**:
-   - In the **Adapters** tab (or the format selector), choose your target
+5. **Enable an output adapter**:
+   - In the **Adapters** tab (or the Manager's Details panel), enable your target
      protocol (ADM-OSC, DS100, RTTrPM, or QLab).
    - Set the **Target IP** and **Port** for your audio system.
 
 6. **Press Play** (or use the editor panel in edit mode) and verify output
    with a tool like [Protokol](https://hexler.net/protokol),
    [Wireshark](https://www.wireshark.org/), or your audio system's monitor.
+
+---
+
+## Coordinate Convention
+
+SpatialFabric uses the **audience / listener perspective** (house left/right),
+which aligns with UE's native axis orientation:
+
+```
+        +X (front / toward audience)
+         ↑
+  -Y ←── ● ──→ +Y (house right)
+         ↓
+        -X (back / upstage)
+
+  +Z = up
+  -Z = down
+```
+
+| Axis | Direction | UE Equivalent |
+|------|-----------|---------------|
+| **+X** | Front (downstage / toward audience) | Forward |
+| **-X** | Back (upstage) | Backward |
+| **+Y** | House right (audience's right) | Right |
+| **-Y** | House left (audience's left) | Left |
+| **+Z** | Up (fly space) | Up |
+| **-Z** | Down | Down |
+
+All positions are **normalized to [-1, 1]** relative to the Stage Volume.
+Adapters that use different conventions (e.g., ADM-OSC's left-positive azimuth)
+handle the conversion internally at the point of send.
 
 ---
 
@@ -145,10 +179,12 @@ actor positions are **normalized to [-1, 1]** relative to this volume — an
 actor at the centre maps to (0, 0, 0), an actor at the +X face maps to
 (1, 0, 0). Positions outside the box are clamped.
 
-- **Physical dimensions** (metres) for absolute-position protocols
-- **Axis flip** (X/Y/Z) for convention matching
+- **Physical dimensions** (metres) for absolute-position protocols (RTTrPM, DS100)
+- **Axis flip** (X/Y/Z) checkboxes for convention overrides
 - **Listener actor** (optional) shifts the coordinate origin to a player pawn,
   camera, or any actor — enables binaural/head-tracked output
+- **Listener-relative orientation** rotates axes to follow the listener's facing
+  direction (useful for head-tracked binaural rendering)
 - **Auto-follow player** checkbox for zero-code listener tracking
 
 ### Object Bindings
@@ -158,15 +194,17 @@ Each binding maps one UE actor to one or more protocol targets:
 | Property | Description |
 |----------|-------------|
 | **Target Actor** | The actor whose position is tracked |
-| **Object ID** | Protocol channel/object number (≥ 1) |
-| **Gain** | Linear amplitude multiplier [0–2] |
-| **Width / Spread** | Object spread [0–1] |
+| **Object ID** | Protocol channel/object number (>= 1) |
+| **Label** | Display name (falls back to actor label) |
+| **Gain** | Linear amplitude multiplier [0-2] |
+| **Width / Spread** | Object spread [0-1] |
 | **Muted** | Suppress output for this object |
 | **ADM Dref / Dmax** | Distance reference parameters (ADM-OSC only) |
 | **DS100 Spread Mode** | Fixed or proximity-based spread (DS100 only) |
 | **DS100 Delay Mode** | Off / Tight / Full delay (DS100 only) |
 | **QLab Cue ID** | Cue number for QLab object audio |
 | **QLab Object Name** | Audio object name within the cue |
+| **Adapter Targets** | Per-binding adapter type overrides and per-target ObjectID overrides |
 
 ### Multi-Protocol Output
 
@@ -175,7 +213,7 @@ snapshot to every enabled adapter through the Protocol Router.
 
 ### Rate Limiting
 
-Each adapter has a configurable **Send Rate (Hz)** (default 50 Hz, range 1–120).
+Each adapter has a configurable **Send Rate (Hz)** (default 50 Hz, range 1-120).
 Messages are only sent when the rate limiter allows, preventing network
 saturation on high-framerate systems.
 
@@ -196,13 +234,13 @@ SPAT Revolution, and other ADM-OSC renderers.
 
 | OSC Address | Values | Description |
 |-------------|--------|-------------|
-| `/adm/obj/{n}/xyz` | x y z | Cartesian position [-1, 1] |
-| `/adm/obj/{n}/aed` | azimuth elevation distance | Polar position |
-| `/adm/obj/{n}/gain` | dB | Object gain |
-| `/adm/obj/{n}/w` | 0–1 | Object width/spread |
+| `/adm/obj/{n}/xyz` | x y z | Cartesian position [-1, 1] (Y negated on wire for ADM left-positive) |
+| `/adm/obj/{n}/aed` | azimuth elevation distance | Polar position (azimuth: 0°=front, +left) |
+| `/adm/obj/{n}/gain` | linear | Object gain |
+| `/adm/obj/{n}/w` | 0-1 | Object width/spread |
 | `/adm/obj/{n}/mute` | 0/1 | Mute state |
 | `/adm/obj/{n}/name` | string | Object label |
-| `/adm/obj/{n}/dref` | 0–1 | Distance reference |
+| `/adm/obj/{n}/dref` | 0-1 | Distance reference |
 | `/adm/obj/{n}/dmax` | metres | Max distance |
 | `/adm/lis/xyz` | x y z | Listener position |
 | `/adm/lis/ypr` | yaw pitch roll | Listener orientation |
@@ -218,11 +256,11 @@ and coordinate-mapping modes.
 |-------------|--------|-------------|
 | `/dbaudio1/positioning/source_position/{id}` | x y z | Absolute position (metres) |
 | `/dbaudio1/coordinatemapping/source_position_xy/{area}/{id}` | x y | Normalized position [0, 1] |
-| `/dbaudio1/positioning/source_spread/{id}` | 0–1 | Source spread |
+| `/dbaudio1/positioning/source_spread/{id}` | 0-1 | Source spread |
 | `/dbaudio1/positioning/source_delaymode/{id}` | 0/1/2 | Off / Tight / Full |
 
 **Features:**
-- Absolute mode (metres) or coordinate-mapping mode (normalized)
+- Absolute mode (metres) or coordinate-mapping mode (normalized [0,1])
 - Channel ID offset for multi-zone setups
 - Fixed or proximity-based spread (inverse-square with listener distance)
 - Per-object delay mode control
@@ -252,8 +290,12 @@ All multi-byte values are **big-endian**. This adapter uses raw `FSocket` UDP
 
 | OSC Address | Values | Description |
 |-------------|--------|-------------|
-| `/cue/{cueID}/object/{name}/position/live` | x y | Object position |
+| `/cue/{cueID}/object/{name}/position/live` | x y | Object position (x: left/right, y: front/back) |
 | `/cue/{cueID}/object/{name}/spread/live` | s | Object spread |
+
+QLab Cue ID and Object Name are configured per-binding in the Objects tab.
+The Protocol Router packs these into the label field and the QLab adapter
+unpacks them at send time.
 
 **Default port:** 53000
 
@@ -276,9 +318,9 @@ Open via Window → **Spatial Fabric**. The panel has five tabs:
 | Tab | Purpose |
 |-----|---------|
 | **Stage** | Stage Volume assignment, physical dimensions, listener config |
-| **Objects** | Add/remove object bindings, set Object IDs, per-object adapter parameters |
+| **Objects** | Add/remove object bindings, set Object IDs, QLab Cue ID / Object Name, per-object adapter parameters |
 | **Adapters** | View adapter endpoints (IP, port, rate); configure via Manager's Details panel |
-| **Radar** | Live 2D top-down visualization with aspect-correct stage coordinates |
+| **Radar** | Live 2D top-down visualization with aspect-correct stage coordinates (front=top, right=right) |
 | **Output** | Live protocol message preview and scrolling message log |
 
 The panel works in **editor mode** (no PIE required) — an editor tickable
@@ -296,36 +338,57 @@ Plugins/SpatialFabric/
 ├── README.md
 ├── LICENSE
 ├── docs/
-│   └── deep-research-report.md       — Full technical specification
+│   └── deep-research-report.md         — Full technical specification
 └── Source/
-    ├── SpatialFabric/                 # Runtime module
+    ├── SpatialFabric/                   # Runtime module
     │   ├── SpatialFabric.Build.cs
     │   ├── Public/
-    │   │   ├── SpatialFabricTypes.h           — All structs and enums
-    │   │   ├── SpatialFabricSettings.h        — Project Settings defaults
-    │   │   ├── SpatialFabricManagerActor.h    — Central level actor
-    │   │   ├── SpatialStageVolume.h           — Bounding box + coordinate transform
-    │   │   ├── SpatialObjectRegistry.h        — Builds per-frame snapshot
-    │   │   ├── ISpatialProtocolAdapter.h      — Adapter interface + rate limiter
-    │   │   ├── ProtocolRouter.h               — Fan-out to all adapters
-    │   │   ├── SpatialMath.h                  — Coordinate transform utilities
+    │   │   ├── SpatialFabricTypes.h             — All structs and enums
+    │   │   ├── SpatialFabricSettings.h          — Project Settings defaults
+    │   │   ├── SpatialFabricManagerActor.h      — Central level actor
+    │   │   ├── SpatialStageVolume.h             — Bounding box + coordinate transform
+    │   │   ├── SpatialObjectRegistry.h          — Builds per-frame snapshot
+    │   │   ├── ISpatialProtocolAdapter.h        — Adapter interface + rate limiter
+    │   │   ├── ProtocolRouter.h                 — Fan-out to all adapters
+    │   │   ├── SpatialMath.h                    — Coordinate transform utilities
+    │   │   ├── SpatialOSCClientComponent.h      — Sends OSC UDP (wraps UE OSC plugin)
+    │   │   ├── SpatialOSCServerComponent.h      — Receives OSC UDP (wraps UE OSC plugin)
     │   │   └── Adapters/
-    │   │       ├── ADMOSCAdapter.h            — ADM-OSC v1.0 (Phase 1)
-    │   │       ├── DS100Adapter.h             — d&b DS100 (Phase 1)
-    │   │       ├── RTTrPMAdapter.h            — Binary UDP (Phase 1)
-    │   │       ├── QLabObjectAdapter.h        — QLab object audio (Phase 1)
-    │   │       ├── QLabCueAdapter.h           — QLab cue control (Phase 2 stub)
-    │   │       ├── SpaceMapGoAdapter.h        — SpaceMap Go (Phase 2 stub)
-    │   │       └── TiMaxAdapter.h             — TiMax (Phase 2 stub)
+    │   │       ├── ADMOSCAdapter.h              — ADM-OSC v1.0 (Phase 1)
+    │   │       ├── DS100Adapter.h               — d&b DS100 (Phase 1)
+    │   │       ├── RTTrPMAdapter.h              — Binary UDP (Phase 1)
+    │   │       ├── QLabObjectAdapter.h          — QLab object audio (Phase 1)
+    │   │       ├── QLabCueAdapter.h             — QLab cue control (Phase 2 stub)
+    │   │       ├── SpaceMapGoAdapter.h          — SpaceMap Go (Phase 2 stub)
+    │   │       └── TiMaxAdapter.h               — TiMax (Phase 2 stub)
     │   └── Private/
-    │       ├── Tests/
-    │       │   └── SpatialFabricTests.cpp     — 8 automation tests
-    │       └── ... (implementation files)
+    │       ├── SpatialFabricManagerActor.cpp
+    │       ├── SpatialStageVolume.cpp
+    │       ├── SpatialObjectRegistry.cpp
+    │       ├── SpatialMath.cpp
+    │       ├── ProtocolRouter.cpp
+    │       ├── SpatialOSCClientComponent.cpp
+    │       ├── SpatialOSCServerComponent.cpp
+    │       ├── SpatialFabricModule.cpp
+    │       ├── SpatialFabricSettings.cpp
+    │       ├── Adapters/
+    │       │   ├── ADMOSCAdapter.cpp
+    │       │   ├── DS100Adapter.cpp
+    │       │   ├── QLabObjectAdapter.cpp
+    │       │   └── RTTrPMAdapter.cpp
+    │       └── Tests/
+    │           └── SpatialFabricTests.cpp       — 10 automation tests
     │
-    └── SpatialFabricEditor/           # Editor-only module
+    └── SpatialFabricEditor/             # Editor-only module
         ├── SpatialFabricEditor.Build.cs
-        └── Public/UI/
-            └── SSpatialFabricPanel.h          — Dockable Slate panel (5 tabs)
+        ├── Public/
+        │   ├── SpatialFabricEditorModule.h
+        │   └── UI/
+        │       └── SSpatialFabricPanel.h        — Dockable Slate panel (5 tabs)
+        └── Private/
+            ├── SpatialFabricEditorModule.cpp
+            └── UI/
+                └── SSpatialFabricPanel.cpp
 ```
 
 ### Runtime Components
@@ -337,8 +400,8 @@ Plugins/SpatialFabric/
 | `USpatialObjectRegistry` | Reads actor positions each tick; builds `FSpatialFrameSnapshot` |
 | `FProtocolRouter` | Fans snapshot to all enabled adapters; filters per-adapter object subsets |
 | `ISpatialProtocolAdapter` | Pure interface all adapters implement; includes rate limiter |
-| `USpatialOSCServerComponent` | Receives incoming OSC UDP via UE's OSC plugin |
-| `USpatialOSCClientComponent` | Sends outgoing OSC UDP via UE's OSC plugin |
+| `USpatialOSCClientComponent` | Sends outgoing OSC UDP via UE's built-in OSC plugin |
+| `USpatialOSCServerComponent` | Receives incoming OSC UDP via UE's built-in OSC plugin |
 
 ### Data Flow
 
@@ -346,9 +409,10 @@ Plugins/SpatialFabric/
 Each tick:
   ASpatialStageVolume::ResolveListenerThisFrame()
     → cache listener position/rotation
+    → if auto-follow: teleport stage volume to listener
 
   USpatialObjectRegistry::BuildSnapshot(Bindings, StageVolume)
-    → resolve soft actor pointers
+    → resolve soft actor pointers (with cached label fallback)
     → read world transforms
     → normalize to stage volume [-1, 1]
     → compute physical metres
@@ -359,6 +423,20 @@ Each tick:
         FilterSnapshotForAdapter()  → slice per-adapter subset, resolve ObjectIDs
         Adapter::ProcessFrame()     → format protocol messages and send
 ```
+
+### Adapter Wire Convention Handling
+
+The internal coordinate system uses +Y = right (audience perspective).
+Each adapter converts to its wire format at the point of send:
+
+| Adapter | Wire Convention | Conversion |
+|---------|----------------|------------|
+| ADM-OSC Cartesian | +Y = left | Negate Y |
+| ADM-OSC Polar | Azimuth +left (CCW) | Negate Y before atan2 |
+| DS100 (absolute) | Direct metres | No conversion needed |
+| DS100 (mapped) | X: 0=left, 1=right | `(NormY + 1) * 0.5` |
+| QLab | X: left=-1, right=+1 | Direct from NormY |
+| RTTrPM | Binary metres | No conversion needed |
 
 ### Module Dependencies
 
@@ -418,7 +496,7 @@ Each adapter entry in `AdapterConfigs` on the Manager Actor supports:
 |-------|-------------|
 | `TargetIP` | Destination IP address |
 | `TargetPort` | Destination UDP port |
-| `SendRateHz` | Per-adapter rate limit (1–120 Hz) |
+| `SendRateHz` | Per-adapter rate limit (1-120 Hz) |
 | `bEnabled` | Enable/disable this adapter |
 | `ADMCoordinateMode` | Cartesian / Polar / Both (ADM-OSC only) |
 | `bDS100AbsoluteMode` | Absolute metres vs normalized coordinates (DS100 only) |
@@ -431,19 +509,20 @@ Each adapter entry in `AdapterConfigs` on the Manager Actor supports:
 
 ### Automation Tests
 
-SpatialFabric includes 8 UE automation tests (run via Session Frontend →
+SpatialFabric includes 10 UE automation tests (run via Session Frontend →
 Automation → SpatialFabric):
 
-| Test | Description |
-|------|-------------|
-| `SpatialMathCentreTest` | Object at stage centre → normalized (0, 0, 0) |
-| `SpatialMathCornerTest` | Corner positions, clamping, metre conversion |
-| `ADMOSCAddressTest` | ADM-OSC address format validation |
-| `DS100AddressTest` | DS100 address format (absolute + coord-mapping + spread) |
-| `QLabObjectAddressTest` | QLab position/live and spread/live format |
-| `RTTrPMSignatureTest` | RTTrPM header signature bytes (0x4154, 0x0200) |
-| `SpatialMathListenerRelativeTest` | Listener-relative coordinate transform |
-| `DS100NormMappedTest` | DS100 coordinate mapping math |
+| # | Test | Description |
+|---|------|-------------|
+| 1 | `Math.Centre` | Object at stage centre → normalized (0, 0, 0) |
+| 2 | `Math.Corner` | Corner positions, clamping, metre conversion |
+| 3 | `Adapters.ADMOSCAddress` | ADM-OSC address format and value range validation |
+| 4 | `Adapters.DS100Address` | DS100 address format (absolute + coord-mapping + spread) |
+| 5 | `Adapters.QLabObjectAddress` | QLab position/live and spread/live format |
+| 6 | `Adapters.RTTrPMSignature` | RTTrPM header signature bytes (0x4154, 0x0200) |
+| 7 | `Math.ListenerRelative` | Listener-relative coordinate transform (no rotation) |
+| 8 | `Math.ListenerRelativeRotated` | Listener-relative with yaw rotation (Y-axis sign) |
+| 9 | `Math.DS100Mapped` | DS100 coordinate mapping math (front-right/front-left) |
 
 ### Recommended External Tools
 
@@ -467,6 +546,8 @@ Automation → SpatialFabric):
   `bEnableInPackagedBuilds = true` in Project Settings or DefaultEngine.ini.
 - **Phase 2 adapters** (QLab Cue, SpaceMap Go, TiMax) are defined as stubs
   and not yet fully implemented.
+- **All adapters disabled by default** — enable per-show in the Manager Actor's
+  AdapterConfigs map.
 
 ---
 
