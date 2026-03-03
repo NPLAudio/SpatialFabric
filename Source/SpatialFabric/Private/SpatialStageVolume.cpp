@@ -32,13 +32,8 @@ FVector ASpatialStageVolume::ComputeLocalVector(FVector WorldPos) const
 	if (bListenerResolved && bListenerRelativeOrientation)
 	{
 		// Listener-relative orientation: axes follow the listener's facing direction.
-		// UnrotateVector produces UE local-space where +Y = right, but our stage
-		// convention is +Y = stage-left, so negate Y after the rotation.
 		if (!CachedListenerRot.IsNearlyZero())
-		{
 			Local = CachedListenerRot.UnrotateVector(Local);
-			Local.Y = -Local.Y;
-		}
 	}
 	else
 	{

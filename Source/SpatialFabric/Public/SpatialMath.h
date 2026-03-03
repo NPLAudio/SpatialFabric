@@ -12,22 +12,25 @@
  * precision; results are returned as float for OSC wire format compatibility.
  *
  * Coordinate conventions (after stage-volume normalization):
- *   +X = stage front (positive azimuth)
- *   +Y = stage left
- *   +Z = stage up
+ *   +X = front (audience-facing forward)
+ *   +Y = right (audience / house right)
+ *   +Z = up
  *
- * This matches ADM-OSC's recommended convention.  DS100 and QLab mappings
- * are computed from this canonical form.
+ * This follows UE's native axis orientation and matches the audience /
+ * listener perspective (house left/right).  DS100 and QLab mappings are
+ * computed from this canonical form.
  */
 struct SPATIALFABRIC_API FSpatialMath
 {
 	// ── Polar conversion ────────────────────────────────────────────────────
 
 	/**
-	 * Convert a normalized Cartesian position to spherical polar coordinates.
-	 * Returns: X = azimuth (degrees, 0° = front, +CCW from above),
+	 * Convert a normalized Cartesian position to ADM-OSC spherical polar.
+	 * Returns: X = azimuth (degrees, 0° = front, +left / CCW from above),
 	 *          Y = elevation (degrees, 0° = horizontal, +up),
 	 *          Z = distance (magnitude, unnormalized).
+	 * Note: our +Y = right, but ADM azimuth is left-positive, so Y is
+	 * negated internally before computing atan2.
 	 */
 	static FVector CartesianToPolar(FVector Normalized);
 
@@ -35,9 +38,9 @@ struct SPATIALFABRIC_API FSpatialMath
 
 	/**
 	 * Map a stage-normalized position to DS100 coordinate-mapping [0..1] range.
-	 * DS100 coordinate mapping: 0 = left/back/bottom, 1 = right/front/top.
-	 * Input axes X,Y,Z map to DS100 x,y axes as: DS100_x=(NormX+1)*0.5,
-	 * DS100_y=(NormY+1)*0.5.  Z is dropped for 2D mapping.
+	 * DS100 coordinate mapping: X: 0=left, 1=right.  Y: 0=back, 1=front.
+	 * Stage +Y (right) maps to DS100 X=1; stage +X (front) maps to DS100 Y=1.
+	 * Z is dropped for 2D mapping.
 	 */
 	static FVector2D NormalizedToDS100Mapped(FVector Normalized);
 
@@ -46,8 +49,8 @@ struct SPATIALFABRIC_API FSpatialMath
 	/**
 	 * Project a stage-normalized 3D position to a QLab 2D object panning
 	 * coordinate in the horizontal plane.
-	 * Returns: X = QLab panning X (left=-1, right=+1 convention),
-	 *          Y = QLab panning Y (back=-1, front=+1 convention).
+	 * Returns: X = QLab panning X (left=-1, right=+1 — maps directly from NormY),
+	 *          Y = QLab panning Y (back=-1, front=+1 — maps directly from NormX).
 	 * Elevation is preserved as a spread hint (returned in Z).
 	 */
 	static FVector NormalizedToQLab2D(FVector Normalized);

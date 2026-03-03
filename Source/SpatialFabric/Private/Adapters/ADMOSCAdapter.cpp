@@ -83,7 +83,9 @@ void FADMOSCAdapter::SendObject(const FSpatialNormalizedState& State)
 void FADMOSCAdapter::SendCartesian(int32 ID, const FVector& Norm)
 {
 	const FString Addr = FString::Printf(TEXT("/adm/obj/%d/xyz"), ID);
-	Client->SendMultiArg(Addr, { (float)Norm.X, (float)Norm.Y, (float)Norm.Z });
+	// ADM-OSC Cartesian: +Y = left.  Our convention: +Y = right.  Negate Y on the wire.
+	const float ADMY = -Norm.Y;
+	Client->SendMultiArg(Addr, { (float)Norm.X, ADMY, (float)Norm.Z });
 
 	if (OnLog)
 	{
@@ -91,7 +93,7 @@ void FADMOSCAdapter::SendCartesian(int32 ID, const FVector& Norm)
 		Entry.Adapter   = TEXT("ADMOSC");
 		Entry.Direction = TEXT("OUT");
 		Entry.Address   = Addr;
-		Entry.ValueStr  = FString::Printf(TEXT("%.3f %.3f %.3f"), Norm.X, Norm.Y, Norm.Z);
+		Entry.ValueStr  = FString::Printf(TEXT("%.3f %.3f %.3f"), Norm.X, ADMY, Norm.Z);
 		FDateTime Now = FDateTime::Now();
 		Entry.Timestamp = FString::Printf(TEXT("%02d:%02d:%02d"),
 			Now.GetHour(), Now.GetMinute(), Now.GetSecond());
@@ -128,7 +130,8 @@ void FADMOSCAdapter::SendListener(const FSpatialFrameSnapshot& Snapshot)
 	const FVector& LP = Snapshot.ListenerNormalized;
 	const FRotator& LR = Snapshot.ListenerYPR;
 
-	Client->SendMultiArg(TEXT("/adm/lis/xyz"), { (float)LP.X, (float)LP.Y, (float)LP.Z });
+	// ADM-OSC: +Y = left.  Our convention: +Y = right.  Negate Y.
+	Client->SendMultiArg(TEXT("/adm/lis/xyz"), { (float)LP.X, -(float)LP.Y, (float)LP.Z });
 	Client->SendMultiArg(TEXT("/adm/lis/ypr"),
 		{ (float)LR.Yaw, (float)LR.Pitch, (float)LR.Roll });
 }

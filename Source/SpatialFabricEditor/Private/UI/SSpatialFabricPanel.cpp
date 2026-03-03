@@ -151,17 +151,17 @@ public:
 					FSlateLayoutTransform(FVector2f(cx - 30.f, cy + Ry + 4.f))),
 				FText::FromString(FString::Printf(TEXT("Back -%.0fm"), HalfW)),
 				SmallFont, ESlateDrawEffect::None, DimColor);
-			// Left: stage-left (+Y)
+			// Left: house-left (-Y)
 			FSlateDrawElement::MakeText(OutDrawElements, LayerId,
 				AllottedGeometry.ToPaintGeometry(FVector2f(50.f, 14.f),
 					FSlateLayoutTransform(FVector2f(cx - Rx - 52.f, cy - 7.f))),
-				FText::FromString(FString::Printf(TEXT("L +%.0fm"), HalfD)),
+				FText::FromString(FString::Printf(TEXT("L -%.0fm"), HalfD)),
 				SmallFont, ESlateDrawEffect::None, DimColor);
-			// Right: stage-right (-Y)
+			// Right: house-right (+Y)
 			FSlateDrawElement::MakeText(OutDrawElements, LayerId,
 				AllottedGeometry.ToPaintGeometry(FVector2f(50.f, 14.f),
 					FSlateLayoutTransform(FVector2f(cx + Rx + 4.f, cy - 7.f))),
-				FText::FromString(FString::Printf(TEXT("R -%.0fm"), HalfD)),
+				FText::FromString(FString::Printf(TEXT("R +%.0fm"), HalfD)),
 				SmallFont, ESlateDrawEffect::None, DimColor);
 		}
 
@@ -186,10 +186,10 @@ public:
 		const FSpatialFrameSnapshot& Snap = CachedSnapshot;
 
 		// Helper: StageNormalized → screen position
-		// +X = front → screen top  |  +Y = stage-left → screen left
+		// +X = front → screen top  |  +Y = right → screen right
 		auto NormToScreen = [&](float NormX, float NormY) -> FVector2D
 		{
-			return FVector2D(cx - NormY * Rx, cy - NormX * Ry);
+			return FVector2D(cx + NormY * Rx, cy - NormX * Ry);
 		};
 
 		// ── Object dots ─────────────────────────────────────────────────────

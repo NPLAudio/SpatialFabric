@@ -271,14 +271,13 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FSpatialMathListenerRotatedTest::RunTest(const FString& Parameters)
 {
-	// Listener at origin, facing +Y (Yaw = 90°).
-	// Object at world (0, 500, 0) — directly ahead of the listener.
-	// After UnrotateVector the object should be at local (+500, 0, 0) = in front.
+	// Convention: +X = front, +Y = right (audience perspective).
+	// UnrotateVector gives UE local-space which is already right-positive.
 	//
-	// An object at world (500, 0, 0) is to the listener's LEFT.
-	// After UnrotateVector: UE local = (0, -500, 0)  (UE +Y = right, so left = -Y).
-	// Stage convention: +Y = left, so we negate → stage local = (0, +500, 0).
-	// Normalized Y = 500 / 750 = +0.667 (positive = stage-left). ✓
+	// Listener at origin, facing +Y (Yaw = 90°).
+	// Object at world (500, 0, 0) is to the listener's LEFT.
+	// UnrotateVector → UE local = (0, -500, 0)  (+Y = right, so left = -Y).
+	// Normalized Y = -500 / 750 = -0.667 (negative = left). ✓
 
 	const FVector ListenerPos  = FVector::ZeroVector;
 	const FRotator ListenerRot = FRotator(0.f, 90.f, 0.f); // Yaw 90° → facing +Y
@@ -289,14 +288,13 @@ bool FSpatialMathListenerRotatedTest::RunTest(const FString& Parameters)
 		const FVector ObjectPos(500.f, 0.f, 0.f);
 		FVector Local = ObjectPos - ListenerPos; // (500, 0, 0)
 		Local = ListenerRot.UnrotateVector(Local);
-		Local.Y = -Local.Y; // UE right-positive → stage left-positive
 		const FVector Norm(
 			FMath::Clamp(Local.X / HalfExtCm.X, -1.f, 1.f),
 			FMath::Clamp(Local.Y / HalfExtCm.Y, -1.f, 1.f),
 			FMath::Clamp(Local.Z / HalfExtCm.Z, -1.f, 1.f));
 
-		// Object is to the listener's LEFT → stage +Y → positive normalized Y
-		TestTrue("Rotated: left object Y > 0", Norm.Y > 0.f);
+		// Object is to the listener's LEFT → -Y → negative normalized Y
+		TestTrue("Rotated: left object Y < 0", Norm.Y < 0.f);
 		TestTrue("Rotated: left object X ~ 0", FMath::IsNearlyZero(Norm.X, 0.01f));
 	}
 
@@ -305,13 +303,12 @@ bool FSpatialMathListenerRotatedTest::RunTest(const FString& Parameters)
 		const FVector ObjectPos(0.f, 500.f, 0.f);
 		FVector Local = ObjectPos - ListenerPos; // (0, 500, 0)
 		Local = ListenerRot.UnrotateVector(Local);
-		Local.Y = -Local.Y;
 		const FVector Norm(
 			FMath::Clamp(Local.X / HalfExtCm.X, -1.f, 1.f),
 			FMath::Clamp(Local.Y / HalfExtCm.Y, -1.f, 1.f),
 			FMath::Clamp(Local.Z / HalfExtCm.Z, -1.f, 1.f));
 
-		// Object is directly in front → stage +X → positive normalized X
+		// Object is directly in front → +X → positive normalized X
 		TestTrue("Rotated: front object X > 0", Norm.X > 0.f);
 		TestTrue("Rotated: front object Y ~ 0", FMath::IsNearlyZero(Norm.Y, 0.01f));
 	}
@@ -335,10 +332,16 @@ bool FDS100NormMappedTest::RunTest(const FString& Parameters)
 	TestTrue("DS100 centre X = 0.5", FMath::IsNearlyEqual(Centre.X, 0.5f, 0.001f));
 	TestTrue("DS100 centre Y = 0.5", FMath::IsNearlyEqual(Centre.Y, 0.5f, 0.001f));
 
-	// Front-right (+X+Y in stage, i.e. norm=(1,1,0))  → DS100 (1, 1)
+	// Front-right (norm=(1,1,0): +X=front, +Y=right) → DS100 (1, 1)
+	// DS100: X 0=left 1=right, Y 0=back 1=front
 	const FVector2D FrontRight = FSpatialMath::NormalizedToDS100Mapped(FVector(1.f, 1.f, 0.f));
 	TestTrue("DS100 front-right X = 1", FMath::IsNearlyEqual(FrontRight.X, 1.f, 0.001f));
 	TestTrue("DS100 front-right Y = 1", FMath::IsNearlyEqual(FrontRight.Y, 1.f, 0.001f));
+
+	// Front-left (norm=(1,-1,0): +X=front, -Y=left) → DS100 (0, 1)
+	const FVector2D FrontLeft = FSpatialMath::NormalizedToDS100Mapped(FVector(1.f, -1.f, 0.f));
+	TestTrue("DS100 front-left X = 0", FMath::IsNearlyEqual(FrontLeft.X, 0.f, 0.001f));
+	TestTrue("DS100 front-left Y = 1", FMath::IsNearlyEqual(FrontLeft.Y, 1.f, 0.001f));
 
 	return true;
 }
