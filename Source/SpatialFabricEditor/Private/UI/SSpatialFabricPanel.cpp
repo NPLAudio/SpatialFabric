@@ -1322,7 +1322,8 @@ TSharedRef<ITableRow> SSpatialFabricPanel::GenerateBindingRow(
 				[
 					SNew(SHorizontalBox)
 
-					+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center)
+					// â”€â”€ Live position display â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+					+ SHorizontalBox::Slot().FillWidth(1.f).VAlign(VAlign_Center)
 					[
 						SNew(STextBlock)
 						.Text_Lambda([WeakMgr, BIdx]() -> FText
@@ -1335,19 +1336,67 @@ TSharedRef<ITableRow> SSpatialFabricPanel::GenerateBindingRow(
 										if (S.ObjectID == M->ObjectBindings[BIdx].DefaultObjectID)
 											{ State = &S; break; }
 									if (State)
+									{
+										const float SMX = FMath::Clamp(State->StageNormalized.Y * 1000.f, -1000.f, 1000.f);
+										const float SMY = FMath::Clamp(State->StageNormalized.X * 1000.f, -1000.f, 1000.f);
 										return FText::Format(
-											LOCTEXT("SMGLive",
-												"/source/{0}/xpan {1}  ypan {2}  spread {3}"),
+											LOCTEXT("SMGLive", "/channel/{0}/position  {1}  {2}"),
 											State->ObjectID,
-											FText::AsNumber(State->StageNormalized.Y,
-												&FNumberFormattingOptions().SetMinimumFractionalDigits(3).SetMaximumFractionalDigits(3)),
-											FText::AsNumber(State->StageNormalized.X,
-												&FNumberFormattingOptions().SetMinimumFractionalDigits(3).SetMaximumFractionalDigits(3)),
-											FText::AsNumber(State->Width01,
-												&FNumberFormattingOptions().SetMinimumFractionalDigits(2).SetMaximumFractionalDigits(2)));
+											FText::AsNumber(SMX, &FNumberFormattingOptions()
+												.SetMinimumFractionalDigits(0).SetMaximumFractionalDigits(0)),
+											FText::AsNumber(SMY, &FNumberFormattingOptions()
+												.SetMinimumFractionalDigits(0).SetMaximumFractionalDigits(0)));
+									}
 								}
-							return LOCTEXT("SMGHint", "/source/{id}/xpan  /source/{id}/ypan  /source/{id}/spread");
+							return LOCTEXT("SMGHint", "/channel/{id}/position  X  Y");
 						})
+						.Font(FAppStyle::GetFontStyle("SmallFont"))
+						.ColorAndOpacity(FLinearColor(0.6f, 0.6f, 0.6f))
+					]
+
+					// â”€â”€ Spread label â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+					+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center).Padding(8.f, 0.f, 4.f, 0.f)
+					[
+						SNew(STextBlock)
+						.Text(LOCTEXT("SMGSpreadLabel", "Spread"))
+						.Font(FAppStyle::GetFontStyle("SmallFont"))
+						.ColorAndOpacity(FLinearColor(0.6f, 0.6f, 0.6f))
+					]
+
+					// â”€â”€ Spread numeric entry (0â€“100) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+					+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center)
+					[
+						SNew(SBox).WidthOverride(52.f)
+						[
+							SNew(SNumericEntryBox<float>)
+							.Value_Lambda([WeakMgr, BIdx]() -> TOptional<float>
+							{
+								if (const ASpatialFabricManagerActor* M = WeakMgr.Get())
+									if (M->ObjectBindings.IsValidIndex(BIdx))
+										return M->ObjectBindings[BIdx].Width01 * 100.f;
+								return TOptional<float>();
+							})
+							.OnValueCommitted_Lambda([WeakMgr, BIdx](float Val, ETextCommit::Type)
+							{
+								if (ASpatialFabricManagerActor* M = WeakMgr.Get())
+									if (M->ObjectBindings.IsValidIndex(BIdx))
+									{
+										M->ObjectBindings[BIdx].Width01 = FMath::Clamp(Val, 0.f, 100.f) / 100.f;
+										M->MarkPackageDirty();
+									}
+							})
+							.MinValue(0.f).MaxValue(100.f).AllowSpin(true)
+							.Font(FAppStyle::GetFontStyle("SmallFont"))
+							.ToolTipText(LOCTEXT("SMGSpreadTip",
+								"Spread [0-100]. Logarithmic scale. 14 = optimal default."))
+						]
+					]
+
+					// â”€â”€ % suffix â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+					+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center).Padding(3.f, 0.f, 0.f, 0.f)
+					[
+						SNew(STextBlock)
+						.Text(LOCTEXT("SMGSpreadPct", "%"))
 						.Font(FAppStyle::GetFontStyle("SmallFont"))
 						.ColorAndOpacity(FLinearColor(0.6f, 0.6f, 0.6f))
 					]
@@ -1626,7 +1675,7 @@ TSharedRef<SWidget> SSpatialFabricPanel::BuildAdaptersTab()
 		{ TEXT("RTTrPM"),              TEXT("Binary UDP — Centroid Position (IEEE 754 doubles)"), 36700, ESpatialAdapterType::RTTrPM,      false },
 		{ TEXT("QLab Object Audio"),   TEXT("/cue/{id}/object/{name}/position/live"),            53000, ESpatialAdapterType::QLabObject,  false },
 		{ TEXT("QLab Cue Control"),    TEXT("Cue start/stop triggers"),                         53000, ESpatialAdapterType::QLabCue,     false },
-		{ TEXT("Meyer SpaceMap Go"),   TEXT("/source/{n}/xpan  /ypan  /spread"),                38033, ESpatialAdapterType::SpaceMapGo,  false },
+		{ TEXT("Meyer SpaceMap Go"),   TEXT("/channel/{n}/position  /spread"),                38033, ESpatialAdapterType::SpaceMapGo,  false },
 		{ TEXT("TiMax SoundHub"),      TEXT("ADM-OSC or custom address template"),               9000,  ESpatialAdapterType::TiMax,       false },
 	};
 
@@ -1841,7 +1890,8 @@ TSharedRef<SWidget> SSpatialFabricPanel::BuildRadarTab()
 static FString FormatOutputPreview(
 	ESpatialAdapterType AdapterType,
 	const FSpatialNormalizedState& Obj,
-	bool bDS100Absolute)
+	bool bDS100Absolute,
+	EADMCoordinateMode ADMCoordMode = EADMCoordinateMode::Cartesian)
 {
 	const int32 ID = Obj.ObjectID;
 	switch (AdapterType)
@@ -1849,7 +1899,30 @@ static FString FormatOutputPreview(
 	case ESpatialAdapterType::ADMOSC:
 	{
 		const FVector& N = Obj.StageNormalized;
-		return FString::Printf(TEXT("/adm/obj/%d/xyz  %.3f %.3f %.3f"), ID, N.X, N.Y, N.Z);
+		// ADM-OSC axis mapping: ADM X = our Y (right), ADM Y = our X (front), ADM Z = our Z (up)
+		const float ADMX = (float)N.Y;
+		const float ADMY = (float)N.X;
+		const float ADMZ = (float)N.Z;
+
+		FString Lines;
+		if (ADMCoordMode == EADMCoordinateMode::Cartesian || ADMCoordMode == EADMCoordinateMode::Both)
+			Lines += FString::Printf(TEXT("/adm/obj/%d/xyz  %.3f %.3f %.3f\n"), ID, ADMX, ADMY, ADMZ);
+		if (ADMCoordMode == EADMCoordinateMode::Polar || ADMCoordMode == EADMCoordinateMode::Both)
+		{
+			const FVector Polar = FSpatialMath::CartesianToPolar(N);
+			const float Dist = FMath::Clamp((float)Polar.Z / FMath::Sqrt(3.0f), 0.0f, 1.0f);
+			Lines += FString::Printf(TEXT("/adm/obj/%d/aed  %.1f %.1f %.3f\n"), ID, (float)Polar.X, (float)Polar.Y, Dist);
+		}
+		Lines += FString::Printf(TEXT("/adm/obj/%d/gain  %.3f\n"), ID, FMath::Clamp(Obj.GainLinear, 0.0f, 1.0f));
+		Lines += FString::Printf(TEXT("/adm/obj/%d/w  %.3f\n"), ID, Obj.Width01);
+		Lines += FString::Printf(TEXT("/adm/obj/%d/mute  %d"), ID, Obj.bMuted ? 1 : 0);
+		if (!Obj.Label.IsEmpty())
+			Lines += FString::Printf(TEXT("\n/adm/obj/%d/name  \"%s\""), ID, *Obj.Label);
+		if (Obj.Dref != 1.0f)
+			Lines += FString::Printf(TEXT("\n/adm/obj/%d/dref  %.3f"), ID, Obj.Dref);
+		if (Obj.Dmax > 0.0f)
+			Lines += FString::Printf(TEXT("\n/adm/obj/%d/dmax  %.2fm"), ID, Obj.Dmax);
+		return Lines;
 	}
 	case ESpatialAdapterType::DS100:
 	{
@@ -1890,10 +1963,10 @@ static FString FormatOutputPreview(
 	}
 	case ESpatialAdapterType::SpaceMapGo:
 	{
-		const float XPan = FMath::Clamp((float)Obj.StageNormalized.Y, -1.f, 1.f);
-		const float YPan = FMath::Clamp((float)Obj.StageNormalized.X, -1.f, 1.f);
-		return FString::Printf(TEXT("/source/%d/xpan %.3f  ypan %.3f  spread %.2f"),
-			ID, XPan, YPan, Obj.Width01);
+		const float SMX = FMath::Clamp((float)Obj.StageNormalized.Y * 1000.f, -1000.f, 1000.f);
+		const float SMY = FMath::Clamp((float)Obj.StageNormalized.X * 1000.f, -1000.f, 1000.f);
+		const float Spread = FMath::Clamp(Obj.Width01 * 100.f, 0.f, 100.f);
+		return FString::Printf(TEXT("/channel/%d/position  %.0f %.0f\n/channel/%d/spread  %.0f"), ID, SMX, SMY, ID, Spread);
 	}
 	default:
 		return FString::Printf(TEXT("[%d] %.3f %.3f %.3f"), ID,
@@ -1935,6 +2008,9 @@ TSharedRef<SWidget> SSpatialFabricPanel::BuildOutputTab()
 					const uint8 TypeKey = static_cast<uint8>(Type);
 					const FSpatialAdapterConfig* Cfg = Mgr->AdapterConfigs.Find(TypeKey);
 					const bool bAbsolute = Cfg ? Cfg->bDS100AbsoluteMode : true;
+					const EADMCoordinateMode ADMCoordMode = Cfg
+						? Cfg->ADMCoordinateMode
+						: EADMCoordinateMode::Cartesian;
 
 					FString Result;
 					for (const FSpatialNormalizedState& Obj : Snap.Objects)
@@ -1942,7 +2018,7 @@ TSharedRef<SWidget> SSpatialFabricPanel::BuildOutputTab()
 						const FString Muted = Obj.bMuted ? TEXT(" [MUTED]") : TEXT("");
 						Result += FString::Printf(TEXT("%s (ID %d)%s\n  %s\n"),
 							*Obj.Label, Obj.ObjectID, *Muted,
-							*FormatOutputPreview(Type, Obj, bAbsolute));
+							*FormatOutputPreview(Type, Obj, bAbsolute, ADMCoordMode));
 					}
 
 					if (Snap.bHasListener)

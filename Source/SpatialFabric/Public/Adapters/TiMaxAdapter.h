@@ -4,22 +4,36 @@
 
 #include "CoreMinimal.h"
 #include "ISpatialProtocolAdapter.h"
+#include "Adapters/ADMOSCAdapter.h"
 
 /**
- * FTiMaxAdapter  [Phase 2 stub]
+ * FTiMaxAdapter
  *
- * Routes spatial data to a TiMax SoundHub or panLab processor.
- * TiMax SoundHub v6+ supports ADM-OSC directly; earlier versions
- * accept user-defined OSC address templates.
+ * Routes spatial data to a TiMax2 SoundHub processor via ADM-OSC v1.0.
+ * TiMax SoundHub implements the identical ADM-OSC v1.0 dictionary as
+ * FADMOSCAdapter; this adapter is a thin delegation wrapper that
+ * forwards all work to an internal FADMOSCAdapter instance.
+ *
+ * The only differences from FADMOSCAdapter are:
+ *   - Default target port 7000 (configured by SpatialFabricManagerActor)
+ *   - GetAdapterType() returns ESpatialAdapterType::TiMax
+ *   - GetName() returns "TiMax"
+ *   - Log entries tag the Adapter field as "TiMax"
+ *
+ * OSC messages sent per object (identical to FADMOSCAdapter):
+ *   /adm/obj/{n}/xyz   x y z   (Cartesian, normalized [-1,1])
+ *   /adm/obj/{n}/aed   azim elev dist   (Polar, if configured)
+ *   /adm/obj/{n}/gain  float
+ *   /adm/obj/{n}/w     float
+ *   /adm/obj/{n}/mute  int32
+ *   /adm/obj/{n}/name  string
+ *   /adm/obj/{n}/dref  float   (when non-default)
+ *   /adm/obj/{n}/dmax  float   (when set)
+ * Listener (when present):
+ *   /adm/lis/xyz   x y z
+ *   /adm/lis/ypr   yaw pitch roll
  *
  * Default target port: 7000.
- *
- * Modes:
- *   - ADM-OSC mode:  forward normalized xyz/gain/w (same as FADMOSCAdapter)
- *   - Template mode: user defines custom OSC addresses (e.g. /timax/obj{id}/xy)
- *
- * TODO (Phase 2): Implement configurable address templates and
- *   ADM-OSC passthrough delegating to FADMOSCAdapter.
  */
 class SPATIALFABRIC_API FTiMaxAdapter : public ISpatialProtocolAdapter
 {
@@ -29,19 +43,18 @@ public:
 	virtual FName GetName() const override { return TEXT("TiMax"); }
 	virtual ESpatialAdapterType GetAdapterType() const override { return ESpatialAdapterType::TiMax; }
 
-	virtual void Configure(const FSpatialAdapterConfig& InConfig) override { Config = InConfig; }
-	virtual void SetClientComponent(USpatialOSCClientComponent* InClient) override { Client = InClient; }
-	virtual void ProcessFrame(const FSpatialFrameSnapshot& Snapshot, float DeltaTime) override { /* Phase 2 */ }
+	virtual void Configure(const FSpatialAdapterConfig& InConfig) override;
+	virtual void SetClientComponent(USpatialOSCClientComponent* InClient) override;
+	virtual void ProcessFrame(const FSpatialFrameSnapshot& Snapshot, float DeltaTime) override;
+	virtual void HandleIncomingOSC(const FString& Address, float Value) override;
 	virtual bool IsEnabled() const override { return Config.bEnabled; }
 
-	/**
-	 * OSC address template for x/y position.
-	 * Use {id} as placeholder for the object ID.
-	 * Example: "/timax/object{id}/position"
-	 */
-	FString AddressTemplateXY = TEXT("/timax/object{id}/position");
+	/** Returns true if a TiMax ADM-OSC reply has been received. */
+	bool IsConnectionConfirmed() const { return InnerADM.IsConnectionConfirmed(); }
+	/** Seconds since last inbound /adm/... message. -1 = never. */
+	double GetSecondsSinceLastReply() const { return InnerADM.GetSecondsSinceLastReply(); }
 
 private:
 	FSpatialAdapterConfig Config;
-	USpatialOSCClientComponent* Client = nullptr;
+	FADMOSCAdapter InnerADM;
 };

@@ -32,34 +32,28 @@ void FSpaceMapGoAdapter::SendSource(const FSpatialNormalizedState& State)
 	if (!Client) { return; }
 
 	const int32 ID = State.ObjectID;
-	// SpaceMap Go coordinate mapping:
-	//   xpan [-1,1]: left (-1) to right (+1) — our +Y = right, so pass Y directly
-	//   ypan [-1,1]: back (-1) to front (+1) — our +X = front, so pass X directly
-	const float XPan = FMath::Clamp((float)State.StageNormalized.Y, -1.f, 1.f);
-	const float YPan = FMath::Clamp((float)State.StageNormalized.X, -1.f, 1.f);
+	// SpaceMapGo coordinate mapping (range -1000 to 1000):
+	//   X: left (-1000) to right (+1000) — our +Y = right
+	//   Y: back (-1000) to front (+1000) — our +X = front
+	const float SMX = FMath::Clamp(State.StageNormalized.Y * 1000.f, -1000.f, 1000.f);
+	const float SMY = FMath::Clamp(State.StageNormalized.X * 1000.f, -1000.f, 1000.f);
+	// Spread: range 0–100 (logarithmic). 14 = optimal default per SpaceMapGo spec.
+	const float Spread = FMath::Clamp(State.Width01 * 100.f, 0.f, 100.f);
 
-	Client->SendFloat(FString::Printf(TEXT("/source/%d/xpan"), ID), XPan);
-	Client->SendFloat(FString::Printf(TEXT("/source/%d/ypan"), ID), YPan);
-	Client->SendFloat(FString::Printf(TEXT("/source/%d/spread"), ID),
-		FMath::Clamp(State.Width01, 0.f, 1.f));
+	const FString PosAddr = FString::Printf(TEXT("/channel/%d/position"), ID);
+	Client->SendMultiArg(PosAddr, { SMX, SMY });
+	Client->SendFloat(FString::Printf(TEXT("/channel/%d/spread"), ID), Spread);
 
 	if (OnLog)
 	{
 		FSpatialFabricLogEntry Entry;
 		Entry.Adapter   = TEXT("SpaceMapGo");
 		Entry.Direction = TEXT("OUT");
-		Entry.Address   = FString::Printf(TEXT("/source/%d/xpan+ypan"), ID);
-		Entry.ValueStr  = FString::Printf(TEXT("%.3f %.3f"), XPan, YPan);
+		Entry.Address   = PosAddr;
+		Entry.ValueStr  = FString::Printf(TEXT("%.0f %.0f  spread %.0f"), SMX, SMY, Spread);
 		FDateTime Now = FDateTime::Now();
 		Entry.Timestamp = FString::Printf(TEXT("%02d:%02d:%02d"),
 			Now.GetHour(), Now.GetMinute(), Now.GetSecond());
 		OnLog(Entry);
 	}
-}
-
-void FSpaceMapGoAdapter::RecallSnapshot(int32 SnapshotID)
-{
-	if (!Client || !Config.bEnabled) { return; }
-	Client->Connect(Config.TargetIP, Config.TargetPort);
-	Client->SendInt(TEXT("/Console/recall/system"), SnapshotID);
 }
