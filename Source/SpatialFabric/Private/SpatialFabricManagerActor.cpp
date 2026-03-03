@@ -210,18 +210,18 @@ void ASpatialFabricManagerActor::PopulateDefaultAdapterConfigs()
 {
 	const USpatialFabricSettings* S = GetDefault<USpatialFabricSettings>();
 
-	auto MakeConfig = [&](FString IP, int32 Port) -> FSpatialAdapterConfig
+	auto MakeConfig = [&](FString IP, int32 Port, bool bEnabled = false) -> FSpatialAdapterConfig
 	{
 		FSpatialAdapterConfig C;
 		C.TargetIP   = IP;
 		C.TargetPort = Port;
 		C.SendRateHz = S->DefaultSendRateHz;
-		C.bEnabled   = false; // all off by default; user enables per-show
+		C.bEnabled   = bEnabled;
 		return C;
 	};
 
 	AdapterConfigs.Add((uint8)ESpatialAdapterType::ADMOSC,
-		MakeConfig(TEXT("127.0.0.1"), S->DefaultADMOSCPort));
+		MakeConfig(TEXT("127.0.0.1"), S->DefaultADMOSCPort, /*bEnabled=*/true));
 
 	AdapterConfigs.Add((uint8)ESpatialAdapterType::DS100,
 		MakeConfig(TEXT("127.0.0.1"), S->DefaultDS100Port));

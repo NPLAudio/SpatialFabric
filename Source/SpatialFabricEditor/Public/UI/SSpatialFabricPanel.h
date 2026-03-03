@@ -14,12 +14,11 @@ class ASpatialStageVolume;
 /**
  * SSpatialFabricPanel
  *
- * Dockable Slate editor panel for SpatialFabric.  Five tabs:
+ * Dockable Slate editor panel for SpatialFabric.  Four tabs:
  *
  *  [Stage]    — Stage Volume setup and listener assignment.
  *  [Objects]  — Spatial object binding list with Add Selected Actors,
  *               per-binding ID editing, adapter badge toggles, and remove.
- *  [Adapters] — Per-adapter endpoint info (configure via Details panel).
  *  [Radar]    — Live 2D top-down view of tracked objects with coordinates.
  *  [Output]   — Live preview of protocol output (state table + message log).
  */
@@ -45,7 +44,6 @@ private:
 	// ── Tab builders ─────────────────────────────────────────────────────────
 	TSharedRef<SWidget> BuildStageTab();
 	TSharedRef<SWidget> BuildObjectsTab();
-	TSharedRef<SWidget> BuildAdaptersTab();
 	TSharedRef<SWidget> BuildRadarTab();
 	TSharedRef<SWidget> BuildOutputTab();
 

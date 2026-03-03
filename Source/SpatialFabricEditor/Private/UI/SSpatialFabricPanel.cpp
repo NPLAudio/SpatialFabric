@@ -1,11 +1,10 @@
-﻿// Copyright (c) 2026 SpatialFabric Contributors. Licensed under the MIT License.
+// Copyright (c) 2026 SpatialFabric Contributors. Licensed under the MIT License.
 
 #include "UI/SSpatialFabricPanel.h"
 #include "SpatialFabricManagerActor.h"
 #include "SpatialStageVolume.h"
 #include "SpatialFabricTypes.h"
 #include "SpatialMath.h"
-#include "Adapters/ADMOSCAdapter.h"
 
 #include "Editor.h"
 #include "EngineUtils.h"
@@ -317,9 +316,8 @@ void SSpatialFabricPanel::Construct(const FArguments& InArgs)
 	TSharedRef<SWidgetSwitcher> Switcher = SAssignNew(TabSwitcher, SWidgetSwitcher)
 		+ SWidgetSwitcher::Slot()[ BuildStageTab()   ]   // 0
 		+ SWidgetSwitcher::Slot()[ BuildObjectsTab() ]   // 1
-		+ SWidgetSwitcher::Slot()[ BuildAdaptersTab() ]  // 2
-		+ SWidgetSwitcher::Slot()[ BuildRadarTab()   ]   // 3
-		+ SWidgetSwitcher::Slot()[ BuildOutputTab()  ];  // 4
+		+ SWidgetSwitcher::Slot()[ BuildRadarTab()   ]   // 2
+		+ SWidgetSwitcher::Slot()[ BuildOutputTab()  ];  // 3
 
 	// ── Tab button row ──────────────────────────────────────────────────────
 	auto MakeTabBtn = [this](FText Label, int32 Idx) -> TSharedRef<SWidget>
@@ -383,11 +381,9 @@ void SSpatialFabricPanel::Construct(const FArguments& InArgs)
 				+ SHorizontalBox::Slot().AutoWidth().Padding(0.f, 0.f, 2.f, 0.f)
 				[ MakeTabBtn(LOCTEXT("TabObjects",  "Objects"),  1) ]
 				+ SHorizontalBox::Slot().AutoWidth().Padding(0.f, 0.f, 2.f, 0.f)
-				[ MakeTabBtn(LOCTEXT("TabAdapters", "Adapters"), 2) ]
+				[ MakeTabBtn(LOCTEXT("TabRadar",  "Radar"),  2) ]
 				+ SHorizontalBox::Slot().AutoWidth().Padding(0.f, 0.f, 2.f, 0.f)
-				[ MakeTabBtn(LOCTEXT("TabRadar",    "Radar"),    3) ]
-				+ SHorizontalBox::Slot().AutoWidth().Padding(0.f, 0.f, 2.f, 0.f)
-				[ MakeTabBtn(LOCTEXT("TabOutput",   "Output"),   4) ]
+				[ MakeTabBtn(LOCTEXT("TabOutput", "Output"), 3) ]
 				+ SHorizontalBox::Slot().FillWidth(1.f) // spacer
 			]
 
@@ -1458,7 +1454,7 @@ TSharedRef<ITableRow> SSpatialFabricPanel::GenerateBindingRow(
 				]
 			]
 
-			// ── ADM-OSC sub-row (visible only when ADMOSC is the active format) ──
+			// ── ADM-OSC sub-row (visible when ADMOSC is the active format) ──
 		+ SVerticalBox::Slot()
 		.AutoHeight()
 		.Padding(4.f, 2.f, 4.f, 2.f)
@@ -2050,117 +2046,6 @@ void SSpatialFabricPanel::SetActiveFormat(ESpatialAdapterType Type)
 	// Re-initialize the router if we are in PIE so the new bEnabled state takes effect
 	if (Mgr->GetRouter())
 		Mgr->InitializeAdapters();
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-//  Tab — Adapters
-// ─────────────────────────────────────────────────────────────────────────────
-
-TSharedRef<SWidget> SSpatialFabricPanel::BuildAdaptersTab()
-{
-	static const struct {
-		const TCHAR* Name;
-		const TCHAR* Desc;
-		int32 DefaultPort;
-		ESpatialAdapterType AdapterType;
-		bool bHasConnectionStatus;
-	} Info[] = {
-		{ TEXT("ADM-OSC (L-ISA)"),     TEXT("Normalized XYZ  /adm/obj/{n}/xyz"),                9000,  ESpatialAdapterType::ADMOSC,     true  },
-		{ TEXT("d&b DS100"),           TEXT("source_position or source_position_xy"),           50010, ESpatialAdapterType::DS100,       false },
-		{ TEXT("QLab Object Audio"),   TEXT("/cue/{id}/object/{name}/position/live"),            53000, ESpatialAdapterType::QLabObject,  false },
-		{ TEXT("QLab Cue Control"),    TEXT("Cue start/stop triggers"),                         53000, ESpatialAdapterType::QLabCue,     false },
-		{ TEXT("Meyer SpaceMap Go"),   TEXT("/channel/{n}/position  /spread"),                38033, ESpatialAdapterType::SpaceMapGo,  false },
-		{ TEXT("TiMax SoundHub"),      TEXT("ADM-OSC or custom address template"),               9000,  ESpatialAdapterType::TiMax,       false },
-	};
-
-	TSharedRef<SVerticalBox> Box = SNew(SVerticalBox);
-
-	Box->AddSlot().AutoHeight().Padding(0.f, 0.f, 0.f, 6.f)
-	[
-		SNew(STextBlock)
-		.Text(LOCTEXT("AdaptersHeader", "Protocol Adapters"))
-		.Font(FAppStyle::GetFontStyle("BoldFont"))
-	];
-
-	Box->AddSlot().AutoHeight().Padding(0.f, 0.f, 0.f, 8.f)
-	[
-		SNew(STextBlock)
-		.Text(LOCTEXT("AdaptersHelp",
-			"Enable adapters and set IP / port in the SpatialFabricManagerActor "
-			"Details panel under AdapterConfigs."))
-		.AutoWrapText(true)
-		.ColorAndOpacity(FLinearColor(0.65f, 0.65f, 0.65f))
-	];
-
-	for (const auto& A : Info)
-	{
-		// Build the right-side slot: port label + optional connection dot.
-		TSharedRef<SHorizontalBox> RightSlot = SNew(SHorizontalBox);
-
-		RightSlot->AddSlot().AutoWidth().VAlign(VAlign_Center)
-		[
-			SNew(STextBlock)
-			.Text(FText::Format(LOCTEXT("PortFmt", ":{0}"), A.DefaultPort))
-			.ColorAndOpacity(FLinearColor(0.5f, 0.5f, 0.5f))
-		];
-
-		if (A.bHasConnectionStatus)
-		{
-			const ESpatialAdapterType CapturedType = A.AdapterType;
-			// Small colored circle: green = confirmed, grey = no response yet.
-			RightSlot->AddSlot().AutoWidth().VAlign(VAlign_Center).Padding(6.f, 0.f, 0.f, 0.f)
-			[
-				SNew(SBox).WidthOverride(10.f).HeightOverride(10.f)
-				[
-					SNew(SBorder)
-					.BorderImage(FAppStyle::GetBrush("WhiteBrush"))
-					.BorderBackgroundColor_Lambda([this, CapturedType]() -> FSlateColor
-					{
-						const ASpatialFabricManagerActor* Mgr = GetManager();
-						if (!Mgr || !Mgr->GetRouter()) { return FLinearColor(0.3f, 0.3f, 0.3f); }
-						const ISpatialProtocolAdapter* Base = Mgr->GetRouter()->FindAdapter(CapturedType);
-						if (const FADMOSCAdapter* Adm = static_cast<const FADMOSCAdapter*>(Base))
-						{
-							if (Adm->IsConnectionConfirmed())
-							{
-								// Fade green→yellow after 5 s without a new reply
-								const double Age = Adm->GetSecondsSinceLastReply();
-								if (Age < 5.0)  { return FLinearColor(0.1f, 0.8f, 0.2f); }
-								if (Age < 15.0) { return FLinearColor(0.7f, 0.7f, 0.1f); }
-							}
-						}
-						return FLinearColor(0.3f, 0.3f, 0.3f);
-					})
-				]
-			];
-		}
-
-		Box->AddSlot().AutoHeight().Padding(0.f, 1.f)
-		[
-			SNew(SBorder)
-			.BorderImage(FAppStyle::GetBrush("ToolPanel.DarkGroupBorder"))
-			.Padding(FMargin(6.f, 4.f))
-			[
-				SNew(SHorizontalBox)
-				+ SHorizontalBox::Slot().FillWidth(1.f).VAlign(VAlign_Center)
-				[
-					SNew(SVerticalBox)
-					+ SVerticalBox::Slot().AutoHeight()
-					[ SNew(STextBlock).Text(FText::FromString(A.Name)).Font(FAppStyle::GetFontStyle("BoldFont")) ]
-					+ SVerticalBox::Slot().AutoHeight()
-					[ SNew(STextBlock).Text(FText::FromString(A.Desc)).ColorAndOpacity(FLinearColor(0.6f,0.6f,0.6f)) ]
-				]
-				+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center)
-				[
-					RightSlot
-				]
-			]
-		];
-	}
-
-	TSharedRef<SScrollBox> Scroll = SNew(SScrollBox);
-	Scroll->AddSlot().Padding(6.f, 4.f)[ Box ];
-	return Scroll;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
