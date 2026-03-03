@@ -27,3 +27,6 @@ Saved/
 # OS
 .DS_Store
 Thumbs.db
+
+# Reference PDFs (large binaries, not source)
+docs/*.pdf
