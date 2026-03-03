@@ -1,9 +1,12 @@
 # SpatialFabric [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE) [![Buy Me a Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-support-yellow?logo=buymeacoffee)](https://buymeacoffee.com/notpunny)
 
 Multi-protocol spatial audio show-control plugin for Unreal Engine. Maps UE
-actor positions to **ADM-OSC**, **d&b DS100**, **RTTrPM**, **QLab**,
-**SpaceMap Go**, and **TiMax** via a configurable Stage Volume bounding box —
+actor positions to spatial audio renderers via **ADM-OSC** and **QLab** —
 without writing a line of Blueprint or C++.
+
+Through ADM-OSC, a single output reaches any compatible renderer: L-Acoustics
+L-ISA, FLUX:: SPAT Revolution, d&b Soundscape, Meyer Sound SpaceMap Go, TiMax
+SoundHub, and any other ADM-OSC–compliant system.
 
 An open-source tool for theatre, concert, and immersive-audio designers who
 need real-time spatial audio positioning from Unreal Engine.
@@ -100,7 +103,7 @@ Adjust the UE path and target name to match your installation.
 ```
 SpatialFabric
 ├── OSC (UE built-in plugin)
-├── Sockets / Networking (UE modules — for RTTrPM binary UDP)
+├── Sockets / Networking (UE modules)
 └── DeveloperSettings (UE module — for Project Settings integration)
 ```
 
@@ -129,13 +132,14 @@ SpatialFabric
    - The actor's position will now be tracked relative to the Stage Volume.
 
 5. **Enable an output adapter**:
-   - In the **Adapters** tab (or the Manager's Details panel), enable your target
-     protocol (ADM-OSC, DS100, RTTrPM, or QLab).
+   - In the **Adapters** tab (or the Manager's Details panel), enable
+     **ADM-OSC** (for any ADM-OSC–compatible renderer) or **QLab** (for QLab
+     object audio).
    - Set the **Target IP** and **Port** for your audio system.
 
 6. **Press Play** (or use the editor panel in edit mode) and verify output
-   with a tool like [Protokol](https://hexler.net/protokol),
-   [Wireshark](https://www.wireshark.org/), or your audio system's monitor.
+   with a tool like [Protokol](https://hexler.net/protokol) or your audio
+   system's OSC monitor.
 
 ---
 
@@ -179,7 +183,7 @@ actor positions are **normalized to [-1, 1]** relative to this volume — an
 actor at the centre maps to (0, 0, 0), an actor at the +X face maps to
 (1, 0, 0). Positions outside the box are clamped.
 
-- **Physical dimensions** (metres) for absolute-position protocols (RTTrPM, DS100)
+- **Physical dimensions** (metres) for absolute-position protocols (DS100)
 - **Axis flip** (X/Y/Z) checkboxes for convention overrides
 - **Listener actor** (optional) shifts the coordinate origin to a player pawn,
   camera, or any actor — enables binaural/head-tracked output
@@ -200,11 +204,12 @@ Each binding maps one UE actor to one or more protocol targets:
 | **Width / Spread** | Object spread [0-1] |
 | **Muted** | Suppress output for this object |
 | **ADM Dref / Dmax** | Distance reference parameters (ADM-OSC only) |
-| **DS100 Spread Mode** | Fixed or proximity-based spread (DS100 only) |
-| **DS100 Delay Mode** | Off / Tight / Full delay (DS100 only) |
 | **QLab Cue ID** | Cue number for QLab object audio |
 | **QLab Object Name** | Audio object name within the cue |
 | **Adapter Targets** | Per-binding adapter type overrides and per-target ObjectID overrides |
+
+> **DS100-specific fields** (Spread Mode, Delay Mode) are available on the
+> binding when the DS100 adapter is enabled via the Manager's Details panel.
 
 ### Multi-Protocol Output
 
@@ -219,8 +224,10 @@ saturation on high-framerate systems.
 
 ### Editor Panel
 
-A dockable Slate panel with five tabs (Stage, Objects, Adapters, Radar,
-Output) for configuration and live monitoring without requiring Play mode.
+A dockable Slate panel with five tabs for configuration and live monitoring
+without requiring Play mode. The **ADM-OSC** and **QLab** adapter tabs are
+shown by default; DS100, SpaceMap Go, and TiMax tabs are available in the
+Manager Actor's Details panel for advanced use.
 
 ---
 
@@ -228,13 +235,26 @@ Output) for configuration and live monitoring without requiring Play mode.
 
 ### ADM-OSC
 
-[EBU ADM-OSC v1.0](https://adm-osc.github.io/ADM-OSC/) — the open standard
-for object-based audio positioning. Compatible with L-Acoustics L-ISA, FLUX::
-SPAT Revolution, and other ADM-OSC renderers.
+[ADM-OSC](https://adm-osc.github.io/ADM-OSC/) is the open standard for
+object-based audio positioning over OSC ([spec on GitHub](https://github.com/immersive-audio-live/ADM-OSC)).
+A single ADM-OSC output from SpatialFabric works with any compliant renderer:
+
+| System | Vendor | Documentation |
+|--------|--------|---------------|
+| [L-ISA Controller](https://www.l-acoustics.com/products/l-isa-controller/) | L-Acoustics | [L-ISA OSC Protocol](https://l-isa-immersive.com/en/tech-resources/) |
+| [SPAT Revolution](https://www.flux.audio/project/spat-revolution/) | FLUX:: | [SPAT Revolution OSC](https://doc.flux.audio/spat-revolution/) |
+| [Soundscape / DS100](https://www.dbaudio.com/global/en/products/signal-processors/ds100/) | d&b audiotechnik | [DS100 OSC Protocol](https://www.dbaudio.com/global/en/service/documentation/) |
+| [SpaceMap Go](https://meyersound.com/product/spacemap-go/) | Meyer Sound | [SpaceMap Go OSC](https://meyersound.com/product/spacemap-go/) |
+| [TiMax SoundHub](https://thetimaxgroup.com/timax-soundhub/) | TiMax | [TiMax OSC Reference](https://thetimaxgroup.com/resources/) |
+| [Space Controller](https://www.spacecontroller.com/) | Sound Particles | [Space Controller Docs](https://www.soundparticles.com/products/spacecontroller) |
+
+ADM-OSC sends position, gain, spread, mute, label, and optional distance
+parameters per object, plus listener position and orientation for binaural
+head-tracking.
 
 | OSC Address | Values | Description |
 |-------------|--------|-------------|
-| `/adm/obj/{n}/xyz` | x y z | Cartesian position [-1, 1] (Y negated on wire for ADM left-positive) |
+| `/adm/obj/{n}/xyz` | x y z | Cartesian position [-1, 1] (Y negated on wire — ADM convention is left-positive) |
 | `/adm/obj/{n}/aed` | azimuth elevation distance | Polar position (azimuth: 0°=front, +left) |
 | `/adm/obj/{n}/gain` | linear | Object gain |
 | `/adm/obj/{n}/w` | 0-1 | Object width/spread |
@@ -246,47 +266,12 @@ SPAT Revolution, and other ADM-OSC renderers.
 | `/adm/lis/ypr` | yaw pitch roll | Listener orientation |
 
 **Default port:** 9000
-
-### d&b DS100 Soundscape
-
-d&b audiotechnik DS100 positioning protocol. Supports both absolute-position
-and coordinate-mapping modes.
-
-| OSC Address | Values | Description |
-|-------------|--------|-------------|
-| `/dbaudio1/positioning/source_position/{id}` | x y z | Absolute position (metres) |
-| `/dbaudio1/coordinatemapping/source_position_xy/{area}/{id}` | x y | Normalized position [0, 1] |
-| `/dbaudio1/positioning/source_spread/{id}` | 0-1 | Source spread |
-| `/dbaudio1/positioning/source_delaymode/{id}` | 0/1/2 | Off / Tight / Full |
-
-**Features:**
-- Absolute mode (metres) or coordinate-mapping mode (normalized [0,1])
-- Channel ID offset for multi-zone setups
-- Fixed or proximity-based spread (inverse-square with listener distance)
-- Per-object delay mode control
-
-**Default port:** 50010
-
-### RTTrPM — Real-Time Tracking Protocol
-
-BlackTrax / CAST RTTrPM binary UDP protocol for tracking data. Used by
-SpaceMap Go, lighting consoles, and other tracking-aware systems.
-
-| Field | Format | Description |
-|-------|--------|-------------|
-| Signature | `0x4154` ('AT') | Protocol identifier |
-| Version | `0x0200` | Version 2.0 |
-| Module | Trackable (0x01) | Named trackable object |
-| Submodule | Centroid (0x02) | X, Y, Z position (doubles, metres) |
-
-All multi-byte values are **big-endian**. This adapter uses raw `FSocket` UDP
-(not the OSC client) since RTTrPM is a binary protocol.
-
-**Default port:** 36700
+**Recommended send rate:** ≤ 50 Hz (per ADM-OSC spec)
 
 ### QLab Object Audio
 
-[QLab 5](https://qlab.app/) object audio positioning via OSC.
+[QLab 5](https://qlab.app/) object audio positioning via OSC
+([QLab OSC reference](https://qlab.app/docs/v5/scripting/osc-dictionary-v5/)).
 
 | OSC Address | Values | Description |
 |-------------|--------|-------------|
@@ -299,27 +284,19 @@ unpacks them at send time.
 
 **Default port:** 53000
 
-### SpaceMap Go
+### Additional Adapters
 
-[Meyer Sound SpaceMap Go](https://meyersound.com/product/spacemap-go/) panning
-control via OSC.
+The following adapters are also implemented and available via the Manager
+Actor's Details panel:
 
-| OSC Address | Values | Description |
-|-------------|--------|-------------|
-| `/source/{n}/xpan` | -1 to 1 | Left/right pan |
-| `/source/{n}/ypan` | -1 to 1 | Front/back pan |
-| `/source/{n}/spread` | 0 to 1 | Source spread |
+| Adapter | System | Default Port | Notes |
+|---------|--------|-------------|-------|
+| **DS100** | d&b audiotechnik DS100 Soundscape | 50010 | Native DS100 OSC; absolute-position or coordinate-mapping modes |
+| **SpaceMap Go** | Meyer Sound SpaceMap Go | 38033 | `/channel/{n}/position X Y` [-1000, 1000] + `/channel/{n}/spread` [0-100] |
+| **TiMax** | TiMax SoundHub | 7000 | Delegates to ADM-OSC adapter internally |
 
-**Default port:** 38033
-
-### Additional Adapters (Stubs)
-
-The following adapters are defined but not yet fully implemented:
-
-| Adapter | Target System | Default Port |
-|---------|---------------|-------------|
-| **QLab Cue Control** | QLab cue triggering | 53000 |
-| **TiMax SoundHub** | TiMax SoundHub / panLab | 7000 |
+The **QLab Cue Control** adapter (cue triggering) is a stub — not yet
+implemented.
 
 ---
 
@@ -330,13 +307,16 @@ Open via Window → **Spatial Fabric**. The panel has five tabs:
 | Tab | Purpose |
 |-----|---------|
 | **Stage** | Stage Volume assignment, physical dimensions, listener config |
-| **Objects** | Add/remove object bindings, set Object IDs, QLab Cue ID / Object Name, per-object adapter parameters |
-| **Adapters** | View adapter endpoints (IP, port, rate); configure via Manager's Details panel |
+| **Objects** | Add/remove object bindings, set Object IDs, QLab Cue ID / Object Name |
+| **Adapters** | ADM-OSC and QLab endpoint configuration (IP, port, rate) |
 | **Radar** | Live 2D top-down visualization with aspect-correct stage coordinates (front=top, right=right) |
 | **Output** | Live protocol message preview and scrolling message log |
 
 The panel works in **editor mode** (no PIE required) — an editor tickable
 drives `ProcessFrame()` so you see live data while placing actors.
+
+> **Advanced adapters** (DS100, SpaceMap Go, TiMax) are configured via the
+> Manager Actor's Details panel rather than the Adapters tab.
 
 ---
 
@@ -366,11 +346,10 @@ Plugins/SpatialFabric/
     │   │   └── Adapters/
     │   │       ├── ADMOSCAdapter.h              — ADM-OSC v1.0
     │   │       ├── DS100Adapter.h               — d&b DS100
-    │   │       ├── RTTrPMAdapter.h              — Binary UDP
     │   │       ├── QLabObjectAdapter.h          — QLab object audio
     │   │       ├── QLabCueAdapter.h             — QLab cue control (stub)
     │   │       ├── SpaceMapGoAdapter.h          — SpaceMap Go
-    │   │       └── TiMaxAdapter.h               — TiMax (stub)
+    │   │       └── TiMaxAdapter.h               — TiMax SoundHub (delegates to ADM-OSC)
     │   └── Private/
     │       ├── SpatialFabricManagerActor.cpp
     │       ├── SpatialStageVolume.cpp
@@ -385,10 +364,10 @@ Plugins/SpatialFabric/
     │       │   ├── ADMOSCAdapter.cpp
     │       │   ├── DS100Adapter.cpp
     │       │   ├── QLabObjectAdapter.cpp
-    │       │   ├── RTTrPMAdapter.cpp
-    │       │   └── SpaceMapGoAdapter.cpp
+    │       │   ├── SpaceMapGoAdapter.cpp
+    │       │   └── TiMaxAdapter.cpp
     │       └── Tests/
-    │           └── SpatialFabricTests.cpp       — 10 automation tests
+    │           └── SpatialFabricTests.cpp       — 9 automation tests
     │
     └── SpatialFabricEditor/             # Editor-only module
         ├── SpatialFabricEditor.Build.cs
@@ -447,15 +426,15 @@ Each adapter converts to its wire format at the point of send:
 | DS100 (absolute) | Direct metres | No conversion needed |
 | DS100 (mapped) | X: 0=left, 1=right | `(NormY + 1) * 0.5` |
 | QLab | X: left=-1, right=+1 | Direct from NormY |
-| SpaceMap Go | xpan: left=-1, right=+1; ypan: front=-1, back=+1 | Direct from NormY / NormX |
-| RTTrPM | Binary metres | No conversion needed |
+| SpaceMap Go | X: left=-1000, right=+1000; Y: back=-1000, front=+1000 | `NormY * 1000` / `NormX * 1000` |
+| TiMax | Same as ADM-OSC (delegates internally) | Negate Y |
 
 ### Module Dependencies
 
 ```
 SpatialFabric (runtime):
-    Core, CoreUObject, Engine, OSC, Sockets, Networking,
-    DeveloperSettings, Slate, SlateCore, InputCore
+    Core, CoreUObject, Engine, OSC, Sockets, Networking, DeveloperSettings,
+    Slate, SlateCore, InputCore
 
 SpatialFabricEditor (editor-only):
     SpatialFabric, EditorSubsystem, PropertyEditor, UnrealEd,
@@ -496,7 +475,6 @@ Accessible via Project Settings → Plugins → **Spatial Fabric**:
 | `DefaultDS100Port` | `50010` | DS100 default send port |
 | `DefaultADMOSCPort` | `9000` | ADM-OSC default send port |
 | `DefaultQLabPort` | `53000` | QLab default send port |
-| `DefaultRTTrPMPort` | `36700` | RTTrPM default send port |
 | `DefaultSpaceMapGoPort` | `38033` | SpaceMap Go default send port |
 | `DefaultSendRateHz` | `50.0` | Default adapter send rate (Hz) |
 
@@ -521,7 +499,7 @@ Each adapter entry in `AdapterConfigs` on the Manager Actor supports:
 
 ### Automation Tests
 
-SpatialFabric includes 10 UE automation tests (run via Session Frontend →
+SpatialFabric includes 9 UE automation tests (run via Session Frontend →
 Automation → SpatialFabric):
 
 | # | Test | Description |
@@ -531,10 +509,9 @@ Automation → SpatialFabric):
 | 3 | `Adapters.ADMOSCAddress` | ADM-OSC address format and value range validation |
 | 4 | `Adapters.DS100Address` | DS100 address format (absolute + coord-mapping + spread) |
 | 5 | `Adapters.QLabObjectAddress` | QLab position/live and spread/live format |
-| 6 | `Adapters.RTTrPMSignature` | RTTrPM header signature bytes (0x4154, 0x0200) |
-| 7 | `Math.ListenerRelative` | Listener-relative coordinate transform (no rotation) |
-| 8 | `Math.ListenerRelativeRotated` | Listener-relative with yaw rotation (Y-axis sign) |
-| 9 | `Math.DS100Mapped` | DS100 coordinate mapping math (front-right/front-left) |
+| 6 | `Math.ListenerRelative` | Listener-relative coordinate transform (no rotation) |
+| 7 | `Math.ListenerRelativeRotated` | Listener-relative with yaw rotation (Y-axis sign) |
+| 8 | `Math.DS100Mapped` | DS100 coordinate mapping math (front-right/front-left) |
 
 ### Recommended External Tools
 
@@ -542,7 +519,6 @@ Automation → SpatialFabric):
 |------|----------|
 | [Protokol](https://hexler.net/protokol) (free) | General-purpose OSC monitor |
 | [python-osc](https://pypi.org/project/python-osc/) | Scripted testing and CI |
-| [Wireshark](https://www.wireshark.org/) | RTTrPM binary packet inspection |
 | [L-ISA Controller](https://www.l-acoustics.com/) (free offline) | ADM-OSC visual verification |
 | [R1 Remote](https://www.dbaudio.com/) (free) | DS100 visual verification |
 | [QLab](https://qlab.app/) (free tier) | QLab OSC Activity monitor |
@@ -556,8 +532,7 @@ Automation → SpatialFabric):
   place multiple Manager Actors in the level.
 - **Networking is disabled in packaged builds** by default. Set
   `bEnableInPackagedBuilds = true` in Project Settings or DefaultEngine.ini.
-- **QLab Cue and TiMax adapters** are defined as stubs and not yet fully
-  implemented.
+- **QLab Cue adapter** is a stub and not yet fully implemented.
 - **All adapters disabled by default** — enable per-show in the Manager Actor's
   AdapterConfigs map.
 
