@@ -4,21 +4,24 @@
 
 #include "CoreMinimal.h"
 #include "ISpatialProtocolAdapter.h"
+#include "SpatialFabricTypes.h"
 
 /**
- * FSpaceMapGoAdapter  [Phase 2 stub]
+ * FSpaceMapGoAdapter
  *
- * Routes spatial data to a Meyer Sound SpaceMap Go processor.
- * SpaceMap Go accepts OSC on port 38033 and RTTrPM for tracking.
+ * Routes spatial data to a Meyer Sound SpaceMap Go processor via OSC.
+ * SpaceMap Go listens for OSC on port 38033.
+ *
+ * Per-source messages sent each frame:
+ *   /source/{n}/xpan        float  [-1, 1]   left/right pan  (+Y = right, matching our convention)
+ *   /source/{n}/ypan        float  [-1, 1]   front/back pan  (+X = front)
+ *   /source/{n}/crossfade   float  [ 0, 1]   Spacemap crossfade (mapped from depth Z, optional)
+ *   /source/{n}/spread      float  [ 0, 1]   source spread
+ *
+ * Snapshot recall (call RecallSnapshot manually):
+ *   /Console/recall/system  int32  (ID: 900–3000)
  *
  * Default target port: 38033.
- *
- * Supported operations:
- *   - Snapshot recall:  /Console/recall/system  <ID>   (ID: 900–3000)
- *   - Tracking:         delegate to FRTTrPMAdapter
- *
- * TODO (Phase 2): Implement snapshot recall on zone events and
- *   RTTrPM passthrough configuration.
  */
 class SPATIALFABRIC_API FSpaceMapGoAdapter : public ISpatialProtocolAdapter
 {
@@ -28,9 +31,9 @@ public:
 	virtual FName GetName() const override { return TEXT("SpaceMapGo"); }
 	virtual ESpatialAdapterType GetAdapterType() const override { return ESpatialAdapterType::SpaceMapGo; }
 
-	virtual void Configure(const FSpatialAdapterConfig& InConfig) override { Config = InConfig; }
-	virtual void SetClientComponent(USpatialOSCClientComponent* InClient) override { Client = InClient; }
-	virtual void ProcessFrame(const FSpatialFrameSnapshot& Snapshot, float DeltaTime) override { /* Phase 2 */ }
+	virtual void Configure(const FSpatialAdapterConfig& InConfig) override;
+	virtual void SetClientComponent(USpatialOSCClientComponent* InClient) override;
+	virtual void ProcessFrame(const FSpatialFrameSnapshot& Snapshot, float DeltaTime) override;
 	virtual bool IsEnabled() const override { return Config.bEnabled; }
 
 	/** Recall a SpaceMap Go system snapshot by ID (900–3000). */
@@ -39,4 +42,6 @@ public:
 private:
 	FSpatialAdapterConfig Config;
 	USpatialOSCClientComponent* Client = nullptr;
+
+	void SendSource(const FSpatialNormalizedState& State);
 };
