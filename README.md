@@ -1,4 +1,4 @@
-# SpatialFabric [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+# SpatialFabric [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE) [![Buy Me a Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-support-yellow?logo=buymeacoffee)](https://buymeacoffee.com/notpunny)
 
 Multi-protocol spatial audio show-control plugin for Unreal Engine. Maps UE
 actor positions to **ADM-OSC**, **d&b DS100**, **RTTrPM**, **QLab**,
@@ -548,6 +548,13 @@ Automation → SpatialFabric):
   and not yet fully implemented.
 - **All adapters disabled by default** — enable per-show in the Manager Actor's
   AdapterConfigs map.
+
+---
+
+## Support
+
+If SpatialFabric is useful to you, consider
+[buying me a coffee](https://buymeacoffee.com/notpunny).
 
 ---
 
