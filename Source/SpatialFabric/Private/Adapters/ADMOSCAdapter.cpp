@@ -67,35 +67,8 @@ void FADMOSCAdapter::SendObject(const FSpatialNormalizedState& State)
 		SendPolar(ID, P);
 	}
 
-	// ── /adm/obj/{n}/gain  (float, linear amplitude) ────────────────────
-	// ADM-OSC spec range: [0, 1]. Clamp in case UE actor gain exceeds unity.
-	Client->SendFloat(FString::Printf(TEXT("/adm/obj/%d/gain"), ID),
-		FMath::Clamp(State.GainLinear, 0.0f, 1.0f));
-
 	// ── /adm/obj/{n}/w  (float, horizontal extent [0..1]) ───────────────
 	Client->SendFloat(FString::Printf(TEXT("/adm/obj/%d/w"), ID), State.Width01);
-
-	// ── /adm/obj/{n}/mute  (int32, 0 or 1 per spec type 'i') ───────────
-	Client->SendInt(FString::Printf(TEXT("/adm/obj/%d/mute"), ID),
-		State.bMuted ? 1 : 0);
-
-	// ── /adm/obj/{n}/name  (string, object label) ───────────────────────
-	if (!State.Label.IsEmpty())
-	{
-		Client->SendString(FString::Printf(TEXT("/adm/obj/%d/name"), ID), State.Label);
-	}
-
-	// ── /adm/obj/{n}/dref  (float, distance reference [0..1]) ───────────
-	if (State.Dref != 1.0f)
-	{
-		Client->SendFloat(FString::Printf(TEXT("/adm/obj/%d/dref"), ID), State.Dref);
-	}
-
-	// ── /adm/obj/{n}/dmax  (float, max distance in metres) ──────────────
-	if (State.Dmax > 0.0f)
-	{
-		Client->SendFloat(FString::Printf(TEXT("/adm/obj/%d/dmax"), ID), State.Dmax);
-	}
 }
 
 void FADMOSCAdapter::SendCartesian(int32 ID, const FVector& Norm)
@@ -133,9 +106,13 @@ void FADMOSCAdapter::SendPolar(int32 ID, const FVector& Norm)
 	// normalized [-1,1]^3 position can reach √3 ≈ 1.732 at a stage corner.
 	// Divide by √3 to map the full stage cube onto [0, 1].
 	const float NormalizedDist = FMath::Clamp((float)Polar.Z / FMath::Sqrt(3.0f), 0.0f, 1.0f);
+	// Spec: azimuth [-180, 180], elevation [-90, 90].  atan2 stays in range
+	// analytically, but clamp defensively for NaN safety and spec compliance.
+	const float ClampedAzim = FMath::Clamp((float)Polar.X, -180.0f, 180.0f);
+	const float ClampedElev = FMath::Clamp((float)Polar.Y,  -90.0f,  90.0f);
 
 	const FString Addr = FString::Printf(TEXT("/adm/obj/%d/aed"), ID);
-	Client->SendMultiArg(Addr, { (float)Polar.X, (float)Polar.Y, NormalizedDist });
+	Client->SendMultiArg(Addr, { ClampedAzim, ClampedElev, NormalizedDist });
 
 	if (OnLog)
 	{
@@ -143,7 +120,7 @@ void FADMOSCAdapter::SendPolar(int32 ID, const FVector& Norm)
 		Entry.Adapter   = TEXT("ADMOSC");
 		Entry.Direction = TEXT("OUT");
 		Entry.Address   = Addr;
-		Entry.ValueStr  = FString::Printf(TEXT("%.1f %.1f %.3f"), Polar.X, Polar.Y, NormalizedDist);
+		Entry.ValueStr  = FString::Printf(TEXT("%.1f %.1f %.3f"), ClampedAzim, ClampedElev, NormalizedDist);
 		FDateTime Now = FDateTime::Now();
 		Entry.Timestamp = FString::Printf(TEXT("%02d:%02d:%02d"),
 			Now.GetHour(), Now.GetMinute(), Now.GetSecond());

@@ -1305,7 +1305,68 @@ TSharedRef<ITableRow> SSpatialFabricPanel::GenerateBindingRow(
 				]
 			]
 
-			// ── SpaceMap Go sub-row (visible only when SpaceMapGo is the active format) ──
+			// ── ADM-OSC sub-row (visible only when ADMOSC is the active format) ──
+		+ SVerticalBox::Slot()
+		.AutoHeight()
+		.Padding(4.f, 2.f, 4.f, 2.f)
+		[
+			SNew(SBorder)
+			.BorderImage(FAppStyle::GetBrush("ToolPanel.DarkGroupBorder"))
+			.Padding(FMargin(6.f, 3.f))
+			.Visibility_Lambda([WeakMgr]()
+			{
+				const ASpatialFabricManagerActor* M = WeakMgr.Get();
+				return (M && M->ActiveAdapterType == ESpatialAdapterType::ADMOSC)
+					? EVisibility::Visible : EVisibility::Collapsed;
+			})
+			[
+				SNew(SHorizontalBox)
+
+				// "w:" label
+				+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center).Padding(0.f, 0.f, 4.f, 0.f)
+				[
+					SNew(STextBlock)
+					.Text(LOCTEXT("ADMWLabel", "w:"))
+					.ColorAndOpacity(FLinearColor(0.6f, 0.6f, 0.6f))
+					.Font(FAppStyle::GetFontStyle("SmallFont"))
+					.ToolTipText(LOCTEXT("ADMWTip",
+						"ADM-OSC horizontal extent /adm/obj/{n}/w [0–1].\n"
+						"0 = point source, 1 = full stage width."))
+				]
+
+				// w spinner [0..1]
+				+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center)
+				[
+					SNew(SBox).WidthOverride(60.f)
+					[
+						SNew(SNumericEntryBox<float>)
+						.Value_Lambda([WeakMgr, BIdx]() -> TOptional<float>
+						{
+							if (const ASpatialFabricManagerActor* M = WeakMgr.Get())
+								if (M->ObjectBindings.IsValidIndex(BIdx))
+									return M->ObjectBindings[BIdx].Width01;
+							return TOptional<float>();
+						})
+						.OnValueCommitted_Lambda([WeakMgr, BIdx](float Val, ETextCommit::Type)
+						{
+							if (ASpatialFabricManagerActor* M = WeakMgr.Get())
+								if (M->ObjectBindings.IsValidIndex(BIdx))
+								{
+									M->ObjectBindings[BIdx].Width01 = FMath::Clamp(Val, 0.f, 1.f);
+									M->MarkPackageDirty();
+								}
+						})
+						.MinValue(0.f).MaxValue(1.f).AllowSpin(true)
+						.Font(FAppStyle::GetFontStyle("SmallFont"))
+					]
+				]
+
+				// Spacer
+				+ SHorizontalBox::Slot().FillWidth(1.f)
+			]
+		]
+
+		// ── SpaceMap Go sub-row (visible only when SpaceMapGo is the active format) ──
 			+ SVerticalBox::Slot()
 			.AutoHeight()
 			.Padding(4.f, 2.f, 4.f, 2.f)
@@ -1913,15 +1974,7 @@ static FString FormatOutputPreview(
 			const float Dist = FMath::Clamp((float)Polar.Z / FMath::Sqrt(3.0f), 0.0f, 1.0f);
 			Lines += FString::Printf(TEXT("/adm/obj/%d/aed  %.1f %.1f %.3f\n"), ID, (float)Polar.X, (float)Polar.Y, Dist);
 		}
-		Lines += FString::Printf(TEXT("/adm/obj/%d/gain  %.3f\n"), ID, FMath::Clamp(Obj.GainLinear, 0.0f, 1.0f));
-		Lines += FString::Printf(TEXT("/adm/obj/%d/w  %.3f\n"), ID, Obj.Width01);
-		Lines += FString::Printf(TEXT("/adm/obj/%d/mute  %d"), ID, Obj.bMuted ? 1 : 0);
-		if (!Obj.Label.IsEmpty())
-			Lines += FString::Printf(TEXT("\n/adm/obj/%d/name  \"%s\""), ID, *Obj.Label);
-		if (Obj.Dref != 1.0f)
-			Lines += FString::Printf(TEXT("\n/adm/obj/%d/dref  %.3f"), ID, Obj.Dref);
-		if (Obj.Dmax > 0.0f)
-			Lines += FString::Printf(TEXT("\n/adm/obj/%d/dmax  %.2fm"), ID, Obj.Dmax);
+		Lines += FString::Printf(TEXT("/adm/obj/%d/w  %.3f"), ID, Obj.Width01);
 		return Lines;
 	}
 	case ESpatialAdapterType::DS100:
