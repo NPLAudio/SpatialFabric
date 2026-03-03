@@ -299,6 +299,19 @@ unpacks them at send time.
 
 **Default port:** 53000
 
+### SpaceMap Go
+
+[Meyer Sound SpaceMap Go](https://meyersound.com/product/spacemap-go/) panning
+control via OSC.
+
+| OSC Address | Values | Description |
+|-------------|--------|-------------|
+| `/source/{n}/xpan` | -1 to 1 | Left/right pan |
+| `/source/{n}/ypan` | -1 to 1 | Front/back pan |
+| `/source/{n}/spread` | 0 to 1 | Source spread |
+
+**Default port:** 38033
+
 ### Additional Adapters (Stubs)
 
 The following adapters are defined but not yet fully implemented:
@@ -306,7 +319,6 @@ The following adapters are defined but not yet fully implemented:
 | Adapter | Target System | Default Port |
 |---------|---------------|-------------|
 | **QLab Cue Control** | QLab cue triggering | 53000 |
-| **SpaceMap Go** | Meyer Sound SpaceMap Go | 38033 |
 | **TiMax SoundHub** | TiMax SoundHub / panLab | 7000 |
 
 ---
@@ -357,7 +369,7 @@ Plugins/SpatialFabric/
     │   │       ├── RTTrPMAdapter.h              — Binary UDP
     │   │       ├── QLabObjectAdapter.h          — QLab object audio
     │   │       ├── QLabCueAdapter.h             — QLab cue control (stub)
-    │   │       ├── SpaceMapGoAdapter.h          — SpaceMap Go (stub)
+    │   │       ├── SpaceMapGoAdapter.h          — SpaceMap Go
     │   │       └── TiMaxAdapter.h               — TiMax (stub)
     │   └── Private/
     │       ├── SpatialFabricManagerActor.cpp
@@ -373,7 +385,8 @@ Plugins/SpatialFabric/
     │       │   ├── ADMOSCAdapter.cpp
     │       │   ├── DS100Adapter.cpp
     │       │   ├── QLabObjectAdapter.cpp
-    │       │   └── RTTrPMAdapter.cpp
+    │       │   ├── RTTrPMAdapter.cpp
+    │       │   └── SpaceMapGoAdapter.cpp
     │       └── Tests/
     │           └── SpatialFabricTests.cpp       — 10 automation tests
     │
@@ -434,6 +447,7 @@ Each adapter converts to its wire format at the point of send:
 | DS100 (absolute) | Direct metres | No conversion needed |
 | DS100 (mapped) | X: 0=left, 1=right | `(NormY + 1) * 0.5` |
 | QLab | X: left=-1, right=+1 | Direct from NormY |
+| SpaceMap Go | xpan: left=-1, right=+1; ypan: front=-1, back=+1 | Direct from NormY / NormX |
 | RTTrPM | Binary metres | No conversion needed |
 
 ### Module Dependencies
@@ -542,8 +556,8 @@ Automation → SpatialFabric):
   place multiple Manager Actors in the level.
 - **Networking is disabled in packaged builds** by default. Set
   `bEnableInPackagedBuilds = true` in Project Settings or DefaultEngine.ini.
-- **QLab Cue, SpaceMap Go, and TiMax adapters** are defined as stubs and not
-  yet fully implemented.
+- **QLab Cue and TiMax adapters** are defined as stubs and not yet fully
+  implemented.
 - **All adapters disabled by default** — enable per-show in the Manager Actor's
   AdapterConfigs map.
 
