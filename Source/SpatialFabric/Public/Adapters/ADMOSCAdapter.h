@@ -42,12 +42,25 @@ public:
 	virtual void Configure(const FSpatialAdapterConfig& InConfig) override;
 	virtual void SetClientComponent(USpatialOSCClientComponent* InClient) override;
 	virtual void ProcessFrame(const FSpatialFrameSnapshot& Snapshot, float DeltaTime) override;
+	virtual void HandleIncomingOSC(const FString& Address, float Value) override;
 	virtual bool IsEnabled() const override { return Config.bEnabled; }
+
+	/** Returns true if an ADM-OSC receiver has sent any message back to us. */
+	bool IsConnectionConfirmed() const { return bConnectionConfirmed; }
+	/** Seconds since last inbound ADM-OSC message was received. -1 = never. */
+	double GetSecondsSinceLastReply() const { return SecondsSinceLastReply; }
 
 private:
 	FSpatialAdapterConfig Config;
 	EADMCoordinateMode CoordMode = EADMCoordinateMode::Cartesian;
 	USpatialOSCClientComponent* Client = nullptr;
+
+	/** Set to true when any inbound /adm/... message is received. */
+	bool bConnectionConfirmed = false;
+	/** Wall-clock time of last received /adm/... message (FPlatformTime::Seconds()). -1 = never. */
+	double LastReplyTime = -1.0;
+	/** Seconds elapsed since LastReplyTime (updated in ProcessFrame). */
+	double SecondsSinceLastReply = -1.0;
 
 	/** Send all ADM-OSC v1.0 messages for one object. */
 	void SendObject(const FSpatialNormalizedState& State);

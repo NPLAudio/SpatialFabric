@@ -5,6 +5,7 @@
 #include "SpatialStageVolume.h"
 #include "SpatialFabricTypes.h"
 #include "SpatialMath.h"
+#include "Adapters/ADMOSCAdapter.h"
 
 #include "Editor.h"
 #include "EngineUtils.h"
@@ -298,10 +299,11 @@ struct FSFFormatDef { ESpatialAdapterType Type; FString Name; FLinearColor Color
 static TArray<FSFFormatDef> GetFormatDefs()
 {
 	return {
-		{ ESpatialAdapterType::ADMOSC,     TEXT("ADM-OSC"),     FLinearColor(0.10f, 0.45f, 0.85f) },
-		{ ESpatialAdapterType::DS100,      TEXT("DS100"),        FLinearColor(1.00f, 0.42f, 0.10f) },
-		{ ESpatialAdapterType::RTTrPM,     TEXT("RTTrPM"),       FLinearColor(0.58f, 0.30f, 0.72f) },
-		{ ESpatialAdapterType::QLabObject, TEXT("QLab Object"),  FLinearColor(0.10f, 0.72f, 0.32f) },
+		{ ESpatialAdapterType::ADMOSC,      TEXT("ADM-OSC"),     FLinearColor(0.10f, 0.45f, 0.85f) },
+		{ ESpatialAdapterType::DS100,       TEXT("DS100"),        FLinearColor(1.00f, 0.42f, 0.10f) },
+		{ ESpatialAdapterType::RTTrPM,      TEXT("RTTrPM"),       FLinearColor(0.58f, 0.30f, 0.72f) },
+		{ ESpatialAdapterType::QLabObject,  TEXT("QLab Object"),  FLinearColor(0.10f, 0.72f, 0.32f) },
+		{ ESpatialAdapterType::SpaceMapGo,  TEXT("SpaceMap Go"),  FLinearColor(0.80f, 0.55f, 0.00f) },
 	};
 }
 
@@ -1303,6 +1305,55 @@ TSharedRef<ITableRow> SSpatialFabricPanel::GenerateBindingRow(
 				]
 			]
 
+			// ── SpaceMap Go sub-row (visible only when SpaceMapGo is the active format) ──
+			+ SVerticalBox::Slot()
+			.AutoHeight()
+			.Padding(4.f, 2.f, 4.f, 2.f)
+			[
+				SNew(SBorder)
+				.BorderImage(FAppStyle::GetBrush("ToolPanel.DarkGroupBorder"))
+				.Padding(FMargin(6.f, 3.f))
+				.Visibility_Lambda([WeakMgr]()
+				{
+					const ASpatialFabricManagerActor* M = WeakMgr.Get();
+					return (M && M->ActiveAdapterType == ESpatialAdapterType::SpaceMapGo)
+						? EVisibility::Visible : EVisibility::Collapsed;
+				})
+				[
+					SNew(SHorizontalBox)
+
+					+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center)
+					[
+						SNew(STextBlock)
+						.Text_Lambda([WeakMgr, BIdx]() -> FText
+						{
+							if (const ASpatialFabricManagerActor* M = WeakMgr.Get())
+								if (M->ObjectBindings.IsValidIndex(BIdx))
+								{
+									const FSpatialNormalizedState* State = nullptr;
+									for (const FSpatialNormalizedState& S : M->GetLastSnapshot().Objects)
+										if (S.ObjectID == M->ObjectBindings[BIdx].DefaultObjectID)
+											{ State = &S; break; }
+									if (State)
+										return FText::Format(
+											LOCTEXT("SMGLive",
+												"/source/{0}/xpan {1}  ypan {2}  spread {3}"),
+											State->ObjectID,
+											FText::AsNumber(State->StageNormalized.Y,
+												&FNumberFormattingOptions().SetMinimumFractionalDigits(3).SetMaximumFractionalDigits(3)),
+											FText::AsNumber(State->StageNormalized.X,
+												&FNumberFormattingOptions().SetMinimumFractionalDigits(3).SetMaximumFractionalDigits(3)),
+											FText::AsNumber(State->Width01,
+												&FNumberFormattingOptions().SetMinimumFractionalDigits(2).SetMaximumFractionalDigits(2)));
+								}
+							return LOCTEXT("SMGHint", "/source/{id}/xpan  /source/{id}/ypan  /source/{id}/spread");
+						})
+						.Font(FAppStyle::GetFontStyle("SmallFont"))
+						.ColorAndOpacity(FLinearColor(0.6f, 0.6f, 0.6f))
+					]
+				]
+			]
+
 			// ── QLab sub-row (visible only when QLabObject is the active format) ──
 			+ SVerticalBox::Slot()
 			.AutoHeight()
@@ -1531,6 +1582,7 @@ void SSpatialFabricPanel::SetActiveFormat(ESpatialAdapterType Type)
 		ESpatialAdapterType::DS100,
 		ESpatialAdapterType::RTTrPM,
 		ESpatialAdapterType::QLabObject,
+		ESpatialAdapterType::SpaceMapGo,
 	};
 	for (const ESpatialAdapterType T : Phase1)
 	{
@@ -1562,14 +1614,20 @@ void SSpatialFabricPanel::SetActiveFormat(ESpatialAdapterType Type)
 
 TSharedRef<SWidget> SSpatialFabricPanel::BuildAdaptersTab()
 {
-	static const struct { const TCHAR* Name; const TCHAR* Desc; int32 DefaultPort; } Info[] = {
-		{ TEXT("ADM-OSC (L-ISA)"),     TEXT("Normalized XYZ  /adm/obj/{n}/xyz"),                9000  },
-		{ TEXT("d&b DS100"),           TEXT("source_position or source_position_xy"),           50010 },
-		{ TEXT("RTTrPM"),              TEXT("Binary UDP — Centroid Position (IEEE 754 doubles)"), 36700 },
-		{ TEXT("QLab Object Audio"),   TEXT("/cue/{id}/object/{name}/position/live"),            53000 },
-		{ TEXT("QLab Cue Control"),    TEXT("Cue start/stop triggers"),                         53000 },
-		{ TEXT("Meyer SpaceMap Go"),   TEXT("OSC + RTTrPM passthrough"),                        38033 },
-		{ TEXT("TiMax SoundHub"),      TEXT("ADM-OSC or custom address template"),               9000 },
+	static const struct {
+		const TCHAR* Name;
+		const TCHAR* Desc;
+		int32 DefaultPort;
+		ESpatialAdapterType AdapterType;
+		bool bHasConnectionStatus;
+	} Info[] = {
+		{ TEXT("ADM-OSC (L-ISA)"),     TEXT("Normalized XYZ  /adm/obj/{n}/xyz"),                9000,  ESpatialAdapterType::ADMOSC,     true  },
+		{ TEXT("d&b DS100"),           TEXT("source_position or source_position_xy"),           50010, ESpatialAdapterType::DS100,       false },
+		{ TEXT("RTTrPM"),              TEXT("Binary UDP — Centroid Position (IEEE 754 doubles)"), 36700, ESpatialAdapterType::RTTrPM,      false },
+		{ TEXT("QLab Object Audio"),   TEXT("/cue/{id}/object/{name}/position/live"),            53000, ESpatialAdapterType::QLabObject,  false },
+		{ TEXT("QLab Cue Control"),    TEXT("Cue start/stop triggers"),                         53000, ESpatialAdapterType::QLabCue,     false },
+		{ TEXT("Meyer SpaceMap Go"),   TEXT("/source/{n}/xpan  /ypan  /spread"),                38033, ESpatialAdapterType::SpaceMapGo,  false },
+		{ TEXT("TiMax SoundHub"),      TEXT("ADM-OSC or custom address template"),               9000,  ESpatialAdapterType::TiMax,       false },
 	};
 
 	TSharedRef<SVerticalBox> Box = SNew(SVerticalBox);
@@ -1593,6 +1651,47 @@ TSharedRef<SWidget> SSpatialFabricPanel::BuildAdaptersTab()
 
 	for (const auto& A : Info)
 	{
+		// Build the right-side slot: port label + optional connection dot.
+		TSharedRef<SHorizontalBox> RightSlot = SNew(SHorizontalBox);
+
+		RightSlot->AddSlot().AutoWidth().VAlign(VAlign_Center)
+		[
+			SNew(STextBlock)
+			.Text(FText::Format(LOCTEXT("PortFmt", ":{0}"), A.DefaultPort))
+			.ColorAndOpacity(FLinearColor(0.5f, 0.5f, 0.5f))
+		];
+
+		if (A.bHasConnectionStatus)
+		{
+			const ESpatialAdapterType CapturedType = A.AdapterType;
+			// Small colored circle: green = confirmed, grey = no response yet.
+			RightSlot->AddSlot().AutoWidth().VAlign(VAlign_Center).Padding(6.f, 0.f, 0.f, 0.f)
+			[
+				SNew(SBox).WidthOverride(10.f).HeightOverride(10.f)
+				[
+					SNew(SBorder)
+					.BorderImage(FAppStyle::GetBrush("WhiteBrush"))
+					.BorderBackgroundColor_Lambda([this, CapturedType]() -> FSlateColor
+					{
+						const ASpatialFabricManagerActor* Mgr = GetManager();
+						if (!Mgr || !Mgr->GetRouter()) { return FLinearColor(0.3f, 0.3f, 0.3f); }
+						const ISpatialProtocolAdapter* Base = Mgr->GetRouter()->FindAdapter(CapturedType);
+						if (const FADMOSCAdapter* Adm = static_cast<const FADMOSCAdapter*>(Base))
+						{
+							if (Adm->IsConnectionConfirmed())
+							{
+								// Fade green→yellow after 5 s without a new reply
+								const double Age = Adm->GetSecondsSinceLastReply();
+								if (Age < 5.0)  { return FLinearColor(0.1f, 0.8f, 0.2f); }
+								if (Age < 15.0) { return FLinearColor(0.7f, 0.7f, 0.1f); }
+							}
+						}
+						return FLinearColor(0.3f, 0.3f, 0.3f);
+					})
+				]
+			];
+		}
+
 		Box->AddSlot().AutoHeight().Padding(0.f, 1.f)
 		[
 			SNew(SBorder)
@@ -1610,9 +1709,7 @@ TSharedRef<SWidget> SSpatialFabricPanel::BuildAdaptersTab()
 				]
 				+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center)
 				[
-					SNew(STextBlock)
-					.Text(FText::Format(LOCTEXT("PortFmt", ":{0}"), A.DefaultPort))
-					.ColorAndOpacity(FLinearColor(0.5f, 0.5f, 0.5f))
+					RightSlot
 				]
 			]
 		];
@@ -1790,6 +1887,13 @@ static FString FormatOutputPreview(
 		}
 		const FVector QL = FSpatialMath::NormalizedToQLab2D(Obj.StageNormalized);
 		return FString::Printf(TEXT("/cue/%s/object/%s/position/live  %.3f %.3f"), *CueID, *ObjName, QL.X, QL.Y);
+	}
+	case ESpatialAdapterType::SpaceMapGo:
+	{
+		const float XPan = FMath::Clamp((float)Obj.StageNormalized.Y, -1.f, 1.f);
+		const float YPan = FMath::Clamp((float)Obj.StageNormalized.X, -1.f, 1.f);
+		return FString::Printf(TEXT("/source/%d/xpan %.3f  ypan %.3f  spread %.2f"),
+			ID, XPan, YPan, Obj.Width01);
 	}
 	default:
 		return FString::Printf(TEXT("[%d] %.3f %.3f %.3f"), ID,

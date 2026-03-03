@@ -11,8 +11,8 @@
 
 /**
  * Identifies which spatial protocol adapter a target entry routes to.
- * All four Phase-1 adapters (ADMOSC, DS100, RTTrPM, QLabObject) are fully
- * implemented.  Phase-2 adapters (QLabCue, SpaceMapGo, TiMax) are stubs.
+ * Phase-1 adapters (ADMOSC, DS100, RTTrPM, QLabObject, SpaceMapGo) are fully
+ * implemented.  Phase-2 adapters (QLabCue, TiMax) are stubs.
  */
 UENUM(BlueprintType)
 enum class ESpatialAdapterType : uint8
@@ -76,7 +76,7 @@ struct SPATIALFABRIC_API FSpatialNormalizedState
 	/**
 	 * Stage-normalized position: each axis clamped to [-1, 1].
 	 * Origin is the stage volume centre (or listener actor when set).
-	 * +X = stage front, +Y = stage left, +Z = stage up (after axis remap).
+	 * +X = stage front, +Y = stage right (house right), +Z = stage up (after axis remap).
 	 */
 	UPROPERTY(BlueprintReadOnly, Category = "SpatialFabric")
 	FVector StageNormalized = FVector::ZeroVector;

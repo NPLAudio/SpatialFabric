@@ -16,9 +16,25 @@ void FADMOSCAdapter::SetClientComponent(USpatialOSCClientComponent* InClient)
 	Client = InClient;
 }
 
+void FADMOSCAdapter::HandleIncomingOSC(const FString& Address, float /*Value*/)
+{
+	if (Address.StartsWith(TEXT("/adm/")))
+	{
+		bConnectionConfirmed = true;
+		LastReplyTime = FPlatformTime::Seconds();
+	}
+}
+
 void FADMOSCAdapter::ProcessFrame(const FSpatialFrameSnapshot& Snapshot, float DeltaTime)
 {
 	if (!Config.bEnabled || !Client) { return; }
+
+	// Update staleness counter for connection confirmation UI.
+	if (LastReplyTime >= 0.0)
+	{
+		SecondsSinceLastReply = FPlatformTime::Seconds() - LastReplyTime;
+	}
+
 	if (!ShouldSendThisFrame(DeltaTime)) { return; }
 
 	Client->Connect(Config.TargetIP, Config.TargetPort);
@@ -52,7 +68,9 @@ void FADMOSCAdapter::SendObject(const FSpatialNormalizedState& State)
 	}
 
 	// ── /adm/obj/{n}/gain  (float, linear amplitude) ────────────────────
-	Client->SendFloat(FString::Printf(TEXT("/adm/obj/%d/gain"), ID), State.GainLinear);
+	// ADM-OSC spec range: [0, 1]. Clamp in case UE actor gain exceeds unity.
+	Client->SendFloat(FString::Printf(TEXT("/adm/obj/%d/gain"), ID),
+		FMath::Clamp(State.GainLinear, 0.0f, 1.0f));
 
 	// ── /adm/obj/{n}/w  (float, horizontal extent [0..1]) ───────────────
 	Client->SendFloat(FString::Printf(TEXT("/adm/obj/%d/w"), ID), State.Width01);
@@ -83,9 +101,14 @@ void FADMOSCAdapter::SendObject(const FSpatialNormalizedState& State)
 void FADMOSCAdapter::SendCartesian(int32 ID, const FVector& Norm)
 {
 	const FString Addr = FString::Printf(TEXT("/adm/obj/%d/xyz"), ID);
-	// ADM-OSC Cartesian: +Y = left.  Our convention: +Y = right.  Negate Y on the wire.
-	const float ADMY = -Norm.Y;
-	Client->SendMultiArg(Addr, { (float)Norm.X, ADMY, (float)Norm.Z });
+	// ADM-OSC Cartesian axis mapping (spec: X=right, Y=forward, Z=up):
+	//   ADM X = our +Y (right)
+	//   ADM Y = our +X (front)
+	//   ADM Z = our +Z (up)
+	const float ADMX = (float)Norm.Y;
+	const float ADMY = (float)Norm.X;
+	const float ADMZ = (float)Norm.Z;
+	Client->SendMultiArg(Addr, { ADMX, ADMY, ADMZ });
 
 	if (OnLog)
 	{
@@ -93,7 +116,7 @@ void FADMOSCAdapter::SendCartesian(int32 ID, const FVector& Norm)
 		Entry.Adapter   = TEXT("ADMOSC");
 		Entry.Direction = TEXT("OUT");
 		Entry.Address   = Addr;
-		Entry.ValueStr  = FString::Printf(TEXT("%.3f %.3f %.3f"), Norm.X, ADMY, Norm.Z);
+		Entry.ValueStr  = FString::Printf(TEXT("%.3f %.3f %.3f"), ADMX, ADMY, ADMZ);
 		FDateTime Now = FDateTime::Now();
 		Entry.Timestamp = FString::Printf(TEXT("%02d:%02d:%02d"),
 			Now.GetHour(), Now.GetMinute(), Now.GetSecond());
@@ -106,8 +129,13 @@ void FADMOSCAdapter::SendPolar(int32 ID, const FVector& Norm)
 	// CartesianToPolar returns (azimuth°, elevation°, distance)
 	const FVector Polar = FSpatialMath::CartesianToPolar(Norm);
 
+	// ADM-OSC spec: dist must be in [0, 1].  Raw Euclidean magnitude of a
+	// normalized [-1,1]^3 position can reach √3 ≈ 1.732 at a stage corner.
+	// Divide by √3 to map the full stage cube onto [0, 1].
+	const float NormalizedDist = FMath::Clamp((float)Polar.Z / FMath::Sqrt(3.0f), 0.0f, 1.0f);
+
 	const FString Addr = FString::Printf(TEXT("/adm/obj/%d/aed"), ID);
-	Client->SendMultiArg(Addr, { (float)Polar.X, (float)Polar.Y, (float)Polar.Z });
+	Client->SendMultiArg(Addr, { (float)Polar.X, (float)Polar.Y, NormalizedDist });
 
 	if (OnLog)
 	{
@@ -115,7 +143,7 @@ void FADMOSCAdapter::SendPolar(int32 ID, const FVector& Norm)
 		Entry.Adapter   = TEXT("ADMOSC");
 		Entry.Direction = TEXT("OUT");
 		Entry.Address   = Addr;
-		Entry.ValueStr  = FString::Printf(TEXT("%.1f %.1f %.3f"), Polar.X, Polar.Y, Polar.Z);
+		Entry.ValueStr  = FString::Printf(TEXT("%.1f %.1f %.3f"), Polar.X, Polar.Y, NormalizedDist);
 		FDateTime Now = FDateTime::Now();
 		Entry.Timestamp = FString::Printf(TEXT("%02d:%02d:%02d"),
 			Now.GetHour(), Now.GetMinute(), Now.GetSecond());
@@ -130,8 +158,8 @@ void FADMOSCAdapter::SendListener(const FSpatialFrameSnapshot& Snapshot)
 	const FVector& LP = Snapshot.ListenerNormalized;
 	const FRotator& LR = Snapshot.ListenerYPR;
 
-	// ADM-OSC: +Y = left.  Our convention: +Y = right.  Negate Y.
-	Client->SendMultiArg(TEXT("/adm/lis/xyz"), { (float)LP.X, -(float)LP.Y, (float)LP.Z });
+	// ADM-OSC Cartesian axis mapping (spec: X=right, Y=forward, Z=up).
+	Client->SendMultiArg(TEXT("/adm/lis/xyz"), { (float)LP.Y, (float)LP.X, (float)LP.Z });
 	Client->SendMultiArg(TEXT("/adm/lis/ypr"),
 		{ (float)LR.Yaw, (float)LR.Pitch, (float)LR.Roll });
 }
