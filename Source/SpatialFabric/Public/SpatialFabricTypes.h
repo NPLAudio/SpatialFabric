@@ -348,6 +348,13 @@ struct SPATIALFABRIC_API FSpatialObjectBinding
 	bool bADMSendName = false;
 
 	/**
+	 * ADM-OSC: custom name sent as /adm/obj/{n}/name.
+	 * If empty, falls back to the bound actor's label.
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SpatialFabric|ADMOSC")
+	FString ADMNameOverride;
+
+	/**
 	 * ADM-OSC: normalized distance where physics-based rendering replaces dimensionless rendering.
 	 * Default 1.0 per spec.  Sent as /adm/obj/{n}/dref.
 	 */

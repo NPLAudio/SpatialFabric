@@ -901,7 +901,7 @@ TSharedRef<SWidget> SSpatialFabricPanel::BuildObjectsTab()
 					})
 					[
 						SNew(STextBlock)
-						.Text(FText::FromString(TEXT("\u2715")))
+						.Text(FText::FromString(TEXT("X")))
 						.Font(FAppStyle::GetFontStyle("SmallFont"))
 						.ColorAndOpacity(FLinearColor(0.6f, 0.6f, 0.6f))
 					]
@@ -1212,7 +1212,7 @@ TSharedRef<ITableRow> SSpatialFabricPanel::GenerateBindingRow(
 						})
 						[
 							SNew(STextBlock)
-							.Text(LOCTEXT("RemoveX", "X"))
+							.Text(FText::FromString(TEXT("\u2715")))
 							.Font(FAppStyle::GetFontStyle("SmallFont"))
 							.ColorAndOpacity(FLinearColor(1.f, 0.5f, 0.5f))
 						]
@@ -1591,99 +1591,225 @@ TSharedRef<ITableRow> SSpatialFabricPanel::GenerateBindingRow(
 					.ToolTipText(LOCTEXT("ADMOptTip", "Enable optional ADM-OSC messages for this object."))
 				]
 
-				// gain toggle
-				+ SHorizontalBox::Slot().AutoWidth().Padding(0.f, 0.f, 2.f, 0.f)
+				// gain: checkbox toggle + numeric spinner (spinner hidden when disabled)
+				+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center).Padding(0.f, 0.f, 6.f, 0.f)
 				[
-					SNew(SBox).HeightOverride(22.f).MinDesiredWidth(42.f)
+					SNew(SHorizontalBox)
+					+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center)
 					[
-						SNew(SButton)
-						.ButtonStyle(FAppStyle::Get(), "FlatButton")
-						.HAlign(HAlign_Center)
-						.ButtonColorAndOpacity_Lambda([WeakMgr, BIdx]()
+						SNew(SCheckBox)
+						.IsChecked_Lambda([WeakMgr, BIdx]() -> ECheckBoxState
 						{
 							if (const ASpatialFabricManagerActor* M = WeakMgr.Get())
 								if (M->ObjectBindings.IsValidIndex(BIdx))
-									if (M->ObjectBindings[BIdx].bADMSendGain)
-										return FLinearColor(0.10f, 0.45f, 0.85f);
-							return FLinearColor(0.18f, 0.18f, 0.18f);
+									return M->ObjectBindings[BIdx].bADMSendGain ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
+							return ECheckBoxState::Unchecked;
+						})
+						.OnCheckStateChanged_Lambda([WeakMgr, BIdx](ECheckBoxState NewState)
+						{
+							if (ASpatialFabricManagerActor* M = WeakMgr.Get())
+								if (M->ObjectBindings.IsValidIndex(BIdx))
+								{
+									M->ObjectBindings[BIdx].bADMSendGain = (NewState == ECheckBoxState::Checked);
+									M->MarkPackageDirty();
+								}
 						})
 						.ToolTipText(LOCTEXT("ADMGainTip",
-							"Toggle: send /adm/obj/{n}/gain (linear amplitude) each frame."))
-						.OnClicked_Lambda([WeakMgr, BIdx]() -> FReply
+							"Send /adm/obj/{n}/gain (linear amplitude) each frame."))
+					]
+					+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center).Padding(3.f, 0.f, 4.f, 0.f)
+					[
+						SNew(STextBlock).Text(LOCTEXT("ADMGainLabel", "gain"))
+						.Font(FAppStyle::GetFontStyle("SmallFont"))
+						.ColorAndOpacity(FLinearColor(0.75f, 0.75f, 0.75f))
+					]
+					+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center)
+					[
+						SNew(SBox).WidthOverride(52.f)
+						.Visibility_Lambda([WeakMgr, BIdx]() -> EVisibility
+						{
+							if (const ASpatialFabricManagerActor* M = WeakMgr.Get())
+								if (M->ObjectBindings.IsValidIndex(BIdx))
+									return M->ObjectBindings[BIdx].bADMSendGain ? EVisibility::Visible : EVisibility::Collapsed;
+							return EVisibility::Collapsed;
+						})
+						[
+							SNew(SNumericEntryBox<float>)
+							.Value_Lambda([WeakMgr, BIdx]() -> TOptional<float>
+							{
+								if (const ASpatialFabricManagerActor* M = WeakMgr.Get())
+									if (M->ObjectBindings.IsValidIndex(BIdx))
+										return M->ObjectBindings[BIdx].GainLinear;
+								return TOptional<float>();
+							})
+							.OnValueCommitted_Lambda([WeakMgr, BIdx](float Val, ETextCommit::Type)
+							{
+								if (ASpatialFabricManagerActor* M = WeakMgr.Get())
+									if (M->ObjectBindings.IsValidIndex(BIdx))
+									{
+										M->ObjectBindings[BIdx].GainLinear = FMath::Clamp(Val, 0.f, 2.f);
+										M->MarkPackageDirty();
+									}
+							})
+							.MinValue(0.f).MaxValue(2.f).AllowSpin(true)
+							.Font(FAppStyle::GetFontStyle("SmallFont"))
+							.ToolTipText(LOCTEXT("ADMGainValTip", "Linear gain [0..2]. 1.0 = unity."))
+						]
+					]
+				]
+
+				// mute: "send mute" checkbox + "muted" state toggle button
+				+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center).Padding(0.f, 0.f, 6.f, 0.f)
+				[
+					SNew(SHorizontalBox)
+					// checkbox: enable sending the mute message
+					+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center)
+					[
+						SNew(SCheckBox)
+						.IsChecked_Lambda([WeakMgr, BIdx]() -> ECheckBoxState
+						{
+							if (const ASpatialFabricManagerActor* M = WeakMgr.Get())
+								if (M->ObjectBindings.IsValidIndex(BIdx))
+									return M->ObjectBindings[BIdx].bADMSendMute ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
+							return ECheckBoxState::Unchecked;
+						})
+						.OnCheckStateChanged_Lambda([WeakMgr, BIdx](ECheckBoxState NewState)
 						{
 							if (ASpatialFabricManagerActor* M = WeakMgr.Get())
 								if (M->ObjectBindings.IsValidIndex(BIdx))
 								{
-									M->ObjectBindings[BIdx].bADMSendGain = !M->ObjectBindings[BIdx].bADMSendGain;
+									M->ObjectBindings[BIdx].bADMSendMute = (NewState == ECheckBoxState::Checked);
 									M->MarkPackageDirty();
 								}
-							return FReply::Handled();
-						})
-						[ SNew(STextBlock).Text(LOCTEXT("ADMGainBtn", "gain")).Font(FAppStyle::GetFontStyle("SmallFont")).ColorAndOpacity(FLinearColor::White) ]
-					]
-				]
-
-				// mute toggle
-				+ SHorizontalBox::Slot().AutoWidth().Padding(0.f, 0.f, 2.f, 0.f)
-				[
-					SNew(SBox).HeightOverride(22.f).MinDesiredWidth(42.f)
-					[
-						SNew(SButton)
-						.ButtonStyle(FAppStyle::Get(), "FlatButton")
-						.HAlign(HAlign_Center)
-						.ButtonColorAndOpacity_Lambda([WeakMgr, BIdx]()
-						{
-							if (const ASpatialFabricManagerActor* M = WeakMgr.Get())
-								if (M->ObjectBindings.IsValidIndex(BIdx))
-									if (M->ObjectBindings[BIdx].bADMSendMute)
-										return FLinearColor(0.10f, 0.45f, 0.85f);
-							return FLinearColor(0.18f, 0.18f, 0.18f);
 						})
 						.ToolTipText(LOCTEXT("ADMMuteTip",
-							"Toggle: send /adm/obj/{n}/mute (0 = active, 1 = muted) each frame."))
-						.OnClicked_Lambda([WeakMgr, BIdx]() -> FReply
-						{
-							if (ASpatialFabricManagerActor* M = WeakMgr.Get())
-								if (M->ObjectBindings.IsValidIndex(BIdx))
-								{
-									M->ObjectBindings[BIdx].bADMSendMute = !M->ObjectBindings[BIdx].bADMSendMute;
-									M->MarkPackageDirty();
-								}
-							return FReply::Handled();
-						})
-						[ SNew(STextBlock).Text(LOCTEXT("ADMMuteBtn", "mute")).Font(FAppStyle::GetFontStyle("SmallFont")).ColorAndOpacity(FLinearColor::White) ]
+							"Send /adm/obj/{n}/mute (0 = active, 1 = muted) each frame."))
 					]
-				]
-
-				// name toggle
-				+ SHorizontalBox::Slot().AutoWidth().Padding(0.f, 0.f, 0.f, 0.f)
-				[
-					SNew(SBox).HeightOverride(22.f).MinDesiredWidth(42.f)
+					+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center).Padding(3.f, 0.f, 4.f, 0.f)
 					[
-						SNew(SButton)
-						.ButtonStyle(FAppStyle::Get(), "FlatButton")
-						.HAlign(HAlign_Center)
-						.ButtonColorAndOpacity_Lambda([WeakMgr, BIdx]()
+						SNew(STextBlock).Text(LOCTEXT("ADMMuteLabel", "mute"))
+						.Font(FAppStyle::GetFontStyle("SmallFont"))
+						.ColorAndOpacity(FLinearColor(0.75f, 0.75f, 0.75f))
+					]
+					// toggle button: actual muted state (visible only when send-mute is enabled)
+					+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center)
+					[
+						SNew(SBox)
+						.Visibility_Lambda([WeakMgr, BIdx]() -> EVisibility
 						{
 							if (const ASpatialFabricManagerActor* M = WeakMgr.Get())
 								if (M->ObjectBindings.IsValidIndex(BIdx))
-									if (M->ObjectBindings[BIdx].bADMSendName)
-										return FLinearColor(0.10f, 0.45f, 0.85f);
-							return FLinearColor(0.18f, 0.18f, 0.18f);
+									return M->ObjectBindings[BIdx].bADMSendMute ? EVisibility::Visible : EVisibility::Collapsed;
+							return EVisibility::Collapsed;
 						})
-						.ToolTipText(LOCTEXT("ADMNameTip",
-							"Toggle: send /adm/obj/{n}/name (string label) each frame."))
-						.OnClicked_Lambda([WeakMgr, BIdx]() -> FReply
+						[
+							SNew(SButton)
+							.ButtonStyle(FAppStyle::Get(), "ToggleButton")
+							.ButtonColorAndOpacity_Lambda([WeakMgr, BIdx]() -> FLinearColor
+							{
+								if (const ASpatialFabricManagerActor* M = WeakMgr.Get())
+									if (M->ObjectBindings.IsValidIndex(BIdx))
+										return M->ObjectBindings[BIdx].bMuted
+											? FLinearColor(0.7f, 0.15f, 0.05f)
+											: FLinearColor(0.18f, 0.18f, 0.18f);
+								return FLinearColor(0.18f, 0.18f, 0.18f);
+							})
+							.OnClicked_Lambda([WeakMgr, BIdx]() -> FReply
+							{
+								if (ASpatialFabricManagerActor* M = WeakMgr.Get())
+									if (M->ObjectBindings.IsValidIndex(BIdx))
+									{
+										M->ObjectBindings[BIdx].bMuted = !M->ObjectBindings[BIdx].bMuted;
+										M->MarkPackageDirty();
+									}
+								return FReply::Handled();
+							})
+							.ToolTipText(LOCTEXT("ADMMuteStateTip",
+								"Toggle the muted state sent via /adm/obj/{n}/mute. Red = muted, dark = active."))
+							.HAlign(HAlign_Center).VAlign(VAlign_Center)
+							[
+								SNew(STextBlock)
+								.Text_Lambda([WeakMgr, BIdx]() -> FText
+								{
+									if (const ASpatialFabricManagerActor* M = WeakMgr.Get())
+										if (M->ObjectBindings.IsValidIndex(BIdx))
+											return M->ObjectBindings[BIdx].bMuted
+												? LOCTEXT("MutedOn", "MUTED")
+												: LOCTEXT("MutedOff", "live");
+									return LOCTEXT("MutedOff", "live");
+								})
+								.Font(FAppStyle::GetFontStyle("SmallFont"))
+								.ColorAndOpacity(FLinearColor::White)
+							]
+						]
+					]
+				]
+
+				// name: checkbox toggle + text field (field hidden when disabled)
+				+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center).Padding(0.f, 0.f, 0.f, 0.f)
+				[
+					SNew(SHorizontalBox)
+					+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center)
+					[
+						SNew(SCheckBox)
+						.IsChecked_Lambda([WeakMgr, BIdx]() -> ECheckBoxState
+						{
+							if (const ASpatialFabricManagerActor* M = WeakMgr.Get())
+								if (M->ObjectBindings.IsValidIndex(BIdx))
+									return M->ObjectBindings[BIdx].bADMSendName ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
+							return ECheckBoxState::Unchecked;
+						})
+						.OnCheckStateChanged_Lambda([WeakMgr, BIdx](ECheckBoxState NewState)
 						{
 							if (ASpatialFabricManagerActor* M = WeakMgr.Get())
 								if (M->ObjectBindings.IsValidIndex(BIdx))
 								{
-									M->ObjectBindings[BIdx].bADMSendName = !M->ObjectBindings[BIdx].bADMSendName;
+									M->ObjectBindings[BIdx].bADMSendName = (NewState == ECheckBoxState::Checked);
 									M->MarkPackageDirty();
 								}
-							return FReply::Handled();
 						})
-						[ SNew(STextBlock).Text(LOCTEXT("ADMNameBtn", "name")).Font(FAppStyle::GetFontStyle("SmallFont")).ColorAndOpacity(FLinearColor::White) ]
+						.ToolTipText(LOCTEXT("ADMNameTip",
+							"Send /adm/obj/{n}/name each frame. Uses the override text if set, otherwise the actor label."))
+					]
+					+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center).Padding(3.f, 0.f, 4.f, 0.f)
+					[
+						SNew(STextBlock).Text(LOCTEXT("ADMNameLabel", "name"))
+						.Font(FAppStyle::GetFontStyle("SmallFont"))
+						.ColorAndOpacity(FLinearColor(0.75f, 0.75f, 0.75f))
+					]
+					+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center)
+					[
+						SNew(SBox).WidthOverride(100.f)
+						.Visibility_Lambda([WeakMgr, BIdx]() -> EVisibility
+						{
+							if (const ASpatialFabricManagerActor* M = WeakMgr.Get())
+								if (M->ObjectBindings.IsValidIndex(BIdx))
+									return M->ObjectBindings[BIdx].bADMSendName ? EVisibility::Visible : EVisibility::Collapsed;
+							return EVisibility::Collapsed;
+						})
+						[
+							SNew(SEditableTextBox)
+							.Text_Lambda([WeakMgr, BIdx]() -> FText
+							{
+								if (const ASpatialFabricManagerActor* M = WeakMgr.Get())
+									if (M->ObjectBindings.IsValidIndex(BIdx))
+										return FText::FromString(M->ObjectBindings[BIdx].ADMNameOverride);
+								return FText::GetEmpty();
+							})
+							.OnTextCommitted_Lambda([WeakMgr, BIdx](const FText& NewText, ETextCommit::Type)
+							{
+								if (ASpatialFabricManagerActor* M = WeakMgr.Get())
+									if (M->ObjectBindings.IsValidIndex(BIdx))
+									{
+										M->ObjectBindings[BIdx].ADMNameOverride = NewText.ToString();
+										M->MarkPackageDirty();
+									}
+							})
+							.HintText(LOCTEXT("ADMNameHint", "actor label"))
+							.Font(FAppStyle::GetFontStyle("SmallFont"))
+							.ToolTipText(LOCTEXT("ADMNameFieldTip",
+								"Custom name sent as /adm/obj/{n}/name. Leave empty to use the actor label."))
+						]
 					]
 				]
 
