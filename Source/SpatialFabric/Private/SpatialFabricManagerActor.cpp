@@ -5,8 +5,8 @@
 #include "SpatialObjectRegistry.h"
 #include "SpatialStageVolume.h"
 #include "ProtocolRouter.h"
-#include "LiveOSCServerComponent.h"
-#include "LiveOSCClientComponent.h"
+#include "SpatialOSCServerComponent.h"
+#include "SpatialOSCClientComponent.h"
 #include "EngineUtils.h"
 
 // Adapters
@@ -25,8 +25,8 @@ ASpatialFabricManagerActor::ASpatialFabricManagerActor()
 	// character movement, so the listener position is always current.
 	PrimaryActorTick.TickGroup = TG_PostPhysics;
 
-	ServerComponent    = CreateDefaultSubobject<ULiveOSCServerComponent>(TEXT("ServerComponent"));
-	ClientComponent    = CreateDefaultSubobject<ULiveOSCClientComponent>(TEXT("ClientComponent"));
+	ServerComponent    = CreateDefaultSubobject<USpatialOSCServerComponent>(TEXT("ServerComponent"));
+	ClientComponent    = CreateDefaultSubobject<USpatialOSCClientComponent>(TEXT("ClientComponent"));
 	RegistryComponent  = CreateDefaultSubobject<USpatialObjectRegistry>(TEXT("RegistryComponent"));
 
 	PopulateDefaultAdapterConfigs();
@@ -50,8 +50,11 @@ void ASpatialFabricManagerActor::BeginPlay()
 	}
 
 	// Wire incoming OSC to router
-	ServerComponent->OnMessageReceived.AddDynamic(this,
-		&ASpatialFabricManagerActor::OnOSCMessageReceived);
+	if (ServerComponent)
+	{
+		ServerComponent->OnMessageReceived.AddDynamic(this,
+			&ASpatialFabricManagerActor::OnOSCMessageReceived);
+	}
 
 	// Start server
 	StartServer();

@@ -14,7 +14,6 @@ public class SpatialFabric : ModuleRules
 			"CoreUObject",
 			"Engine",
 			"OSC",
-			"LiveOSC",
 			"Sockets",
 			"Networking",
 			"DeveloperSettings",

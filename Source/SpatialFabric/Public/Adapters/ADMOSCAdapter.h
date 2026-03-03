@@ -40,14 +40,14 @@ public:
 	virtual ESpatialAdapterType GetAdapterType() const override { return ESpatialAdapterType::ADMOSC; }
 
 	virtual void Configure(const FSpatialAdapterConfig& InConfig) override;
-	virtual void SetClientComponent(ULiveOSCClientComponent* InClient) override;
+	virtual void SetClientComponent(USpatialOSCClientComponent* InClient) override;
 	virtual void ProcessFrame(const FSpatialFrameSnapshot& Snapshot, float DeltaTime) override;
 	virtual bool IsEnabled() const override { return Config.bEnabled; }
 
 private:
 	FSpatialAdapterConfig Config;
 	EADMCoordinateMode CoordMode = EADMCoordinateMode::Cartesian;
-	ULiveOSCClientComponent* Client = nullptr;
+	USpatialOSCClientComponent* Client = nullptr;
 
 	/** Send all ADM-OSC v1.0 messages for one object. */
 	void SendObject(const FSpatialNormalizedState& State);

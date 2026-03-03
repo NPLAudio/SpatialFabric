@@ -2,7 +2,7 @@
 
 #include "Adapters/DS100Adapter.h"
 #include "SpatialMath.h"
-#include "LiveOSCClientComponent.h"
+#include "SpatialOSCClientComponent.h"
 
 void FDS100Adapter::Configure(const FSpatialAdapterConfig& InConfig)
 {
@@ -11,7 +11,7 @@ void FDS100Adapter::Configure(const FSpatialAdapterConfig& InConfig)
 	LastSentByID.Reset(); // invalidate cache when mode / settings change
 }
 
-void FDS100Adapter::SetClientComponent(ULiveOSCClientComponent* InClient)
+void FDS100Adapter::SetClientComponent(USpatialOSCClientComponent* InClient)
 {
 	Client = InClient;
 }

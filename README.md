@@ -33,10 +33,9 @@ need real-time spatial audio positioning from Unreal Engine.
 | Unreal Engine | **5.4** or newer (developed on 5.7) |
 | Visual Studio | 2022 (Windows) or Xcode 15+ (macOS) |
 | UE Plugin | **OSC** (built-in, must be enabled) |
-| UE Plugin | **LiveOSC** (included in this repo, must be enabled) |
 
-SpatialFabric depends on the **LiveOSC** plugin for all OSC network I/O. Both
-plugins must be present and enabled in your project.
+SpatialFabric includes its own OSC client/server components that wrap UE's
+built-in OSC plugin. No additional plugins are required beyond OSC.
 
 ---
 
@@ -50,22 +49,20 @@ plugins must be present and enabled in your project.
    git clone https://github.com/dhhuston/SpatialFabric.git
    ```
 
-2. **Copy both plugins** into your project's `Plugins/` folder:
+2. **Copy the plugin** into your project's `Plugins/` folder:
 
    ```
    YourProject/
    └── Plugins/
-       ├── LiveOSC/          ← copy from Plugins/LiveOSC/
        └── SpatialFabric/    ← copy from Plugins/SpatialFabric/
    ```
 
-3. **Enable the built-in OSC plugin** (dependency of both plugins):
+3. **Enable the built-in OSC plugin** (dependency):
    - Open your project in the Unreal Editor.
    - Edit → Plugins → search **"OSC"** → enable → restart when prompted.
 
-4. **Enable LiveOSC and SpatialFabric**:
-   - Edit → Plugins → search **"LiveOSC"** → enable.
-   - Search **"SpatialFabric"** → enable → restart the editor.
+4. **Enable SpatialFabric**:
+   - Edit → Plugins → search **"SpatialFabric"** → enable → restart the editor.
 
 5. **Verify** by opening Window → **Spatial Fabric**. The panel should appear
    with Stage, Objects, Adapters, Radar, and Output tabs.
@@ -78,14 +75,13 @@ Add these entries to the `Plugins` array in your `.uproject` file:
 {
   "Plugins": [
     { "Name": "OSC", "Enabled": true },
-    { "Name": "LiveOSC", "Enabled": true },
     { "Name": "SpatialFabric", "Enabled": true }
   ]
 }
 ```
 
-Then copy the `LiveOSC/` and `SpatialFabric/` folders into your `Plugins/`
-directory and regenerate project files.
+Then copy the `SpatialFabric/` folder into your `Plugins/` directory and
+regenerate project files.
 
 ### Option C — Build from source
 
@@ -101,8 +97,6 @@ Adjust the UE path and target name to match your installation.
 
 ```
 SpatialFabric
-├── LiveOSC (plugin — OSC server/client components)
-│   └── OSC (UE built-in plugin)
 ├── OSC (UE built-in plugin)
 ├── Sockets / Networking (UE modules — for RTTrPM binary UDP)
 └── DeveloperSettings (UE module — for Project Settings integration)
@@ -343,8 +337,8 @@ Plugins/SpatialFabric/
 | `USpatialObjectRegistry` | Reads actor positions each tick; builds `FSpatialFrameSnapshot` |
 | `FProtocolRouter` | Fans snapshot to all enabled adapters; filters per-adapter object subsets |
 | `ISpatialProtocolAdapter` | Pure interface all adapters implement; includes rate limiter |
-| `ULiveOSCServerComponent` | Reused from LiveOSC — receives incoming OSC UDP |
-| `ULiveOSCClientComponent` | Reused from LiveOSC — sends outgoing OSC UDP |
+| `USpatialOSCServerComponent` | Receives incoming OSC UDP via UE's OSC plugin |
+| `USpatialOSCClientComponent` | Sends outgoing OSC UDP via UE's OSC plugin |
 
 ### Data Flow
 
@@ -370,11 +364,11 @@ Each tick:
 
 ```
 SpatialFabric (runtime):
-    Core, CoreUObject, Engine, OSC, LiveOSC, Sockets, Networking,
+    Core, CoreUObject, Engine, OSC, Sockets, Networking,
     DeveloperSettings, Slate, SlateCore, InputCore
 
 SpatialFabricEditor (editor-only):
-    SpatialFabric, LiveOSC, EditorSubsystem, PropertyEditor, UnrealEd,
+    SpatialFabric, EditorSubsystem, PropertyEditor, UnrealEd,
     LevelEditor, EditorFramework, OSC, WorkspaceMenuStructure, ToolMenus
 ```
 

@@ -13,7 +13,7 @@
  * Source: RTTrP Wiki — https://rttrp.github.io/RTTrP-Wiki/RTTrPM.html
  *
  * RTTrPM is a binary UDP protocol (not OSC).  This adapter uses a raw FSocket
- * for sending, NOT ULiveOSCClientComponent (which is OSC-only).
+ * for sending, NOT USpatialOSCClientComponent (which is OSC-only).
  *
  * Default target port: 36700 (configurable).
  * Default send rate: 60 Hz.

@@ -18,8 +18,7 @@ class ASpatialStageVolume;
  * results (after stage-volume normalization) into an FSpatialFrameSnapshot
  * that the ProtocolRouter consumes.
  *
- * Soft-pointer resolution uses the same CachedActorLabel fallback pattern
- * as LiveOSC's dispatcher and transmitter.
+ * Soft-pointer resolution uses a CachedActorLabel fallback pattern.
  */
 UCLASS(ClassGroup = "SpatialFabric",
 	meta = (BlueprintSpawnableComponent, DisplayName = "Spatial Object Registry"))

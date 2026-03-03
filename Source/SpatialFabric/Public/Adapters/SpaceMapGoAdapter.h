@@ -29,7 +29,7 @@ public:
 	virtual ESpatialAdapterType GetAdapterType() const override { return ESpatialAdapterType::SpaceMapGo; }
 
 	virtual void Configure(const FSpatialAdapterConfig& InConfig) override { Config = InConfig; }
-	virtual void SetClientComponent(ULiveOSCClientComponent* InClient) override { Client = InClient; }
+	virtual void SetClientComponent(USpatialOSCClientComponent* InClient) override { Client = InClient; }
 	virtual void ProcessFrame(const FSpatialFrameSnapshot& Snapshot, float DeltaTime) override { /* Phase 2 */ }
 	virtual bool IsEnabled() const override { return Config.bEnabled; }
 
@@ -38,5 +38,5 @@ public:
 
 private:
 	FSpatialAdapterConfig Config;
-	ULiveOSCClientComponent* Client = nullptr;
+	USpatialOSCClientComponent* Client = nullptr;
 };

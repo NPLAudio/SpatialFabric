@@ -386,7 +386,7 @@ struct SPATIALFABRIC_API FSpatialObjectBinding
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
-//  Struct: log entry (mirrors FLiveOSCLogEntry pattern)
+//  Struct: log entry
 // ─────────────────────────────────────────────────────────────────────────────
 
 /** A single entry in the SpatialFabric message log. */

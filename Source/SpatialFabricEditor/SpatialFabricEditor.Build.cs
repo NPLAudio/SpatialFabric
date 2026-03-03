@@ -14,7 +14,6 @@ public class SpatialFabricEditor : ModuleRules
 			"CoreUObject",
 			"Engine",
 			"SpatialFabric",
-			"LiveOSC",
 		});
 
 		PrivateDependencyModuleNames.AddRange(new string[]

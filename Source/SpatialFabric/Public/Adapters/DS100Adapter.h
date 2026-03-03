@@ -45,14 +45,14 @@ public:
 	virtual ESpatialAdapterType GetAdapterType() const override { return ESpatialAdapterType::DS100; }
 
 	virtual void Configure(const FSpatialAdapterConfig& InConfig) override;
-	virtual void SetClientComponent(ULiveOSCClientComponent* InClient) override;
+	virtual void SetClientComponent(USpatialOSCClientComponent* InClient) override;
 	virtual void SetBindings(const TArray<FSpatialObjectBinding>& Bindings) override;
 	virtual void ProcessFrame(const FSpatialFrameSnapshot& Snapshot, float DeltaTime) override;
 	virtual bool IsEnabled() const override { return Config.bEnabled; }
 
 private:
 	FSpatialAdapterConfig Config;
-	ULiveOSCClientComponent* Client = nullptr;
+	USpatialOSCClientComponent* Client = nullptr;
 
 	/**
 	 * DS100 coordinate mapping area index (1-based).

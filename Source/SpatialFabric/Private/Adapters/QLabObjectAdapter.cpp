@@ -2,7 +2,7 @@
 
 #include "Adapters/QLabObjectAdapter.h"
 #include "SpatialMath.h"
-#include "LiveOSCClientComponent.h"
+#include "SpatialOSCClientComponent.h"
 
 void FQLabObjectAdapter::Configure(const FSpatialAdapterConfig& InConfig)
 {
@@ -10,7 +10,7 @@ void FQLabObjectAdapter::Configure(const FSpatialAdapterConfig& InConfig)
 	CachedSendRateHz = InConfig.SendRateHz;
 }
 
-void FQLabObjectAdapter::SetClientComponent(ULiveOSCClientComponent* InClient)
+void FQLabObjectAdapter::SetClientComponent(USpatialOSCClientComponent* InClient)
 {
 	Client = InClient;
 }

@@ -8,8 +8,8 @@
 #include "ProtocolRouter.h"
 #include "SpatialFabricManagerActor.generated.h"
 
-class ULiveOSCServerComponent;
-class ULiveOSCClientComponent;
+class USpatialOSCServerComponent;
+class USpatialOSCClientComponent;
 class USpatialObjectRegistry;
 class ASpatialStageVolume;
 
@@ -20,11 +20,11 @@ class ASpatialStageVolume;
  * ASpatialStageVolume, configure adapter endpoints, then populate
  * ObjectBindings to start routing spatial positions to connected hardware.
  *
- * Architecture (mirrors ALiveOSCManagerActor pattern):
- *   - ULiveOSCServerComponent   — reused from LiveOSC; receives incoming OSC
- *   - ULiveOSCClientComponent   — reused from LiveOSC; sends OSC packets
- *   - USpatialObjectRegistry    — builds FSpatialFrameSnapshot each tick
- *   - FProtocolRouter           — fans snapshot out to all enabled adapters
+ * Architecture:
+ *   - USpatialOSCServerComponent — receives incoming OSC
+ *   - USpatialOSCClientComponent — sends OSC packets
+ *   - USpatialObjectRegistry     — builds FSpatialFrameSnapshot each tick
+ *   - FProtocolRouter            — fans snapshot out to all enabled adapters
  *
  * Each adapter is created and configured during BeginPlay from AdapterConfigs.
  * In the editor (no PIE), FSpatialFabricEditorTickable drives ProcessFrame so
@@ -78,19 +78,18 @@ public:
 
 	// ── OSC server (receive) ─────────────────────────────────────────────────
 
-	/** Receives incoming OSC — reused ULiveOSCServerComponent from LiveOSC plugin. */
+	/** Receives incoming OSC via UE5's OSC plugin. */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "SpatialFabric|Components")
-	TObjectPtr<ULiveOSCServerComponent> ServerComponent;
+	TObjectPtr<USpatialOSCServerComponent> ServerComponent;
 
 	/**
 	 * Shared OSC client — passed to all OSC-based adapters for sending.
-	 * Reused ULiveOSCClientComponent from LiveOSC plugin.
 	 * NOTE: All OSC adapters share one client; each adapter sends to its own
 	 * configured IP:port by reconnecting the client per-send.  For independent
 	 * concurrent targets, create multiple manager actors.
 	 */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "SpatialFabric|Components")
-	TObjectPtr<ULiveOSCClientComponent> ClientComponent;
+	TObjectPtr<USpatialOSCClientComponent> ClientComponent;
 
 	/** Spatial object registry component. */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "SpatialFabric|Components")

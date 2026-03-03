@@ -9,8 +9,7 @@
 /**
  * FSpatialFabricEditorModule
  *
- * Editor-only module for SpatialFabric.  Mirrors the FLiveOSCEditorModule
- * pattern from the LiveOSC plugin.
+ * Editor-only module for SpatialFabric.
  *
  * Responsibilities:
  *  - Register a nomad dockable tab ("SpatialFabricPanel") under Window menu

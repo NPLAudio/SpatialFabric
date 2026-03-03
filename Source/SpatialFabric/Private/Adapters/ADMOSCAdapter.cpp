@@ -1,7 +1,7 @@
 // Copyright (c) 2026 SpatialFabric Contributors. Licensed under the MIT License.
 
 #include "Adapters/ADMOSCAdapter.h"
-#include "LiveOSCClientComponent.h"
+#include "SpatialOSCClientComponent.h"
 #include "SpatialMath.h"
 
 void FADMOSCAdapter::Configure(const FSpatialAdapterConfig& InConfig)
@@ -11,7 +11,7 @@ void FADMOSCAdapter::Configure(const FSpatialAdapterConfig& InConfig)
 	CachedSendRateHz = InConfig.SendRateHz;
 }
 
-void FADMOSCAdapter::SetClientComponent(ULiveOSCClientComponent* InClient)
+void FADMOSCAdapter::SetClientComponent(USpatialOSCClientComponent* InClient)
 {
 	Client = InClient;
 }
