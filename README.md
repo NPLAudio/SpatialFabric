@@ -208,7 +208,7 @@ Each binding maps one UE actor to one or more protocol targets:
 
 ### Multi-Protocol Output
 
-All Phase 1 adapters run simultaneously — the Manager Actor fans each frame's
+All adapters run simultaneously — the Manager Actor fans each frame's
 snapshot to every enabled adapter through the Protocol Router.
 
 ### Rate Limiting
@@ -226,7 +226,7 @@ Output) for configuration and live monitoring without requiring Play mode.
 
 ## Supported Protocols
 
-### ADM-OSC (Phase 1 — Complete)
+### ADM-OSC
 
 [EBU ADM-OSC v1.0](https://adm-osc.github.io/ADM-OSC/) — the open standard
 for object-based audio positioning. Compatible with L-Acoustics L-ISA, FLUX::
@@ -247,7 +247,7 @@ SPAT Revolution, and other ADM-OSC renderers.
 
 **Default port:** 9000
 
-### d&b DS100 Soundscape (Phase 1 — Complete)
+### d&b DS100 Soundscape
 
 d&b audiotechnik DS100 positioning protocol. Supports both absolute-position
 and coordinate-mapping modes.
@@ -267,7 +267,7 @@ and coordinate-mapping modes.
 
 **Default port:** 50010
 
-### RTTrPM — Real-Time Tracking Protocol (Phase 1 — Complete)
+### RTTrPM — Real-Time Tracking Protocol
 
 BlackTrax / CAST RTTrPM binary UDP protocol for tracking data. Used by
 SpaceMap Go, lighting consoles, and other tracking-aware systems.
@@ -284,7 +284,7 @@ All multi-byte values are **big-endian**. This adapter uses raw `FSocket` UDP
 
 **Default port:** 36700
 
-### QLab Object Audio (Phase 1 — Complete)
+### QLab Object Audio
 
 [QLab 5](https://qlab.app/) object audio positioning via OSC.
 
@@ -299,7 +299,7 @@ unpacks them at send time.
 
 **Default port:** 53000
 
-### Phase 2 Adapters (Stubs)
+### Additional Adapters (Stubs)
 
 The following adapters are defined but not yet fully implemented:
 
@@ -337,8 +337,6 @@ Plugins/SpatialFabric/
 ├── SpatialFabric.uplugin
 ├── README.md
 ├── LICENSE
-├── docs/
-│   └── deep-research-report.md         — Full technical specification
 └── Source/
     ├── SpatialFabric/                   # Runtime module
     │   ├── SpatialFabric.Build.cs
@@ -354,13 +352,13 @@ Plugins/SpatialFabric/
     │   │   ├── SpatialOSCClientComponent.h      — Sends OSC UDP (wraps UE OSC plugin)
     │   │   ├── SpatialOSCServerComponent.h      — Receives OSC UDP (wraps UE OSC plugin)
     │   │   └── Adapters/
-    │   │       ├── ADMOSCAdapter.h              — ADM-OSC v1.0 (Phase 1)
-    │   │       ├── DS100Adapter.h               — d&b DS100 (Phase 1)
-    │   │       ├── RTTrPMAdapter.h              — Binary UDP (Phase 1)
-    │   │       ├── QLabObjectAdapter.h          — QLab object audio (Phase 1)
-    │   │       ├── QLabCueAdapter.h             — QLab cue control (Phase 2 stub)
-    │   │       ├── SpaceMapGoAdapter.h          — SpaceMap Go (Phase 2 stub)
-    │   │       └── TiMaxAdapter.h               — TiMax (Phase 2 stub)
+    │   │       ├── ADMOSCAdapter.h              — ADM-OSC v1.0
+    │   │       ├── DS100Adapter.h               — d&b DS100
+    │   │       ├── RTTrPMAdapter.h              — Binary UDP
+    │   │       ├── QLabObjectAdapter.h          — QLab object audio
+    │   │       ├── QLabCueAdapter.h             — QLab cue control (stub)
+    │   │       ├── SpaceMapGoAdapter.h          — SpaceMap Go (stub)
+    │   │       └── TiMaxAdapter.h               — TiMax (stub)
     │   └── Private/
     │       ├── SpatialFabricManagerActor.cpp
     │       ├── SpatialStageVolume.cpp
@@ -544,8 +542,8 @@ Automation → SpatialFabric):
   place multiple Manager Actors in the level.
 - **Networking is disabled in packaged builds** by default. Set
   `bEnableInPackagedBuilds = true` in Project Settings or DefaultEngine.ini.
-- **Phase 2 adapters** (QLab Cue, SpaceMap Go, TiMax) are defined as stubs
-  and not yet fully implemented.
+- **QLab Cue, SpaceMap Go, and TiMax adapters** are defined as stubs and not
+  yet fully implemented.
 - **All adapters disabled by default** — enable per-show in the Manager Actor's
   AdapterConfigs map.
 

@@ -28,5 +28,5 @@ Saved/
 .DS_Store
 Thumbs.db
 
-# Reference PDFs (large binaries, not source)
-docs/*.pdf
+# Docs folder (reference material, not source)
+docs/
