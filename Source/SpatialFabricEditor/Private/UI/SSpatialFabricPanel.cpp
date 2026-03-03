@@ -299,10 +299,8 @@ struct FSFFormatDef { ESpatialAdapterType Type; FString Name; FLinearColor Color
 static TArray<FSFFormatDef> GetFormatDefs()
 {
 	return {
-		{ ESpatialAdapterType::ADMOSC,      TEXT("ADM-OSC"),     FLinearColor(0.10f, 0.45f, 0.85f) },
-		{ ESpatialAdapterType::DS100,       TEXT("DS100"),        FLinearColor(1.00f, 0.42f, 0.10f) },
-		{ ESpatialAdapterType::QLabObject,  TEXT("QLab Object"),  FLinearColor(0.10f, 0.72f, 0.32f) },
-		{ ESpatialAdapterType::SpaceMapGo,  TEXT("SpaceMap Go"),  FLinearColor(0.80f, 0.55f, 0.00f) },
+		{ ESpatialAdapterType::ADMOSC,     TEXT("ADM-OSC"),    FLinearColor(0.10f, 0.45f, 0.85f) },
+		{ ESpatialAdapterType::QLabObject, TEXT("QLab Object"), FLinearColor(0.10f, 0.72f, 0.32f) },
 	};
 }
 
@@ -584,71 +582,56 @@ TSharedRef<SWidget> SSpatialFabricPanel::BuildStageTab()
 				.Font(FAppStyle::GetFontStyle("BoldFont"))
 			]
 
-			// Auto-Follow Player
+			// ── Listener mode button group ────────────────────────────────
 			+ SVerticalBox::Slot().AutoHeight().Padding(4.f, 3.f)
 			[
 				SNew(SHorizontalBox)
-				+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center).Padding(0.f, 0.f, 8.f, 0.f)
-				[
-					SNew(SCheckBox)
-					.IsEnabled_Lambda([GetSV]() { return GetSV() != nullptr; })
-					.IsChecked_Lambda([GetSV]()
-					{
-						const ASpatialStageVolume* SV = GetSV();
-						return (SV && SV->bAutoFollowPlayer)
-							? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
-					})
-					.OnCheckStateChanged_Lambda([GetSV](ECheckBoxState State)
-					{
-						if (ASpatialStageVolume* SV = GetSV())
-						{
-							SV->bAutoFollowPlayer = (State == ECheckBoxState::Checked);
-							SV->MarkPackageDirty();
-						}
-					})
-				]
-				+ SHorizontalBox::Slot().FillWidth(1.f).VAlign(VAlign_Center)
-				[
-					SNew(STextBlock)
-					.Text(LOCTEXT("AutoFollowPlayer", "Auto-Follow Player"))
-					.ToolTipText(LOCTEXT("AutoFollowPlayerTip",
-						"Stage volume tracks the local player camera each frame.\n"
-						"Sound objects are positioned relative to the player (player is always the origin).\n"
-						"Requires Player Controller with a possessed Pawn or View Target."))
-				]
-			]
 
-			// Listener-Relative Orientation
-			+ SVerticalBox::Slot().AutoHeight().Padding(4.f, 3.f)
-			[
-				SNew(SHorizontalBox)
-				+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center).Padding(0.f, 0.f, 8.f, 0.f)
+				// Off
+				+ SHorizontalBox::Slot().AutoWidth().Padding(0.f, 0.f, 2.f, 0.f)
 				[
-					SNew(SCheckBox)
+					SNew(SButton)
 					.IsEnabled_Lambda([GetSV]() { return GetSV() != nullptr; })
-					.IsChecked_Lambda([GetSV]()
+					.ButtonColorAndOpacity_Lambda([GetSV]()
 					{
 						const ASpatialStageVolume* SV = GetSV();
-						return (SV && SV->bListenerRelativeOrientation)
-							? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
+						return (SV && SV->ListenerMode == EListenerMode::Off)
+							? FLinearColor(0.10f, 0.45f, 0.85f) : FLinearColor(0.18f, 0.18f, 0.18f);
 					})
-					.OnCheckStateChanged_Lambda([GetSV](ECheckBoxState State)
+					.OnClicked_Lambda([GetSV]() -> FReply
 					{
 						if (ASpatialStageVolume* SV = GetSV())
-						{
-							SV->bListenerRelativeOrientation = (State == ECheckBoxState::Checked);
-							SV->MarkPackageDirty();
-						}
+						{ SV->ListenerMode = EListenerMode::Off; SV->MarkPackageDirty(); }
+						return FReply::Handled();
 					})
+					.ToolTipText(LOCTEXT("ListenerOffTip",
+						"Stage is fixed at its design-time location.\n"
+						"All coordinates are relative to the box centre."))
+					[ SNew(STextBlock).Text(LOCTEXT("ListenerOff", "Off")).ColorAndOpacity(FLinearColor::White) ]
 				]
-				+ SHorizontalBox::Slot().FillWidth(1.f).VAlign(VAlign_Center)
+
+				// Follow Position & Orientation
+				+ SHorizontalBox::Slot().AutoWidth()
 				[
-					SNew(STextBlock)
-					.Text(LOCTEXT("ListenerRelOrientation", "Listener-Relative Orientation"))
-					.ToolTipText(LOCTEXT("ListenerRelOrientationTip",
-						"Object axes follow the listener's facing direction.\n"
-						"Enable for head-tracked binaural audio where the renderer\n"
-						"needs coordinates in the listener's own local frame (forward = listener facing)."))
+					SNew(SButton)
+					.IsEnabled_Lambda([GetSV]() { return GetSV() != nullptr; })
+					.ButtonColorAndOpacity_Lambda([GetSV]()
+					{
+						const ASpatialStageVolume* SV = GetSV();
+						return (SV && SV->ListenerMode == EListenerMode::FollowPositionAndOrientation)
+							? FLinearColor(0.10f, 0.45f, 0.85f) : FLinearColor(0.18f, 0.18f, 0.18f);
+					})
+					.OnClicked_Lambda([GetSV]() -> FReply
+					{
+						if (ASpatialStageVolume* SV = GetSV())
+						{ SV->ListenerMode = EListenerMode::FollowPositionAndOrientation; SV->MarkPackageDirty(); }
+						return FReply::Handled();
+					})
+					.ToolTipText(LOCTEXT("ListenerPosRotTip",
+						"Stage origin AND axes follow the player each frame.\n"
+						"\"Forward\" always equals the listener's facing direction.\n"
+						"Use for fully listener-relative coordinate output."))
+					[ SNew(STextBlock).Text(LOCTEXT("ListenerPosRot", "Follow Position & Orientation")).ColorAndOpacity(FLinearColor::White) ]
 				]
 			]
 		];
@@ -749,36 +732,207 @@ TSharedRef<SWidget> SSpatialFabricPanel::BuildObjectsTab()
 			]
 		];
 
+	// ── Port control: combo preset for ADM-OSC, plain numeric for others ──
+	//
+	// Known ADM-OSC receiver defaults:
+	//   8880 — L-ISA Controller
+	//   9000 — L-ISA Processor
+	//   4001 — Spat Revolution
+	//   7000 — TiMax SoundHub
+	// 38033 — Meyer SpaceMap Go
+	struct FADMPortPreset { const TCHAR* Label; int32 Port; };
+	static const FADMPortPreset ADMPortPresets[] =
+	{
+		{ TEXT("8880  (L-ISA Controller)"),  8880 },
+		{ TEXT("9000  (L-ISA Processor)"),   9000 },
+		{ TEXT("4001  (Spat Revolution)"),   4001 },
+		{ TEXT("7000  (TiMax SoundHub)"),    7000 },
+		{ TEXT("38033 (Meyer SpaceMap Go)"), 38033 },
+		{ TEXT("50011 (d&b DS100)"),         50011 },
+	};
+
+	// Shared flag: true = user selected "Custom" and wants free-form numeric entry.
+	// Starts false; reset to false whenever a preset is chosen.
+	TSharedRef<bool> bADMPortCustomMode = MakeShared<bool>(false);
+
+	// Helper lambda — commit a new port value and reinitialize adapters.
+	auto CommitPort = [this](int32 Val)
+	{
+		if (ASpatialFabricManagerActor* Mgr = GetManager())
+			if (FSpatialAdapterConfig* C = Mgr->AdapterConfigs.Find((uint8)Mgr->ActiveAdapterType))
+			{
+				C->TargetPort = FMath::Clamp(Val, 1024, 65535);
+				Mgr->MarkPackageDirty();
+				if (Mgr->GetRouter()) Mgr->InitializeAdapters();
+			}
+	};
+
+	// Switcher index 0 = combo (ADM-OSC active, preset mode)
+	//               1 = numeric (ADM-OSC active, custom mode)
+	//               2 = numeric (any other adapter)
+	TSharedPtr<SWidgetSwitcher> PortSwitcher;
+
 	FormatRow->AddSlot()
 		.AutoWidth()
 		.VAlign(VAlign_Center)
 		.Padding(0.f, 0.f, 0.f, 0.f)
 		[
-			SNew(SBox).WidthOverride(62.f)
+			SAssignNew(PortSwitcher, SWidgetSwitcher)
+			.WidgetIndex_Lambda([this, bADMPortCustomMode]() -> int32
+			{
+				const ASpatialFabricManagerActor* Mgr = GetManager();
+				if (Mgr && Mgr->ActiveAdapterType == ESpatialAdapterType::ADMOSC)
+					return *bADMPortCustomMode ? 1 : 0;
+				return 2;
+			})
+
+			// ── Slot 0: ADM-OSC preset dropdown ────────────────────────
+			+ SWidgetSwitcher::Slot()
 			[
-				SNew(SNumericEntryBox<int32>)
-				.Value_Lambda([this]() -> TOptional<int32>
-				{
-					const ASpatialFabricManagerActor* Mgr = GetManager();
-					if (!Mgr) return TOptional<int32>();
-					if (const FSpatialAdapterConfig* C = Mgr->AdapterConfigs.Find((uint8)Mgr->ActiveAdapterType))
-						return C->TargetPort;
-					return TOptional<int32>();
-				})
-				.OnValueCommitted_Lambda([this](int32 Val, ETextCommit::Type)
-				{
-					if (ASpatialFabricManagerActor* Mgr = GetManager())
-						if (FSpatialAdapterConfig* C = Mgr->AdapterConfigs.Find((uint8)Mgr->ActiveAdapterType))
+				SNew(SBox).WidthOverride(175.f)
+				[
+					SNew(SComboButton)
+					.ButtonStyle(FAppStyle::Get(), "SimpleButton")
+					.HasDownArrow(true)
+					.ToolTipText(LOCTEXT("ADMPortPresetTip",
+						"Select a common ADM-OSC receiver port, or choose Custom to enter any value."))
+					.ButtonContent()
+					[
+						SNew(STextBlock)
+						.Text_Lambda([this]() -> FText
 						{
-							C->TargetPort = FMath::Clamp(Val, 1024, 65535);
-							Mgr->MarkPackageDirty();
-							if (Mgr->GetRouter()) Mgr->InitializeAdapters();
+							const ASpatialFabricManagerActor* Mgr = GetManager();
+							if (!Mgr) return LOCTEXT("PortUnknown", "—");
+							const FSpatialAdapterConfig* C = Mgr->AdapterConfigs.Find((uint8)Mgr->ActiveAdapterType);
+							if (!C) return LOCTEXT("PortUnknown", "—");
+							const int32 P = C->TargetPort;
+							static const FADMPortPreset Presets[] =
+							{
+								{ TEXT("8880  (L-ISA Controller)"),  8880 },
+														{ TEXT("9000  (L-ISA Processor)"),   9000 },
+								{ TEXT("4001  (Spat Revolution)"),   4001 },
+								{ TEXT("7000  (TiMax SoundHub)"),    7000 },
+								{ TEXT("38033 (Meyer SpaceMap Go)"), 38033 },
+								{ TEXT("50011 (d&b DS100)"),         50011 },
+							};
+							for (const FADMPortPreset& Pre : Presets)
+								if (Pre.Port == P)
+									return FText::FromString(Pre.Label);
+							return FText::Format(LOCTEXT("PortCustomFmt", "{0}  (custom)"), P);
+						})
+						.Font(FAppStyle::GetFontStyle("SmallFont"))
+					]
+					.OnGetMenuContent_Lambda([this, bADMPortCustomMode, CommitPort]() -> TSharedRef<SWidget>
+					{
+						FMenuBuilder MenuBuilder(true, nullptr);
+
+						static const FADMPortPreset Presets[] =
+						{
+							{ TEXT("8880  (L-ISA Controller)"),  8880 },
+												{ TEXT("9000  (L-ISA Processor)"),   9000 },
+							{ TEXT("4001  (Spat Revolution)"),   4001 },
+							{ TEXT("7000  (TiMax SoundHub)"),    7000 },
+							{ TEXT("38033 (Meyer SpaceMap Go)"), 38033 },
+							{ TEXT("50011 (d&b DS100)"),         50011 },
+						};
+
+						for (const FADMPortPreset& Pre : Presets)
+						{
+							const int32 Port = Pre.Port;
+							const FString Label = Pre.Label;
+							MenuBuilder.AddMenuEntry(
+								FText::FromString(Label),
+								FText::Format(LOCTEXT("ADMPortPresetTipFmt", "Set port to {0}"), Port),
+								FSlateIcon(),
+								FUIAction(FExecuteAction::CreateLambda([this, bADMPortCustomMode, CommitPort, Port]()
+								{
+									*bADMPortCustomMode = false;
+									CommitPort(Port);
+								}))
+							);
 						}
-				})
-				.MinValue(1024)
-				.MaxValue(65535)
-				.AllowSpin(false)
-				.ToolTipText(LOCTEXT("PortTip", "Target UDP port for the active protocol adapter"))
+
+						MenuBuilder.AddSeparator();
+						MenuBuilder.AddMenuEntry(
+							LOCTEXT("ADMPortCustom", "Custom..."),
+							LOCTEXT("ADMPortCustomTip", "Enter any port number manually."),
+							FSlateIcon(),
+							FUIAction(FExecuteAction::CreateLambda([bADMPortCustomMode]()
+							{
+								*bADMPortCustomMode = true;
+							}))
+						);
+
+						return MenuBuilder.MakeWidget();
+					})
+				]
+			]
+
+			// ── Slot 1: ADM-OSC custom numeric entry ────────────────────
+			+ SWidgetSwitcher::Slot()
+			[
+				SNew(SHorizontalBox)
+				+ SHorizontalBox::Slot().AutoWidth()
+				[
+					SNew(SBox).WidthOverride(62.f)
+					[
+						SNew(SNumericEntryBox<int32>)
+						.Value_Lambda([this]() -> TOptional<int32>
+						{
+							const ASpatialFabricManagerActor* Mgr = GetManager();
+							if (!Mgr) return TOptional<int32>();
+							if (const FSpatialAdapterConfig* C = Mgr->AdapterConfigs.Find((uint8)Mgr->ActiveAdapterType))
+								return C->TargetPort;
+							return TOptional<int32>();
+						})
+						.OnValueCommitted_Lambda([this, CommitPort](int32 Val, ETextCommit::Type)
+						{
+							CommitPort(Val);
+						})
+						.MinValue(1024).MaxValue(65535).AllowSpin(false)
+						.ToolTipText(LOCTEXT("PortCustomEntryTip", "Enter a custom UDP port (1024–65535)"))
+					]
+				]
+				+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center).Padding(2.f, 0.f, 0.f, 0.f)
+				[
+					SNew(SButton)
+					.ButtonStyle(FAppStyle::Get(), "SimpleButton")
+					.ToolTipText(LOCTEXT("ADMPortBackTip", "Back to preset list"))
+					.OnClicked_Lambda([bADMPortCustomMode]() -> FReply
+					{
+						*bADMPortCustomMode = false;
+						return FReply::Handled();
+					})
+					[
+						SNew(STextBlock)
+						.Text(FText::FromString(TEXT("\u2715")))
+						.Font(FAppStyle::GetFontStyle("SmallFont"))
+						.ColorAndOpacity(FLinearColor(0.6f, 0.6f, 0.6f))
+					]
+				]
+			]
+
+			// ── Slot 2: non-ADM-OSC plain numeric entry ─────────────────
+			+ SWidgetSwitcher::Slot()
+			[
+				SNew(SBox).WidthOverride(62.f)
+				[
+					SNew(SNumericEntryBox<int32>)
+					.Value_Lambda([this]() -> TOptional<int32>
+					{
+						const ASpatialFabricManagerActor* Mgr = GetManager();
+						if (!Mgr) return TOptional<int32>();
+						if (const FSpatialAdapterConfig* C = Mgr->AdapterConfigs.Find((uint8)Mgr->ActiveAdapterType))
+							return C->TargetPort;
+						return TOptional<int32>();
+					})
+					.OnValueCommitted_Lambda([this, CommitPort](int32 Val, ETextCommit::Type)
+					{
+						CommitPort(Val);
+					})
+					.MinValue(1024).MaxValue(65535).AllowSpin(false)
+					.ToolTipText(LOCTEXT("PortTip", "Target UDP port for the active protocol adapter"))
+				]
 			]
 		];
 
@@ -1321,6 +1475,77 @@ TSharedRef<ITableRow> SSpatialFabricPanel::GenerateBindingRow(
 			[
 				SNew(SHorizontalBox)
 
+				// ── Coord mode buttons: xyz / aed / both ──────────────
+				+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center).Padding(0.f, 0.f, 6.f, 0.f)
+				[
+					SNew(SHorizontalBox)
+					.ToolTipText(LOCTEXT("ADMCoordTip",
+						"ADM-OSC position format.\n"
+						"xyz = Cartesian (/adm/obj/{n}/xyz)\n"
+						"aed = Polar (/adm/obj/{n}/aed  azimuth / elevation / distance)\n"
+						"both = send both messages each frame"))
+
+					+ SHorizontalBox::Slot().AutoWidth()
+					[
+						SNew(SButton)
+						.ButtonColorAndOpacity_Lambda([WeakMgr]()
+						{
+							const ASpatialFabricManagerActor* M = WeakMgr.Get();
+							const FSpatialAdapterConfig* C = M ? M->AdapterConfigs.Find((uint8)ESpatialAdapterType::ADMOSC) : nullptr;
+							return (C && C->ADMCoordinateMode == EADMCoordinateMode::Cartesian)
+								? FLinearColor(0.10f, 0.45f, 0.85f) : FLinearColor(0.18f, 0.18f, 0.18f);
+						})
+						.OnClicked_Lambda([WeakMgr]() -> FReply
+						{
+							if (ASpatialFabricManagerActor* M = WeakMgr.Get())
+								if (FSpatialAdapterConfig* C = M->AdapterConfigs.Find((uint8)ESpatialAdapterType::ADMOSC))
+								{ C->ADMCoordinateMode = EADMCoordinateMode::Cartesian; M->MarkPackageDirty(); if (M->GetRouter()) M->InitializeAdapters(); }
+							return FReply::Handled();
+						})
+						[ SNew(STextBlock).Text(LOCTEXT("ADMXYZBtn", "xyz")).Font(FAppStyle::GetFontStyle("SmallFont")).ColorAndOpacity(FLinearColor::White) ]
+					]
+
+					+ SHorizontalBox::Slot().AutoWidth()
+					[
+						SNew(SButton)
+						.ButtonColorAndOpacity_Lambda([WeakMgr]()
+						{
+							const ASpatialFabricManagerActor* M = WeakMgr.Get();
+							const FSpatialAdapterConfig* C = M ? M->AdapterConfigs.Find((uint8)ESpatialAdapterType::ADMOSC) : nullptr;
+							return (C && C->ADMCoordinateMode == EADMCoordinateMode::Polar)
+								? FLinearColor(0.10f, 0.45f, 0.85f) : FLinearColor(0.18f, 0.18f, 0.18f);
+						})
+						.OnClicked_Lambda([WeakMgr]() -> FReply
+						{
+							if (ASpatialFabricManagerActor* M = WeakMgr.Get())
+								if (FSpatialAdapterConfig* C = M->AdapterConfigs.Find((uint8)ESpatialAdapterType::ADMOSC))
+								{ C->ADMCoordinateMode = EADMCoordinateMode::Polar; M->MarkPackageDirty(); if (M->GetRouter()) M->InitializeAdapters(); }
+							return FReply::Handled();
+						})
+						[ SNew(STextBlock).Text(LOCTEXT("ADMAEDBtn", "aed")).Font(FAppStyle::GetFontStyle("SmallFont")).ColorAndOpacity(FLinearColor::White) ]
+					]
+
+					+ SHorizontalBox::Slot().AutoWidth()
+					[
+						SNew(SButton)
+						.ButtonColorAndOpacity_Lambda([WeakMgr]()
+						{
+							const ASpatialFabricManagerActor* M = WeakMgr.Get();
+							const FSpatialAdapterConfig* C = M ? M->AdapterConfigs.Find((uint8)ESpatialAdapterType::ADMOSC) : nullptr;
+							return (C && C->ADMCoordinateMode == EADMCoordinateMode::Both)
+								? FLinearColor(0.10f, 0.45f, 0.85f) : FLinearColor(0.18f, 0.18f, 0.18f);
+						})
+						.OnClicked_Lambda([WeakMgr]() -> FReply
+						{
+							if (ASpatialFabricManagerActor* M = WeakMgr.Get())
+								if (FSpatialAdapterConfig* C = M->AdapterConfigs.Find((uint8)ESpatialAdapterType::ADMOSC))
+								{ C->ADMCoordinateMode = EADMCoordinateMode::Both; M->MarkPackageDirty(); if (M->GetRouter()) M->InitializeAdapters(); }
+							return FReply::Handled();
+						})
+						[ SNew(STextBlock).Text(LOCTEXT("ADMBothBtn", "both")).Font(FAppStyle::GetFontStyle("SmallFont")).ColorAndOpacity(FLinearColor::White) ]
+					]
+				]
+
 				// "w:" label
 				+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center).Padding(0.f, 0.f, 4.f, 0.f)
 				[
@@ -1695,7 +1920,12 @@ void SSpatialFabricPanel::SetActiveFormat(ESpatialAdapterType Type)
 	for (const ESpatialAdapterType T : Phase1)
 	{
 		if (FSpatialAdapterConfig* Config = Mgr->AdapterConfigs.Find((uint8)T))
+		{
 			Config->bEnabled = (T == Type);
+			// Ensure ADM-OSC defaults to Polar so elevation (/aed) is sent out of the box.
+			if (T == ESpatialAdapterType::ADMOSC && Config->ADMCoordinateMode == EADMCoordinateMode::Cartesian)
+				Config->ADMCoordinateMode = EADMCoordinateMode::Polar;
+		}
 	}
 
 	// Re-route every existing binding to the new format

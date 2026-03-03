@@ -193,7 +193,7 @@ struct SPATIALFABRIC_API FSpatialAdapterConfig
 	 */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SpatialFabric|Adapter",
 		meta = (EditCondition = "false"))
-	EADMCoordinateMode ADMCoordinateMode = EADMCoordinateMode::Cartesian;
+	EADMCoordinateMode ADMCoordinateMode = EADMCoordinateMode::Polar;
 
 	/**
 	 * QLab-only: workspace ID string (e.g. "1" or a QLab workspace GUID).

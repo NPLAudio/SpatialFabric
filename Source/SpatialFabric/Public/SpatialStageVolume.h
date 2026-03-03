@@ -9,6 +9,23 @@
 class UBoxComponent;
 
 /**
+ * How the stage volume tracks a listener (player or assigned actor).
+ *
+ *  Off                          — Stage is fixed at its design-time location.
+ *                                 All coordinates are relative to the box centre.
+ *
+ *  FollowPositionAndOrientation — Stage origin AND axes follow the listener.
+ *                                 "Forward" always equals the listener's facing direction.
+ *                                 Use for fully listener-relative coordinate output.
+ */
+UENUM(BlueprintType)
+enum class EListenerMode : uint8
+{
+	Off                          UMETA(DisplayName = "Off (stage-fixed)"),
+	FollowPositionAndOrientation UMETA(DisplayName = "Follow Position & Orientation"),
+};
+
+/**
  * ASpatialStageVolume
  *
  * A box-shaped level actor that defines the physical audio coordinate space.
@@ -18,12 +35,11 @@ class UBoxComponent;
  *
  * The box component's extent (half-size) in UE units determines the coordinate
  * space.  PhysicalWidth/Depth/HeightMeters tell adapters the real-world scale
- * for absolute-position output (e.g. RTTrPM, DS100 absolute mode).
+ * for absolute-position output (e.g. DS100 absolute mode).
  *
- * When ListenerActor is assigned, the stage origin and axes follow the
- * listener's world position and rotation each frame, enabling listener-relative
- * ("binaural") coordinate output.  ADM-OSC listener messages (/adm/lis/xyz,
- * /adm/lis/ypr) are also emitted when a listener actor is present.
+ * Set ListenerMode to follow the player camera or an assigned actor, enabling
+ * listener-relative coordinate output.  ADM-OSC listener messages
+ * (/adm/lis/xyz, /adm/lis/ypr) are also emitted when a listener is active.
  *
  * Place one ASpatialStageVolume in the level and reference it from
  * ASpatialFabricManagerActor::StageVolume.
@@ -79,59 +95,41 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stage|Axis Remap")
 	bool bFlipZ = false;
 
-	// ── Listener reference ──────────────────────────────────────────────────
+	// ── Listener / player mode ──────────────────────────────────────────────
 
 	/**
-	 * Automatically follow the local player's camera/pawn each frame.
-	 * Tick this box in the Details panel — no code, no dragging required.
-	 * Uses AutoFollowPlayerIndex to select which player (0 = first player).
-	 * The active view target is tracked, so cinematic cameras work too.
-	 * Takes priority over ListenerActor when enabled.
-	 */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stage|Listener",
-		meta = (DisplayName = "Auto-Follow Player"))
-	bool bAutoFollowPlayer = false;
-
-	/**
-	 * Which local player to follow when bAutoFollowPlayer is enabled.
-	 * 0 = first player (the default for single-player projects).
-	 */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stage|Listener",
-		meta = (EditCondition = "bAutoFollowPlayer", ClampMin = "0"))
-	int32 AutoFollowPlayerIndex = 0;
-
-	/**
-	 * Optional actor whose position is used as the coordinate origin each frame
-	 * instead of the stage box centre.  Set via the Details panel property
-	 * picker, or call AssignListenerToPlayerPawn / AssignListenerToPlayerCamera
-	 * from a Blueprint BeginPlay event.
+	 * Controls whether the stage tracks a listener (player or actor).
 	 *
-	 * Ignored when bAutoFollowPlayer is enabled.
-	 * Overridden by any actor attached as a World Outliner child when empty.
+	 *  Off                          — stage-fixed; coordinates relative to box centre.
+	 *  Follow Position & Orientation — origin AND axes follow the listener.
 	 *
-	 * When set, the listener's world location replaces the box origin, and
-	 * (if bListenerRelativeOrientation is true) the listener's rotation is
-	 * factored in so that "forward" always aligns with the listener's facing
-	 * direction.
-	 */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stage|Listener",
-		meta = (EditCondition = "!bAutoFollowPlayer"))
-	TSoftObjectPtr<AActor> ListenerActor;
-
-	/**
-	 * When true and a listener is active, object positions are expressed
-	 * in the listener's local frame (forward = listener facing direction).
-	 * When false, only the listener's position shifts the origin; axes remain
-	 * world-aligned (useful for head-tracked binaural where the renderer
-	 * handles yaw itself).
+	 * When not Off, the listener is resolved in priority order:
+	 *   1. Local player camera/view-target.
+	 *   2. ListenerActor property (if set).
+	 *   3. First World Outliner child of this actor.
 	 */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stage|Listener")
-	bool bListenerRelativeOrientation = false;
+	EListenerMode ListenerMode = EListenerMode::Off;
+
+	/**
+	 * Which local player to follow (0 = first player).
+	 * Only used when ListenerMode is not Off.
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stage|Listener",
+		meta = (ClampMin = "0"))
+	int32 ListenerPlayerIndex = 0;
+
+	/**
+	 * Optional explicit actor to use as the listener origin.
+	 * Only consulted when the player controller cannot be resolved.
+	 * Ignored when ListenerMode is Off.
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stage|Listener")
+	TSoftObjectPtr<AActor> ListenerActor;
 
 	/**
 	 * Assign the player pawn (character/vehicle) as the listener actor.
 	 * Call at BeginPlay or from a Blueprint event to follow the player pawn.
-	 * PlayerIndex is the local player index (0 for the first player).
 	 */
 	UFUNCTION(BlueprintCallable, Category = "Stage|Listener",
 		meta = (DisplayName = "Assign Listener to Player Pawn"))
@@ -139,17 +137,13 @@ public:
 
 	/**
 	 * Assign the player camera manager as the listener actor.
-	 * The camera manager follows the active view target (including cinematic
-	 * cameras), making it ideal for first-person or binaural audio tracking.
-	 * PlayerIndex is the local player index (0 for the first player).
 	 */
 	UFUNCTION(BlueprintCallable, Category = "Stage|Listener",
 		meta = (DisplayName = "Assign Listener to Player Camera"))
 	void AssignListenerToPlayerCamera(int32 PlayerIndex = 0);
 
 	/**
-	 * Clear the listener actor assignment so the stage box origin is used
-	 * as the coordinate origin (standard stage-fixed mode).
+	 * Clear the listener actor assignment and set ListenerMode to Off.
 	 */
 	UFUNCTION(BlueprintCallable, Category = "Stage|Listener",
 		meta = (DisplayName = "Clear Listener"))
@@ -167,14 +161,12 @@ public:
 
 	/**
 	 * Transform a world-space point to physical metres relative to stage origin.
-	 * StageMeters = WorldToNormalized(WorldPos) * HalfExtentMeters.
 	 */
 	UFUNCTION(BlueprintCallable, Category = "Stage")
 	FVector WorldToMeters(FVector WorldPos) const;
 
 	/**
 	 * Returns the half-extent in physical metres per axis: (W/2, D/2, H/2).
-	 * Used by adapters to scale normalized coordinates to physical distances.
 	 */
 	UFUNCTION(BlueprintCallable, Category = "Stage")
 	FVector GetHalfExtentMeters() const
@@ -190,17 +182,10 @@ public:
 	 */
 	void ResolveListenerThisFrame();
 
-	/**
-	 * Returns the cached listener world position (valid after ResolveListenerThisFrame).
-	 * If no listener actor is assigned, returns the stage box world origin.
-	 */
+	/** Returns the cached listener world position (valid after ResolveListenerThisFrame). */
 	FVector GetListenerWorldPosition() const { return CachedListenerPos; }
 
-	/**
-	 * Returns the cached listener rotation (valid after ResolveListenerThisFrame).
-	 * Returns FRotator::ZeroRotator when no listener actor is set or
-	 * bListenerRelativeOrientation is false.
-	 */
+	/** Returns the cached listener rotation (valid after ResolveListenerThisFrame). */
 	FRotator GetListenerRotation() const { return CachedListenerRot; }
 
 	/** Returns true if a listener actor is currently assigned and resolved. */
@@ -214,19 +199,18 @@ protected:
 	virtual void Tick(float DeltaTime) override;
 
 #if WITH_EDITOR
-	/** Draw a labelled debug box in the editor viewport. */
 	virtual void PostEditMove(bool bFinished) override;
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
 #endif
 
 private:
-	/** Cached listener world position (updated by ResolveListenerThisFrame). */
-	FVector CachedListenerPos = FVector::ZeroVector;
-	/** Cached listener rotation (updated by ResolveListenerThisFrame). */
-	FRotator CachedListenerRot = FRotator::ZeroRotator;
-	/** True if a listener actor was successfully resolved this frame. */
-	bool bListenerResolved = false;
+	FVector  CachedListenerPos  = FVector::ZeroVector;
+	FRotator CachedListenerRot  = FRotator::ZeroRotator;
+	bool     bListenerResolved  = false;
 
-	/** Compute the local-space vector from the current origin to WorldPos. */
+	/** World location/rotation of the stage box at BeginPlay — restored when ListenerMode is Off. */
+	FVector  DesignLocation = FVector::ZeroVector;
+	FRotator DesignRotation = FRotator::ZeroRotator;
+
 	FVector ComputeLocalVector(FVector WorldPos) const;
 };
