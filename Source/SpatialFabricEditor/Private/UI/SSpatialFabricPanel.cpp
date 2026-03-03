@@ -301,7 +301,6 @@ static TArray<FSFFormatDef> GetFormatDefs()
 	return {
 		{ ESpatialAdapterType::ADMOSC,      TEXT("ADM-OSC"),     FLinearColor(0.10f, 0.45f, 0.85f) },
 		{ ESpatialAdapterType::DS100,       TEXT("DS100"),        FLinearColor(1.00f, 0.42f, 0.10f) },
-		{ ESpatialAdapterType::RTTrPM,      TEXT("RTTrPM"),       FLinearColor(0.58f, 0.30f, 0.72f) },
 		{ ESpatialAdapterType::QLabObject,  TEXT("QLab Object"),  FLinearColor(0.10f, 0.72f, 0.32f) },
 		{ ESpatialAdapterType::SpaceMapGo,  TEXT("SpaceMap Go"),  FLinearColor(0.80f, 0.55f, 0.00f) },
 	};
@@ -1690,7 +1689,6 @@ void SSpatialFabricPanel::SetActiveFormat(ESpatialAdapterType Type)
 	static const ESpatialAdapterType Phase1[] = {
 		ESpatialAdapterType::ADMOSC,
 		ESpatialAdapterType::DS100,
-		ESpatialAdapterType::RTTrPM,
 		ESpatialAdapterType::QLabObject,
 		ESpatialAdapterType::SpaceMapGo,
 	};
@@ -1733,7 +1731,6 @@ TSharedRef<SWidget> SSpatialFabricPanel::BuildAdaptersTab()
 	} Info[] = {
 		{ TEXT("ADM-OSC (L-ISA)"),     TEXT("Normalized XYZ  /adm/obj/{n}/xyz"),                9000,  ESpatialAdapterType::ADMOSC,     true  },
 		{ TEXT("d&b DS100"),           TEXT("source_position or source_position_xy"),           50010, ESpatialAdapterType::DS100,       false },
-		{ TEXT("RTTrPM"),              TEXT("Binary UDP — Centroid Position (IEEE 754 doubles)"), 36700, ESpatialAdapterType::RTTrPM,      false },
 		{ TEXT("QLab Object Audio"),   TEXT("/cue/{id}/object/{name}/position/live"),            53000, ESpatialAdapterType::QLabObject,  false },
 		{ TEXT("QLab Cue Control"),    TEXT("Cue start/stop triggers"),                         53000, ESpatialAdapterType::QLabCue,     false },
 		{ TEXT("Meyer SpaceMap Go"),   TEXT("/channel/{n}/position  /spread"),                38033, ESpatialAdapterType::SpaceMapGo,  false },
@@ -1989,11 +1986,6 @@ static FString FormatOutputPreview(
 			const FVector2D Mapped = FSpatialMath::NormalizedToDS100Mapped(Obj.StageNormalized);
 			return FString::Printf(TEXT("/dbaudio1/coordinatemapping/source_position_xy/1/%d  %.3f %.3f"), ID, Mapped.X, Mapped.Y);
 		}
-	}
-	case ESpatialAdapterType::RTTrPM:
-	{
-		const FVector& M = Obj.StageMeters;
-		return FString::Printf(TEXT("Trackable[%d] '%s'  %.3fm %.3fm %.3fm"), ID, *Obj.Label, M.X, M.Y, M.Z);
 	}
 	case ESpatialAdapterType::QLabObject:
 	{

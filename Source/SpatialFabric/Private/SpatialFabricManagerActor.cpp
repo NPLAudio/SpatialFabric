@@ -12,7 +12,6 @@
 // Adapters
 #include "Adapters/ADMOSCAdapter.h"
 #include "Adapters/DS100Adapter.h"
-#include "Adapters/RTTrPMAdapter.h"
 #include "Adapters/QLabObjectAdapter.h"
 #include "Adapters/QLabCueAdapter.h"
 #include "Adapters/SpaceMapGoAdapter.h"
@@ -203,18 +202,6 @@ void ASpatialFabricManagerActor::InitializeAdapters()
 	RegisterOSC(MakeShared<FSpaceMapGoAdapter>(), ESpatialAdapterType::SpaceMapGo);
 	RegisterOSC(MakeShared<FTiMaxAdapter>(),      ESpatialAdapterType::TiMax);
 
-	// RTTrPM uses its own raw UDP socket (no OSC client)
-	{
-		auto RTTrPM = MakeShared<FRTTrPMAdapter>();
-		const uint8 Key = (uint8)ESpatialAdapterType::RTTrPM;
-		if (const FSpatialAdapterConfig* Config = AdapterConfigs.Find(Key))
-		{
-			RTTrPM->Configure(*Config);
-		}
-		RTTrPM->OnLog = [this](const FSpatialFabricLogEntry& Entry) { AppendLog(Entry); };
-		Router->RegisterAdapter(RTTrPM);
-	}
-
 	// Connect the shared OSC client to the first OSC adapter (user can override)
 	ConnectClient();
 }
@@ -238,9 +225,6 @@ void ASpatialFabricManagerActor::PopulateDefaultAdapterConfigs()
 
 	AdapterConfigs.Add((uint8)ESpatialAdapterType::DS100,
 		MakeConfig(TEXT("127.0.0.1"), S->DefaultDS100Port));
-
-	AdapterConfigs.Add((uint8)ESpatialAdapterType::RTTrPM,
-		MakeConfig(TEXT("127.0.0.1"), S->DefaultRTTrPMPort));
 
 	AdapterConfigs.Add((uint8)ESpatialAdapterType::QLabObject,
 		MakeConfig(TEXT("127.0.0.1"), S->DefaultQLabPort));

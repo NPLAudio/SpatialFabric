@@ -12,8 +12,8 @@ class USpatialOSCClientComponent;
  *
  * Pure abstract interface for all spatial protocol adapters.
  * Each adapter translates an FSpatialFrameSnapshot into protocol-specific
- * network packets (OSC messages or binary UDP) and sends them via the
- * provided USpatialOSCClientComponent (for OSC) or a raw FSocket (for RTTrPM).
+ * network packets (OSC messages) and sends them via the provided
+ * USpatialOSCClientComponent.
  *
  * Adapters are owned and driven by FProtocolRouter.  They must be
  * thread-compatible: Configure() and ProcessFrame() are always called on
@@ -40,7 +40,6 @@ public:
 
 	/**
 	 * Provide the shared OSC client component used to send outgoing messages.
-	 * No-op for non-OSC adapters (RTTrPM uses its own raw socket).
 	 */
 	virtual void SetClientComponent(USpatialOSCClientComponent* InClient) {}
 

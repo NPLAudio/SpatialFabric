@@ -4,7 +4,6 @@
 
 #include "Misc/AutomationTest.h"
 #include "SpatialMath.h"
-#include "Adapters/RTTrPMAdapter.h"
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  Helper: build a minimal stage transform (box half-extent in cm)
@@ -196,35 +195,7 @@ bool FQLabObjectAddressTest::RunTest(const FString& Parameters)
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-//  Test 6: RTTrPM packet signature bytes
-// ─────────────────────────────────────────────────────────────────────────────
-
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(
-	FRTTrPMSignatureTest,
-	"SpatialFabric.Adapters.RTTrPMSignature",
-	EAutomationTestFlags::EditorContext | EAutomationTestFlags::SmokeFilter)
-
-bool FRTTrPMSignatureTest::RunTest(const FString& Parameters)
-{
-	// Verify the RTTrPM header signature constant
-	// Spec: UInt16 Signature = 0x4154 ('AT')
-	constexpr uint16 Sig = 0x4154;
-	const uint8 Byte0 = (uint8)(Sig >> 8);   // 0x41 = 'A'
-	const uint8 Byte1 = (uint8)(Sig & 0xFF); // 0x54 = 'T'
-
-	TestEqual("RTTrPM sig[0] = 0x41", (int32)Byte0, 0x41);
-	TestEqual("RTTrPM sig[1] = 0x54", (int32)Byte1, 0x54);
-
-	// Version = 0x0200
-	constexpr uint16 Ver = 0x0200;
-	TestEqual("RTTrPM version high byte", (int32)(uint8)(Ver >> 8),   0x02);
-	TestEqual("RTTrPM version low byte",  (int32)(uint8)(Ver & 0xFF), 0x00);
-
-	return true;
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-//  Test 7: Listener-relative coordinate transform
+//  Test 6: Listener-relative coordinate transform
 // ─────────────────────────────────────────────────────────────────────────────
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
@@ -261,7 +232,7 @@ bool FSpatialMathListenerRelativeTest::RunTest(const FString& Parameters)
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-//  Test 8: Listener-relative with yaw rotation (Y-axis sign convention)
+//  Test 7: Listener-relative with yaw rotation (Y-axis sign convention)
 // ─────────────────────────────────────────────────────────────────────────────
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
@@ -317,7 +288,7 @@ bool FSpatialMathListenerRotatedTest::RunTest(const FString& Parameters)
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-//  Test 9: DS100 coordinate mapping conversion
+//  Test 8: DS100 coordinate mapping conversion
 // ─────────────────────────────────────────────────────────────────────────────
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(

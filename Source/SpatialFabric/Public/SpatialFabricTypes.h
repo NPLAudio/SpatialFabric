@@ -11,15 +11,12 @@
 
 /**
  * Identifies which spatial protocol adapter a target entry routes to.
- * Phase-1 adapters (ADMOSC, DS100, RTTrPM, QLabObject, SpaceMapGo) are fully
- * implemented.  Phase-2 adapters (QLabCue, TiMax) are stubs.
  */
 UENUM(BlueprintType)
 enum class ESpatialAdapterType : uint8
 {
 	ADMOSC      UMETA(DisplayName = "ADM-OSC (L-ISA / General)"),
 	DS100       UMETA(DisplayName = "d&b DS100 (Soundscape)"),
-	RTTrPM      UMETA(DisplayName = "RTTrPM (Binary UDP)"),
 	QLabObject  UMETA(DisplayName = "QLab Object Audio"),
 	QLabCue     UMETA(DisplayName = "QLab Cue Control"),
 	SpaceMapGo  UMETA(DisplayName = "Meyer SpaceMap Go"),
@@ -83,7 +80,7 @@ struct SPATIALFABRIC_API FSpatialNormalizedState
 
 	/**
 	 * Same position expressed in physical metres (StageNormalized * HalfExtentMeters).
-	 * Used directly by RTTrPM and for DS100 absolute-position mode.
+	 * Used by DS100 absolute-position mode.
 	 */
 	UPROPERTY(BlueprintReadOnly, Category = "SpatialFabric")
 	FVector StageMeters = FVector::ZeroVector;

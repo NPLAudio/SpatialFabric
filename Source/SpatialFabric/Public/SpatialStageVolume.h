@@ -46,7 +46,7 @@ public:
 
 	/**
 	 * Physical width of the audio space in metres (maps to the box's X axis).
-	 * Used by RTTrPM and DS100 absolute mode to output real-world coordinates.
+	 * Used by DS100 absolute mode to output real-world coordinates.
 	 */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stage|Physical Dimensions",
 		meta = (ClampMin = "0.1"))
