@@ -261,7 +261,66 @@ bool FSpatialMathListenerRelativeTest::RunTest(const FString& Parameters)
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-//  Test 8: DS100 coordinate mapping conversion
+//  Test 8: Listener-relative with yaw rotation (Y-axis sign convention)
+// ─────────────────────────────────────────────────────────────────────────────
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+	FSpatialMathListenerRotatedTest,
+	"SpatialFabric.Math.ListenerRelativeRotated",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::SmokeFilter)
+
+bool FSpatialMathListenerRotatedTest::RunTest(const FString& Parameters)
+{
+	// Listener at origin, facing +Y (Yaw = 90°).
+	// Object at world (0, 500, 0) — directly ahead of the listener.
+	// After UnrotateVector the object should be at local (+500, 0, 0) = in front.
+	//
+	// An object at world (500, 0, 0) is to the listener's LEFT.
+	// After UnrotateVector: UE local = (0, -500, 0)  (UE +Y = right, so left = -Y).
+	// Stage convention: +Y = left, so we negate → stage local = (0, +500, 0).
+	// Normalized Y = 500 / 750 = +0.667 (positive = stage-left). ✓
+
+	const FVector ListenerPos  = FVector::ZeroVector;
+	const FRotator ListenerRot = FRotator(0.f, 90.f, 0.f); // Yaw 90° → facing +Y
+	const FVector HalfExtCm(1000.f, 750.f, 400.f);
+
+	// Object to the listener's left (world +X when listener faces +Y)
+	{
+		const FVector ObjectPos(500.f, 0.f, 0.f);
+		FVector Local = ObjectPos - ListenerPos; // (500, 0, 0)
+		Local = ListenerRot.UnrotateVector(Local);
+		Local.Y = -Local.Y; // UE right-positive → stage left-positive
+		const FVector Norm(
+			FMath::Clamp(Local.X / HalfExtCm.X, -1.f, 1.f),
+			FMath::Clamp(Local.Y / HalfExtCm.Y, -1.f, 1.f),
+			FMath::Clamp(Local.Z / HalfExtCm.Z, -1.f, 1.f));
+
+		// Object is to the listener's LEFT → stage +Y → positive normalized Y
+		TestTrue("Rotated: left object Y > 0", Norm.Y > 0.f);
+		TestTrue("Rotated: left object X ~ 0", FMath::IsNearlyZero(Norm.X, 0.01f));
+	}
+
+	// Object directly in front of listener (world +Y when listener faces +Y)
+	{
+		const FVector ObjectPos(0.f, 500.f, 0.f);
+		FVector Local = ObjectPos - ListenerPos; // (0, 500, 0)
+		Local = ListenerRot.UnrotateVector(Local);
+		Local.Y = -Local.Y;
+		const FVector Norm(
+			FMath::Clamp(Local.X / HalfExtCm.X, -1.f, 1.f),
+			FMath::Clamp(Local.Y / HalfExtCm.Y, -1.f, 1.f),
+			FMath::Clamp(Local.Z / HalfExtCm.Z, -1.f, 1.f));
+
+		// Object is directly in front → stage +X → positive normalized X
+		TestTrue("Rotated: front object X > 0", Norm.X > 0.f);
+		TestTrue("Rotated: front object Y ~ 0", FMath::IsNearlyZero(Norm.Y, 0.01f));
+	}
+
+	return true;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  Test 9: DS100 coordinate mapping conversion
 // ─────────────────────────────────────────────────────────────────────────────
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
