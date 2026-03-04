@@ -1,12 +1,16 @@
 // Copyright (c) 2026 SpatialFabric Contributors. Licensed under the MIT License.
 
 #include "SpatialOSCServerComponent.h"
+#include "SpatialFabricSettings.h"
 #include "OSCManager.h"
 #include "OSCAddress.h"
 #include "OSCTypes.h"
 #include "Logging/LogMacros.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogSpatialOSCServer, Log, All);
+
+#define SF_LOG_DEBUG(Fmt, ...) \
+	do { if (GetDefault<USpatialFabricSettings>()->bEnableDebugMessages) { UE_LOG(LogSpatialOSCServer, Log, Fmt, ##__VA_ARGS__); } } while(0)
 
 USpatialOSCServerComponent::USpatialOSCServerComponent()
 {
@@ -40,7 +44,7 @@ void USpatialOSCServerComponent::StartListening(const FString& IP, int32 Port)
 
 	CurrentIP = IP;
 	CurrentPort = Port;
-	UE_LOG(LogSpatialOSCServer, Log, TEXT("OSC Server listening on %s:%d"), *IP, Port);
+	SF_LOG_DEBUG(TEXT("OSC Server listening on %s:%d"), *IP, Port);
 }
 
 void USpatialOSCServerComponent::StopListening()
@@ -52,7 +56,7 @@ void USpatialOSCServerComponent::StopListening()
 		OSCServer = nullptr;
 		CurrentPort = 0;
 		CurrentIP.Empty();
-		UE_LOG(LogSpatialOSCServer, Log, TEXT("OSC Server stopped"));
+		SF_LOG_DEBUG(TEXT("OSC Server stopped"));
 	}
 }
 

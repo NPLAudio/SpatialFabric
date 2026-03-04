@@ -64,6 +64,15 @@ public:
 		meta = (ClampMin = "1.0", ClampMax = "120.0"))
 	float DefaultSendRateHz = 50.f;
 
+	// ── Diagnostics ─────────────────────────────────────────────────────────
+	/**
+	 * When true, SpatialFabric emits verbose debug messages to the Output Log
+	 * (OSC connect/disconnect events, missing-actor warnings, etc.).
+	 * Off by default to keep the log clean during normal use.
+	 */
+	UPROPERTY(EditAnywhere, config, Category = "SpatialFabric")
+	bool bEnableDebugMessages = false;
+
 	// UDeveloperSettings overrides
 	virtual FName GetCategoryName() const override { return FName("Plugins"); }
 };

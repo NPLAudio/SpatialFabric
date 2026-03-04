@@ -1,6 +1,7 @@
 // Copyright (c) 2026 SpatialFabric Contributors. Licensed under the MIT License.
 
 #include "SpatialOSCClientComponent.h"
+#include "SpatialFabricSettings.h"
 #include "OSCManager.h"
 #include "OSCMessage.h"
 #include "OSCAddress.h"
@@ -8,6 +9,9 @@
 #include "Logging/LogMacros.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogSpatialOSCClient, Log, All);
+
+#define SF_LOG_DEBUG(Fmt, ...) \
+	do { if (GetDefault<USpatialFabricSettings>()->bEnableDebugMessages) { UE_LOG(LogSpatialOSCClient, Log, Fmt, ##__VA_ARGS__); } } while(0)
 
 USpatialOSCClientComponent::USpatialOSCClientComponent()
 {
@@ -42,7 +46,7 @@ void USpatialOSCClientComponent::Connect(const FString& IP, int32 Port)
 
 	CurrentIP = IP;
 	CurrentPort = Port;
-	UE_LOG(LogSpatialOSCClient, Log, TEXT("OSC Client connected to %s:%d"), *IP, Port);
+	SF_LOG_DEBUG(TEXT("OSC Client connected to %s:%d"), *IP, Port);
 }
 
 void USpatialOSCClientComponent::Disconnect()
@@ -52,7 +56,7 @@ void USpatialOSCClientComponent::Disconnect()
 		OSCClient = nullptr;
 		CurrentIP.Empty();
 		CurrentPort = 0;
-		UE_LOG(LogSpatialOSCClient, Log, TEXT("OSC Client disconnected"));
+		SF_LOG_DEBUG(TEXT("OSC Client disconnected"));
 	}
 }
 

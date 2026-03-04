@@ -2,6 +2,7 @@
 
 #include "UI/SSpatialFabricPanel.h"
 #include "SpatialFabricManagerActor.h"
+#include "SpatialFabricSettings.h"
 #include "SpatialStageVolume.h"
 #include "SpatialFabricTypes.h"
 #include "SpatialMath.h"
@@ -2370,14 +2371,44 @@ TSharedRef<SWidget> SSpatialFabricPanel::BuildOutputTab()
 {
 	return SNew(SVerticalBox)
 
-		// ── Per-object state preview ─────────────────────────────────────
+		// ── Per-object state preview header + debug toggle ───────────────
 		+ SVerticalBox::Slot()
 		.AutoHeight()
-		.Padding(6.f, 4.f)
+		.Padding(6.f, 4.f, 6.f, 2.f)
 		[
-			SNew(STextBlock)
-			.Text(LOCTEXT("OutputHeader", "Live Output Preview"))
-			.Font(FAppStyle::GetFontStyle("BoldFont"))
+			SNew(SHorizontalBox)
+			+ SHorizontalBox::Slot().FillWidth(1.f).VAlign(VAlign_Center)
+			[
+				SNew(STextBlock)
+				.Text(LOCTEXT("OutputHeader", "Live Output Preview"))
+				.Font(FAppStyle::GetFontStyle("BoldFont"))
+			]
+			+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center)
+			[
+				SNew(SCheckBox)
+				.IsChecked_Lambda([]() -> ECheckBoxState
+				{
+					return GetDefault<USpatialFabricSettings>()->bEnableDebugMessages
+						? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
+				})
+				.OnCheckStateChanged_Lambda([](ECheckBoxState NewState)
+				{
+					USpatialFabricSettings* S = GetMutableDefault<USpatialFabricSettings>();
+					S->bEnableDebugMessages = (NewState == ECheckBoxState::Checked);
+					S->SaveConfig();
+				})
+				.ToolTipText(LOCTEXT("DebugMsgTip",
+					"Enable verbose debug messages in the Output Log\n"
+					"(OSC connect/disconnect, missing-actor warnings).\n"
+					"Off by default to keep the log clean."))
+			]
+			+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center).Padding(4.f, 0.f, 0.f, 0.f)
+			[
+				SNew(STextBlock)
+				.Text(LOCTEXT("DebugMsgLabel", "Debug messages"))
+				.Font(FAppStyle::GetFontStyle("SmallFont"))
+				.ColorAndOpacity(FLinearColor(0.65f, 0.65f, 0.65f))
+			]
 		]
 		+ SVerticalBox::Slot()
 		.AutoHeight()

@@ -1,6 +1,7 @@
 // Copyright (c) 2026 SpatialFabric Contributors. Licensed under the MIT License.
 
 #include "SpatialObjectRegistry.h"
+#include "SpatialFabricSettings.h"
 #include "SpatialStageVolume.h"
 #include "EngineUtils.h"
 #include "GameFramework/Actor.h"
@@ -36,9 +37,12 @@ FSpatialFrameSnapshot USpatialObjectRegistry::BuildSnapshot(
 		{
 			if (!WarnedMissingActors.Contains(i))
 			{
-				UE_LOG(LogTemp, Warning,
-					TEXT("SpatialFabric: Binding[%d] '%s' — target actor not found."),
-					i, *Binding.Label);
+				if (GetDefault<USpatialFabricSettings>()->bEnableDebugMessages)
+				{
+					UE_LOG(LogTemp, Warning,
+						TEXT("SpatialFabric: Binding[%d] '%s' — target actor not found."),
+						i, *Binding.Label);
+				}
 				WarnedMissingActors.Add(i);
 			}
 			continue;
