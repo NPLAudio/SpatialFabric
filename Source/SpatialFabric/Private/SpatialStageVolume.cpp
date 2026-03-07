@@ -178,23 +178,27 @@ void ASpatialStageVolume::Tick(float DeltaTime)
 	ResolveListenerThisFrame();
 
 #if ENABLE_DRAW_DEBUG
-	const FVector BoxCenter  = StageBox->GetComponentLocation();
-	const FVector HalfExtent = StageBox->GetScaledBoxExtent();
-	const FQuat   BoxRot     = StageBox->GetComponentQuat();
-
-	DrawDebugBox(GetWorld(), BoxCenter, HalfExtent, BoxRot,
-		FColor(0, 200, 255), false, -1.f, 0, 2.f);
-
-	DrawDebugString(GetWorld(), BoxCenter + FVector(0, 0, HalfExtent.Z + 30.f),
-		FString::Printf(TEXT("Stage Volume\n%.1fm x %.1fm x %.1fm"),
-			PhysicalWidthMeters, PhysicalDepthMeters, PhysicalHeightMeters),
-		nullptr, FColor::White, 0.f);
-
-	if (bListenerResolved)
+	// Skip debug draw when hidden (via "Hide stage in PIE" checkbox)
+	if (!bHideDebugDraw && (!GetRootComponent() || !GetRootComponent()->bHiddenInGame))
 	{
-		DrawDebugSphere(GetWorld(), CachedListenerPos, 20.f, 8, FColor::Yellow, false, -1.f, 0, 2.f);
-		DrawDebugString(GetWorld(), CachedListenerPos + FVector(0, 0, 40.f),
-			TEXT("Listener"), nullptr, FColor::Yellow, 0.f);
+		const FVector BoxCenter  = StageBox->GetComponentLocation();
+		const FVector HalfExtent = StageBox->GetScaledBoxExtent();
+		const FQuat   BoxRot     = StageBox->GetComponentQuat();
+
+		DrawDebugBox(GetWorld(), BoxCenter, HalfExtent, BoxRot,
+			FColor(0, 200, 255), false, -1.f, 0, 2.f);
+
+		DrawDebugString(GetWorld(), BoxCenter + FVector(0, 0, HalfExtent.Z + 30.f),
+			FString::Printf(TEXT("Stage Volume\n%.1fm x %.1fm x %.1fm"),
+				PhysicalWidthMeters, PhysicalDepthMeters, PhysicalHeightMeters),
+			nullptr, FColor::White, 0.f);
+
+		if (bListenerResolved)
+		{
+			DrawDebugSphere(GetWorld(), CachedListenerPos, 20.f, 8, FColor::Yellow, false, -1.f, 0, 2.f);
+			DrawDebugString(GetWorld(), CachedListenerPos + FVector(0, 0, 40.f),
+				TEXT("Listener"), nullptr, FColor::Yellow, 0.f);
+		}
 	}
 #endif
 }

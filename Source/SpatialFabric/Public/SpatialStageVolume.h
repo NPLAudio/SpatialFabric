@@ -194,6 +194,9 @@ public:
 	/** Returns the listener's YPR (yaw/pitch/roll) as a rotator for ADM-OSC. */
 	FRotator GetListenerYPR() const { return CachedListenerRot; }
 
+	/** When true, skips DrawDebugBox in Tick. Set by manager when "Hide stage in PIE" is checked. */
+	void SetHideDebugDraw(bool bHide) { bHideDebugDraw = bHide; }
+
 protected:
 	virtual void BeginPlay() override;
 	virtual void Tick(float DeltaTime) override;
@@ -211,6 +214,9 @@ private:
 	/** World location/rotation of the stage box at BeginPlay — restored when ListenerMode is Off. */
 	FVector  DesignLocation = FVector::ZeroVector;
 	FRotator DesignRotation = FRotator::ZeroRotator;
+
+	/** When true, skip DrawDebugBox (set by manager's "Hide stage in PIE" checkbox). */
+	bool bHideDebugDraw = false;
 
 	FVector ComputeLocalVector(FVector WorldPos) const;
 };

@@ -4,6 +4,7 @@
 #include "SpatialFabricSettings.h"
 #include "SpatialObjectRegistry.h"
 #include "SpatialStageVolume.h"
+#include "Components/BoxComponent.h"
 #include "ProtocolRouter.h"
 #include "SpatialOSCServerComponent.h"
 #include "SpatialOSCClientComponent.h"
@@ -37,16 +38,17 @@ void ASpatialFabricManagerActor::BeginPlay()
 {
 	Super::BeginPlay();
 
-	const USpatialFabricSettings* Settings = GetDefault<USpatialFabricSettings>();
-	const bool bIsPackaged = !GIsEditor;
-	if (bIsPackaged && !Settings->bEnableInPackagedBuilds) { return; }
-
-	// Resolve stage volume and ensure it ticks before this actor
+	// Resolve stage volume and apply visibility early (before early return)
 	ResolvedStageVolume = StageVolume.Get();
 	if (IsValid(ResolvedStageVolume))
 	{
 		AddTickPrerequisiteActor(ResolvedStageVolume);
 	}
+	ApplyStageVisibility();
+
+	const USpatialFabricSettings* Settings = GetDefault<USpatialFabricSettings>();
+	const bool bIsPackaged = !GIsEditor;
+	if (bIsPackaged && !Settings->bEnableInPackagedBuilds) { return; }
 
 	// Wire incoming OSC to router
 	if (ServerComponent)
@@ -244,5 +246,26 @@ void ASpatialFabricManagerActor::OnOSCMessageReceived(const FString& Address, fl
 	if (Router)
 	{
 		Router->DispatchIncomingOSC(Address, Value);
+	}
+}
+
+void ASpatialFabricManagerActor::ApplyStageVisibility()
+{
+	ASpatialStageVolume* SV = ResolvedStageVolume.Get();
+	if (!SV) { SV = StageVolume.Get(); }
+	if (!IsValid(SV)) { return; }
+
+	// Only apply in game worlds (PIE or packaged); editor viewport is unaffected
+	if (GetWorld() && GetWorld()->IsGameWorld())
+	{
+		SV->SetActorHiddenInGame(bHideStageInPIE);
+		SV->SetHideDebugDraw(bHideStageInPIE);
+		// Hide the box component's wireframe outline (UBoxComponent draws bounds as lines)
+		if (SV->StageBox)
+		{
+			SV->StageBox->SetHiddenInGame(bHideStageInPIE);
+			SV->StageBox->bDrawOnlyIfSelected = bHideStageInPIE;
+			SV->StageBox->MarkRenderStateDirty();
+		}
 	}
 }

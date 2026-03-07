@@ -67,27 +67,26 @@ bool USpatialOSCServerComponent::IsListening() const
 
 void USpatialOSCServerComponent::HandleOSCMessage(const FOSCMessage& Message, const FString& IPAddress, uint16 Port)
 {
-	const FString AddressStr = Message.GetAddress().GetFullPath();
+	const FString AddressStr = UOSCManager::GetOSCAddressFullPath(Message.GetAddress());
 
 	float Value = 0.f;
 	bool bFoundFloat = false;
 
-	const TArray<UE::OSC::FOSCData>& Args = Message.GetArgumentsChecked();
-
-	for (int32 i = 0; i < Args.Num(); ++i)
+	TArray<float> Floats;
+	UOSCManager::GetAllFloats(Message, Floats);
+	if (Floats.Num() > 0)
 	{
-		const UE::OSC::FOSCData& Arg = Args[i];
-		if (Arg.IsFloat())
+		Value = Floats[0];
+		bFoundFloat = true;
+	}
+	if (!bFoundFloat)
+	{
+		TArray<int32> Ints;
+		UOSCManager::GetAllInt32s(Message, Ints);
+		if (Ints.Num() > 0)
 		{
-			Value = Arg.GetFloat();
+			Value = static_cast<float>(Ints[0]);
 			bFoundFloat = true;
-			break;
-		}
-		if (Arg.IsInt32())
-		{
-			Value = static_cast<float>(Arg.GetInt32());
-			bFoundFloat = true;
-			break;
 		}
 	}
 

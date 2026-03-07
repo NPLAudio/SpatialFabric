@@ -31,6 +31,9 @@
 
 #define LOCTEXT_NAMESPACE "SSpatialFabricPanel"
 
+// SSpatialFabricPanel: Spatial Fabric Manager window (Stage/Objects/Radar/Output tabs)
+// Hide stage checkbox below listener buttons.
+
 // ─────────────────────────────────────────────────────────────────────────────
 //  SRadarView — live 2-D top-down position display
 // ─────────────────────────────────────────────────────────────────────────────
@@ -629,6 +632,35 @@ TSharedRef<SWidget> SSpatialFabricPanel::BuildStageTab()
 						"\"Forward\" always equals the listener's facing direction.\n"
 						"Use for fully listener-relative coordinate output."))
 					[ SNew(STextBlock).Text(LOCTEXT("ListenerPosRot", "Follow Position & Orientation")).ColorAndOpacity(FLinearColor::White) ]
+				]
+			]
+
+			// ── Hide stage in PIE ───────────────────────────────────────────
+			+ SVerticalBox::Slot().AutoHeight().Padding(0.f, 8.f, 0.f, 0.f)
+			[
+				SNew(SCheckBox)
+				.IsChecked_Lambda([this]()
+				{
+					const ASpatialFabricManagerActor* Mgr = GetManager();
+					return (Mgr && Mgr->bHideStageInPIE) ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
+				})
+				.OnCheckStateChanged_Lambda([this](ECheckBoxState NewState)
+				{
+					if (ASpatialFabricManagerActor* Mgr = GetManager())
+					{
+						Mgr->bHideStageInPIE = (NewState == ECheckBoxState::Checked);
+						Mgr->MarkPackageDirty();
+						Mgr->ApplyStageVisibility();
+					}
+				})
+				.ToolTipText(LOCTEXT("HideStageInPIETip",
+					"When checked, hides the stage volume actor in the game view during PIE and packaged builds.\n"
+					"Useful to avoid the stage box cluttering the viewport while testing."))
+				.Content()
+				[
+					SNew(STextBlock)
+					.Text(LOCTEXT("HideStageInPIE", "Hide stage volume when game is running (PIE)"))
+					.ColorAndOpacity(FLinearColor(0.9f, 0.9f, 0.9f))
 				]
 			]
 		];

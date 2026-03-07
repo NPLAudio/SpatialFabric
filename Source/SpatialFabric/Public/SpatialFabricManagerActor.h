@@ -51,6 +51,21 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SpatialFabric|Stage")
 	TSoftObjectPtr<ASpatialStageVolume> StageVolume;
 
+	/**
+	 * When true, hides the stage volume actor in the game view during PIE and
+	 * packaged builds. Useful to avoid the stage box cluttering the viewport
+	 * while testing. Toggle via the Spatial Fabric Manager panel.
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SpatialFabric|Stage")
+	bool bHideStageInPIE = false;
+
+	/**
+	 * Apply bHideStageInPIE to the stage volume's visibility.
+	 * Called automatically on BeginPlay; also call when toggling from the editor panel.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "SpatialFabric|Stage")
+	void ApplyStageVisibility();
+
 	// ── Bindings ─────────────────────────────────────────────────────────────
 
 	/**
