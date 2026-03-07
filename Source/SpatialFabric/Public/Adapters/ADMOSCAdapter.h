@@ -70,4 +70,19 @@ private:
 	void SendPolar(int32 ID, const FVector& Norm);
 	/** Send listener position and orientation. */
 	void SendListener(const FSpatialFrameSnapshot& Snapshot);
+
+	/** Per-object cache for bSendOnlyOnChange. */
+	struct FADMCachedState
+	{
+		FVector PosNorm = FVector(FLT_MAX, FLT_MAX, FLT_MAX);
+		float GainLinear = -999.f;
+		float Width01 = -999.f;
+		bool bMuted = false;
+		FString Label;
+		bool bEverSent = false;
+	};
+	TMap<int32, FADMCachedState> LastSentByID;
+	FVector LastListenerNorm = FVector(FLT_MAX, FLT_MAX, FLT_MAX);
+	FRotator LastListenerYPR = FRotator(FLT_MAX, FLT_MAX, FLT_MAX);
+	bool bListenerEverSent = false;
 };

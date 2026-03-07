@@ -7,6 +7,7 @@ void FSpaceMapGoAdapter::Configure(const FSpatialAdapterConfig& InConfig)
 {
 	Config = InConfig;
 	CachedSendRateHz = InConfig.SendRateHz;
+	LastSentByID.Reset();
 }
 
 void FSpaceMapGoAdapter::SetClientComponent(USpatialOSCClientComponent* InClient)
@@ -23,6 +24,20 @@ void FSpaceMapGoAdapter::ProcessFrame(const FSpatialFrameSnapshot& Snapshot, flo
 
 	for (const FSpatialNormalizedState& State : Snapshot.Objects)
 	{
+		if (Config.bSendOnlyOnChange)
+		{
+			FSpaceMapGoCachedState& Cache = LastSentByID.FindOrAdd(State.ObjectID);
+			const float Spread = FMath::Clamp(State.Width01 * 100.f, 0.f, 100.f);
+			const bool bPosChanged = !State.StageNormalized.Equals(Cache.PosNorm, UE_KINDA_SMALL_NUMBER);
+			const bool bSpreadChanged = FMath::Abs(Spread - Cache.Spread) > UE_KINDA_SMALL_NUMBER;
+			if (!bPosChanged && !bSpreadChanged && Cache.bEverSent)
+			{
+				continue;
+			}
+			Cache.PosNorm = State.StageNormalized;
+			Cache.Spread = Spread;
+			Cache.bEverSent = true;
+		}
 		SendSource(State);
 	}
 }

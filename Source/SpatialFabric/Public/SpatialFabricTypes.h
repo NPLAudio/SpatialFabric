@@ -176,6 +176,28 @@ enum class EADMCoordinateMode : uint8
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
+//  Enum: Custom adapter coordinate format
+// ─────────────────────────────────────────────────────────────────────────────
+
+UENUM(BlueprintType)
+enum class ECustomCoordinateMode : uint8
+{
+	XYZ  UMETA(DisplayName = "Cartesian (x y z)"),
+	AED  UMETA(DisplayName = "Polar (azimuth elevation distance)"),
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  Enum: Custom adapter send mode
+// ─────────────────────────────────────────────────────────────────────────────
+
+UENUM(BlueprintType)
+enum class ECustomSendMode : uint8
+{
+	Bundled  UMETA(DisplayName = "Bundled (one message, multiple args)"),
+	Discrete UMETA(DisplayName = "Discrete (one message per value)"),
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
 //  Struct: adapter endpoint configuration
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -205,6 +227,14 @@ struct SPATIALFABRIC_API FSpatialAdapterConfig
 	/** When false, this adapter is completely skipped each frame. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SpatialFabric|Adapter")
 	bool bEnabled = true;
+
+	/**
+	 * When true, only transmit when coordinates (and gain/width/mute) change.
+	 * Sends full state on level start, then only when values differ from last send.
+	 * Reduces network traffic when objects are static.
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SpatialFabric|Adapter")
+	bool bSendOnlyOnChange = false;
 
 	/**
 	 * ADM-OSC: coordinate format to send each frame.
@@ -242,12 +272,47 @@ struct SPATIALFABRIC_API FSpatialAdapterConfig
 
 	/**
 	 * Custom adapter: space-separated arg names to send as floats.
-	 * Supported: x, y, z, gain, width, id
+	 * Supported: x, y, z, gain, width, id (XYZ mode); azimuth, elevation, distance or a, e, d (AED mode)
 	 * Example: "x y z" sends StageNormalized.X, Y, Z
 	 */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SpatialFabric|Adapter",
 		meta = (EditCondition = "false"))
 	FString CustomArgTemplate = TEXT("x y z");
+
+	/** Custom adapter: Cartesian (xyz) or Polar (azimuth elevation distance). */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SpatialFabric|Adapter",
+		meta = (EditCondition = "false"))
+	ECustomCoordinateMode CustomCoordinateMode = ECustomCoordinateMode::XYZ;
+
+	/** Custom adapter: Bundled = one message with multiple args; Discrete = one message per value (use {axis} in address). */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SpatialFabric|Adapter",
+		meta = (EditCondition = "false"))
+	ECustomSendMode CustomSendMode = ECustomSendMode::Bundled;
+
+	/**
+	 * Custom adapter: output range for position (x, y, z).
+	 * Normalized input [-1..1] is mapped to [CustomPositionRangeMin..CustomPositionRangeMax].
+	 * E.g. 0, 100 sends 0–100 instead of -1–1.
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SpatialFabric|Adapter",
+		meta = (EditCondition = "false"))
+	FVector2D CustomPositionRange = FVector2D(-1.0, 1.0);
+
+	/**
+	 * Custom adapter: output range for gain.
+	 * Input [0..1] is mapped to [CustomGainRangeMin..CustomGainRangeMax].
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SpatialFabric|Adapter",
+		meta = (EditCondition = "false"))
+	FVector2D CustomGainRange = FVector2D(0.0, 1.0);
+
+	/**
+	 * Custom adapter: output range for width.
+	 * Input [0..1] is mapped to [CustomWidthRangeMin..CustomWidthRangeMax].
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SpatialFabric|Adapter",
+		meta = (EditCondition = "false"))
+	FVector2D CustomWidthRange = FVector2D(0.0, 1.0);
 };
 
 // ─────────────────────────────────────────────────────────────────────────────

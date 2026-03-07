@@ -9,6 +9,9 @@ void FADMOSCAdapter::Configure(const FSpatialAdapterConfig& InConfig)
 	Config = InConfig;
 	CoordMode = InConfig.ADMCoordinateMode;
 	CachedSendRateHz = InConfig.SendRateHz;
+	LastSentByID.Reset();
+	LastListenerNorm = FVector(FLT_MAX, FLT_MAX, FLT_MAX);
+	LastListenerYPR = FRotator(FLT_MAX, FLT_MAX, FLT_MAX);
 }
 
 void FADMOSCAdapter::SetClientComponent(USpatialOSCClientComponent* InClient)
@@ -41,12 +44,47 @@ void FADMOSCAdapter::ProcessFrame(const FSpatialFrameSnapshot& Snapshot, float D
 
 	for (const FSpatialNormalizedState& State : Snapshot.Objects)
 	{
+		if (Config.bSendOnlyOnChange)
+		{
+			FADMCachedState& Cache = LastSentByID.FindOrAdd(State.ObjectID);
+			const bool bPosChanged = !State.StageNormalized.Equals(Cache.PosNorm, UE_KINDA_SMALL_NUMBER);
+			const bool bGainChanged = FMath::Abs(State.GainLinear - Cache.GainLinear) > UE_KINDA_SMALL_NUMBER;
+			const bool bWidthChanged = FMath::Abs(State.Width01 - Cache.Width01) > UE_KINDA_SMALL_NUMBER;
+			const bool bMuteChanged = (State.bMuted != Cache.bMuted);
+			const bool bLabelChanged = (State.bADMSendName && State.Label != Cache.Label);
+			if (!bPosChanged && !bGainChanged && !bWidthChanged && !bMuteChanged && !bLabelChanged && Cache.bEverSent)
+			{
+				continue;
+			}
+			Cache.PosNorm = State.StageNormalized;
+			Cache.GainLinear = State.GainLinear;
+			Cache.Width01 = State.Width01;
+			Cache.bMuted = State.bMuted;
+			Cache.Label = State.Label;
+			Cache.bEverSent = true;
+		}
 		SendObject(State);
 	}
 
 	if (Snapshot.bHasListener)
 	{
-		SendListener(Snapshot);
+		if (Config.bSendOnlyOnChange)
+		{
+			const bool bLisChanged = !Snapshot.ListenerNormalized.Equals(LastListenerNorm, UE_KINDA_SMALL_NUMBER)
+				|| !Snapshot.ListenerYPR.Equals(LastListenerYPR, UE_KINDA_SMALL_NUMBER);
+			if (!bLisChanged && bListenerEverSent) { /* skip */ }
+			else
+			{
+				LastListenerNorm = Snapshot.ListenerNormalized;
+				LastListenerYPR = Snapshot.ListenerYPR;
+				bListenerEverSent = true;
+				SendListener(Snapshot);
+			}
+		}
+		else
+		{
+			SendListener(Snapshot);
+		}
 	}
 }
 

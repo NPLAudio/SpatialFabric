@@ -47,7 +47,12 @@ void ASpatialFabricManagerActor::BeginPlay()
 
 	const USpatialFabricSettings* Settings = GetDefault<USpatialFabricSettings>();
 	const bool bIsPackaged = !GIsEditor;
-	if (bIsPackaged && !Settings->bEnableInPackagedBuilds) { return; }
+	if (bIsPackaged && !Settings->bEnableInPackagedBuilds)
+	{
+		UE_LOG(LogTemp, Warning,
+			TEXT("SpatialFabric: Networking disabled in packaged build. Enable in Project Settings > Spatial Fabric > Enable In Packaged Builds, or set bEnableInPackagedBuilds=true in DefaultEngine.ini."));
+		return;
+	}
 
 	// Wire incoming OSC to router
 	if (ServerComponent)

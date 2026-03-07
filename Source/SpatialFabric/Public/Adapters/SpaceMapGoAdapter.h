@@ -38,5 +38,13 @@ private:
 	FSpatialAdapterConfig Config;
 	USpatialOSCClientComponent* Client = nullptr;
 
+	struct FSpaceMapGoCachedState
+	{
+		FVector PosNorm = FVector(FLT_MAX, FLT_MAX, FLT_MAX);
+		float Spread = -999.f;
+		bool bEverSent = false;
+	};
+	TMap<int32, FSpaceMapGoCachedState> LastSentByID;
+
 	void SendSource(const FSpatialNormalizedState& State);
 };

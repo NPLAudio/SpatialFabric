@@ -25,7 +25,9 @@
 #include "Widgets/Views/SListView.h"
 #include "Widgets/Views/STableRow.h"
 #include "Widgets/Input/SComboButton.h"
+#include "Widgets/Images/SImage.h"
 #include "Styling/AppStyle.h"
+#include "PropertyCustomizationHelpers.h"
 #include "Widgets/SLeafWidget.h"
 #include "Rendering/DrawElements.h"
 #include "Framework/MultiBox/MultiBoxBuilder.h"
@@ -908,6 +910,105 @@ TSharedRef<SWidget> SSpatialFabricPanel::BuildObjectsTab()
 			]
 		];
 
+	// Helper lambda — commit SendRateHz and reinitialize adapters.
+	auto CommitSendRate = [this](float Val)
+	{
+		if (ASpatialFabricManagerActor* Mgr = GetManager())
+			if (FSpatialAdapterConfig* C = Mgr->AdapterConfigs.Find((uint8)Mgr->ActiveAdapterType))
+			{
+				C->SendRateHz = FMath::Clamp(Val, 1.f, 120.f);
+				Mgr->MarkPackageDirty();
+				if (Mgr->GetRouter()) Mgr->InitializeAdapters();
+			}
+	};
+
+	// Send rate (polling limit) and "only on change" controls
+	FormatRow->AddSlot()
+		.AutoWidth()
+		.VAlign(VAlign_Center)
+		.Padding(12.f, 0.f, 0.f, 0.f)
+		[
+			SNew(SHorizontalBox)
+			+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center).Padding(0.f, 0.f, 4.f, 0.f)
+			[
+				SNew(STextBlock)
+				.Text(LOCTEXT("RateLabel", "Rate (Hz):"))
+				.ColorAndOpacity(FLinearColor(0.6f, 0.6f, 0.6f))
+				.Font(FAppStyle::GetFontStyle("SmallFont"))
+				.ToolTipText(LOCTEXT("RateTip", "Max updates per second (1–120 Hz). Lower values reduce network traffic."))
+			]
+			+ SHorizontalBox::Slot().AutoWidth()
+			[
+				SNew(SHorizontalBox)
+				+ SHorizontalBox::Slot().AutoWidth()
+				[
+					SNew(SBox).WidthOverride(55.f)
+					[
+						SNew(SNumericEntryBox<float>)
+						.Value_Lambda([this]() -> TOptional<float>
+						{
+							const ASpatialFabricManagerActor* Mgr = GetManager();
+							if (!Mgr) return TOptional<float>();
+							if (const FSpatialAdapterConfig* C = Mgr->AdapterConfigs.Find((uint8)Mgr->ActiveAdapterType))
+								return C->SendRateHz;
+							return TOptional<float>();
+						})
+						.OnValueCommitted_Lambda([this, CommitSendRate](float Val, ETextCommit::Type)
+						{
+							CommitSendRate(Val);
+						})
+						.MinValue(1.f).MaxValue(120.f).AllowSpin(true)
+						.Font(FAppStyle::GetFontStyle("SmallFont"))
+						.ToolTipText(LOCTEXT("RateTip", "Max updates per second (1–120 Hz). Lower values reduce network traffic."))
+					]
+				]
+				+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center).Padding(2.f, 0.f, 0.f, 0.f)
+				[
+					SNew(STextBlock)
+					.Text(LOCTEXT("HzUnit", "Hz"))
+					.Font(FAppStyle::GetFontStyle("SmallFont"))
+					.ColorAndOpacity(FLinearColor(0.6f, 0.6f, 0.6f))
+				]
+			]
+			+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center).Padding(2.f, 0.f, 0.f, 0.f)
+			[
+				SNew(STextBlock)
+				.Text(LOCTEXT("HzUnit", "Hz"))
+				.ColorAndOpacity(FLinearColor(0.55f, 0.55f, 0.55f))
+				.Font(FAppStyle::GetFontStyle("SmallFont"))
+			]
+			+ SHorizontalBox::Slot().AutoWidth().Padding(10.f, 0.f, 0.f, 0.f).VAlign(VAlign_Center)
+			[
+				SNew(SCheckBox)
+				.IsChecked_Lambda([this]() -> ECheckBoxState
+				{
+					const ASpatialFabricManagerActor* Mgr = GetManager();
+					if (!Mgr) return ECheckBoxState::Unchecked;
+					if (const FSpatialAdapterConfig* C = Mgr->AdapterConfigs.Find((uint8)Mgr->ActiveAdapterType))
+						return C->bSendOnlyOnChange ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
+					return ECheckBoxState::Unchecked;
+				})
+				.OnCheckStateChanged_Lambda([this](ECheckBoxState NewState)
+				{
+					if (ASpatialFabricManagerActor* Mgr = GetManager())
+						if (FSpatialAdapterConfig* C = Mgr->AdapterConfigs.Find((uint8)Mgr->ActiveAdapterType))
+						{
+							C->bSendOnlyOnChange = (NewState == ECheckBoxState::Checked);
+							Mgr->MarkPackageDirty();
+							if (Mgr->GetRouter()) Mgr->InitializeAdapters();
+						}
+				})
+				[
+					SNew(STextBlock)
+					.Text(LOCTEXT("OnlyOnChangeLabel", "Only when changed"))
+					.Font(FAppStyle::GetFontStyle("SmallFont"))
+					.ColorAndOpacity(FLinearColor(0.8f, 0.8f, 0.8f))
+				]
+				.ToolTipText(LOCTEXT("OnlyOnChangeTip",
+					"When checked, sends full state on level start, then only when coordinates (and gain/width/mute) change. Reduces traffic when objects are static."))
+			]
+		];
+
 	// ── List view ─────────────────────────────────────────────────────────
 	TSharedRef<SListView<TSharedPtr<int32>>> ListView =
 		SAssignNew(BindingListView, SListView<TSharedPtr<int32>>)
@@ -923,6 +1024,57 @@ TSharedRef<SWidget> SSpatialFabricPanel::BuildObjectsTab()
 		.AutoHeight()
 		.Padding(4.f, 6.f, 4.f, 4.f)
 		[ FormatRow ]
+
+		// ── Adapter disabled hint (visible when active adapter is disabled) ─
+		+ SVerticalBox::Slot()
+		.AutoHeight()
+		.Padding(4.f, 2.f, 4.f, 2.f)
+		[
+			SNew(SBorder)
+			.BorderImage(FAppStyle::GetBrush("ToolPanel.GroupBorder"))
+			.BorderBackgroundColor(FLinearColor(0.4f, 0.3f, 0.1f, 0.4f))
+			.Padding(FMargin(8.f, 6.f))
+			.Visibility_Lambda([this]()
+			{
+				const ASpatialFabricManagerActor* M = GetManager();
+				if (!M) return EVisibility::Collapsed;
+				const FSpatialAdapterConfig* C = M->AdapterConfigs.Find((uint8)M->ActiveAdapterType);
+				return (C && !C->bEnabled) ? EVisibility::Visible : EVisibility::Collapsed;
+			})
+			[
+				SNew(SHorizontalBox)
+				+ SHorizontalBox::Slot()
+				.FillWidth(1.f)
+				.VAlign(VAlign_Center)
+				[
+					SNew(STextBlock)
+					.Text(LOCTEXT("AdapterDisabledHint",
+						"This adapter is disabled — no output will be sent. Enable it in the Manager's Details panel (AdapterConfigs) or click Enable."))
+					.Font(FAppStyle::GetFontStyle("SmallFont"))
+					.ColorAndOpacity(FLinearColor(0.95f, 0.85f, 0.5f))
+					.AutoWrapText(true)
+				]
+				+ SHorizontalBox::Slot()
+				.AutoWidth()
+				.Padding(8.f, 0.f, 0.f, 0.f)
+				.VAlign(VAlign_Center)
+				[
+					SNew(SButton)
+					.Text(LOCTEXT("EnableAdapterBtn", "Enable"))
+					.OnClicked_Lambda([this]() -> FReply
+					{
+						if (ASpatialFabricManagerActor* Mgr = GetManager())
+							if (FSpatialAdapterConfig* C = Mgr->AdapterConfigs.Find((uint8)Mgr->ActiveAdapterType))
+							{
+								C->bEnabled = true;
+								Mgr->MarkPackageDirty();
+								if (Mgr->GetRouter()) Mgr->InitializeAdapters();
+							}
+						return FReply::Handled();
+					})
+				]
+			]
+		]
 
 		// ── Custom template row (visible only when Custom is active) ───────
 		+ SVerticalBox::Slot()
@@ -965,14 +1117,152 @@ TSharedRef<SWidget> SSpatialFabricPanel::BuildObjectsTab()
 							SNew(STextBlock)
 							.Text(LOCTEXT("CustomTemplateHelpBody",
 								"Address template: Use {placeholders} in the OSC path. Built-in placeholders:\n"
-								"  {id} = object ID, {x} {y} {z} = normalized position (-1..1)\n"
-								"  {gain} = linear gain, {width} = horizontal extent, {label} = actor name\n"
+								"  {id} = object ID, {x} {y} {z} = position, {gain} = gain, {width} = extent, {label} = actor name\n"
+								"  {axis} = current axis name (for Discrete send mode; e.g. /source/{id}/{axis} -> /source/1/x)\n"
 								"  Add per-binding CustomFields (e.g. slot, channel) for {slot}, {channel}, etc.\n\n"
-								"Args template: Space-separated names of values to send as floats:\n"
-								"  x y z gain width id — pick any combination. Example: \"x y z\" sends position."))
+								"Coords: xyz = Cartesian (x,y,z). aed = polar (azimuth, elevation, distance); args: azimuth/a, elevation/e, distance/d.\n\n"
+								"Range mapping: Use the Range row to map output values. Position input is -1..1 (stage-normalized);\n"
+								"  set e.g. Pos 0–100 to send 0–100 instead. Gain/Width input is 0..1.\n\n"
+								"Args template: Space-separated names: x y z gain width id (xyz) or a e d (aed). Example: \"x y z\" sends position."))
 							.Font(FAppStyle::GetFontStyle("SmallFont"))
 							.ColorAndOpacity(FLinearColor(0.65f, 0.65f, 0.65f))
 							.AutoWrapText(true)
+						]
+					]
+				]
+
+				// Coordinate mode (xyz / aed) and Send mode (bundled / discrete)
+				+ SVerticalBox::Slot()
+				.AutoHeight()
+				.Padding(0.f, 0.f, 0.f, 6.f)
+				[
+					SNew(SHorizontalBox)
+					+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center).Padding(0.f, 0.f, 6.f, 0.f)
+					[
+						SNew(STextBlock)
+						.Text(LOCTEXT("CoordModeLabel", "Coords:"))
+						.ColorAndOpacity(FLinearColor(0.6f, 0.6f, 0.6f))
+						.Font(FAppStyle::GetFontStyle("SmallFont"))
+						.ToolTipText(LOCTEXT("CoordModeTip", "xyz = Cartesian; aed = polar (azimuth elevation distance)"))
+					]
+					+ SHorizontalBox::Slot().AutoWidth().Padding(0.f, 0.f, 4.f, 0.f)
+					[
+						SNew(SCheckBox)
+						.IsChecked_Lambda([this]() -> ECheckBoxState
+						{
+							if (const ASpatialFabricManagerActor* M = GetManager())
+								if (const FSpatialAdapterConfig* C = M->AdapterConfigs.Find((uint8)ESpatialAdapterType::Custom))
+									return (C->CustomCoordinateMode == ECustomCoordinateMode::XYZ) ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
+							return ECheckBoxState::Unchecked;
+						})
+						.OnCheckStateChanged_Lambda([this](ECheckBoxState NewState)
+						{
+							if (NewState == ECheckBoxState::Checked)
+							{
+								if (ASpatialFabricManagerActor* M = GetManager())
+									if (FSpatialAdapterConfig* C = M->AdapterConfigs.Find((uint8)ESpatialAdapterType::Custom))
+									{
+										C->CustomCoordinateMode = ECustomCoordinateMode::XYZ;
+										M->MarkPackageDirty();
+										if (M->GetRouter()) M->InitializeAdapters();
+									}
+							}
+						})
+						.Content()
+						[
+							SNew(STextBlock).Text(LOCTEXT("XYZ", "xyz")).Font(FAppStyle::GetFontStyle("SmallFont"))
+						]
+					]
+					+ SHorizontalBox::Slot().AutoWidth().Padding(0.f, 0.f, 4.f, 0.f)
+					[
+						SNew(SCheckBox)
+						.IsChecked_Lambda([this]() -> ECheckBoxState
+						{
+							if (const ASpatialFabricManagerActor* M = GetManager())
+								if (const FSpatialAdapterConfig* C = M->AdapterConfigs.Find((uint8)ESpatialAdapterType::Custom))
+									return (C->CustomCoordinateMode == ECustomCoordinateMode::AED) ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
+							return ECheckBoxState::Unchecked;
+						})
+						.OnCheckStateChanged_Lambda([this](ECheckBoxState NewState)
+						{
+							if (NewState == ECheckBoxState::Checked)
+							{
+								if (ASpatialFabricManagerActor* M = GetManager())
+									if (FSpatialAdapterConfig* C = M->AdapterConfigs.Find((uint8)ESpatialAdapterType::Custom))
+									{
+										C->CustomCoordinateMode = ECustomCoordinateMode::AED;
+										M->MarkPackageDirty();
+										if (M->GetRouter()) M->InitializeAdapters();
+									}
+							}
+						})
+						.Content()
+						[
+							SNew(STextBlock).Text(LOCTEXT("AED", "aed")).Font(FAppStyle::GetFontStyle("SmallFont"))
+						]
+					]
+					+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center).Padding(16.f, 0.f, 6.f, 0.f)
+					[
+						SNew(STextBlock)
+						.Text(LOCTEXT("SendModeLabel", "Send:"))
+						.ColorAndOpacity(FLinearColor(0.6f, 0.6f, 0.6f))
+						.Font(FAppStyle::GetFontStyle("SmallFont"))
+						.ToolTipText(LOCTEXT("SendModeTip", "Bundled = one message with multiple args; Discrete = one message per value (use {axis} in address)"))
+					]
+					+ SHorizontalBox::Slot().AutoWidth().Padding(0.f, 0.f, 4.f, 0.f)
+					[
+						SNew(SCheckBox)
+						.IsChecked_Lambda([this]() -> ECheckBoxState
+						{
+							if (const ASpatialFabricManagerActor* M = GetManager())
+								if (const FSpatialAdapterConfig* C = M->AdapterConfigs.Find((uint8)ESpatialAdapterType::Custom))
+									return (C->CustomSendMode == ECustomSendMode::Bundled) ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
+							return ECheckBoxState::Unchecked;
+						})
+						.OnCheckStateChanged_Lambda([this](ECheckBoxState NewState)
+						{
+							if (NewState == ECheckBoxState::Checked)
+							{
+								if (ASpatialFabricManagerActor* M = GetManager())
+									if (FSpatialAdapterConfig* C = M->AdapterConfigs.Find((uint8)ESpatialAdapterType::Custom))
+									{
+										C->CustomSendMode = ECustomSendMode::Bundled;
+										M->MarkPackageDirty();
+										if (M->GetRouter()) M->InitializeAdapters();
+									}
+							}
+						})
+						.Content()
+						[
+							SNew(STextBlock).Text(LOCTEXT("Bundled", "Bundled")).Font(FAppStyle::GetFontStyle("SmallFont"))
+						]
+					]
+					+ SHorizontalBox::Slot().AutoWidth().Padding(0.f, 0.f, 4.f, 0.f)
+					[
+						SNew(SCheckBox)
+						.IsChecked_Lambda([this]() -> ECheckBoxState
+						{
+							if (const ASpatialFabricManagerActor* M = GetManager())
+								if (const FSpatialAdapterConfig* C = M->AdapterConfigs.Find((uint8)ESpatialAdapterType::Custom))
+									return (C->CustomSendMode == ECustomSendMode::Discrete) ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
+							return ECheckBoxState::Unchecked;
+						})
+						.OnCheckStateChanged_Lambda([this](ECheckBoxState NewState)
+						{
+							if (NewState == ECheckBoxState::Checked)
+							{
+								if (ASpatialFabricManagerActor* M = GetManager())
+									if (FSpatialAdapterConfig* C = M->AdapterConfigs.Find((uint8)ESpatialAdapterType::Custom))
+									{
+										C->CustomSendMode = ECustomSendMode::Discrete;
+										M->MarkPackageDirty();
+										if (M->GetRouter()) M->InitializeAdapters();
+									}
+							}
+						})
+						.Content()
+						[
+							SNew(STextBlock).Text(LOCTEXT("Discrete", "Discrete")).Font(FAppStyle::GetFontStyle("SmallFont"))
 						]
 					]
 				]
@@ -1048,6 +1338,185 @@ TSharedRef<SWidget> SSpatialFabricPanel::BuildObjectsTab()
 									}
 							})
 							.Font(FAppStyle::GetFontStyle("SmallFont"))
+						]
+					]
+				]
+
+				// Range mapping: Position, Gain, Width (min/max)
+				+ SVerticalBox::Slot()
+				.AutoHeight()
+				.Padding(0.f, 6.f, 0.f, 0.f)
+				[
+					SNew(SHorizontalBox)
+					+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center).Padding(0.f, 0.f, 6.f, 0.f)
+					[
+						SNew(STextBlock)
+						.Text(LOCTEXT("RangeMappingLabel", "Range:"))
+						.ColorAndOpacity(FLinearColor(0.6f, 0.6f, 0.6f))
+						.Font(FAppStyle::GetFontStyle("SmallFont"))
+						.ToolTipText(LOCTEXT("RangeMappingTip",
+							"Map output values to custom ranges. Position: -1..1 input. Gain/Width: 0..1 input."))
+					]
+					+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center).Padding(0.f, 0.f, 2.f, 0.f)
+					[ SNew(STextBlock).Text(LOCTEXT("PosLabel", "Pos")).ColorAndOpacity(FLinearColor(0.55f,0.55f,0.55f)).Font(FAppStyle::GetFontStyle("SmallFont")) ]
+					+ SHorizontalBox::Slot().AutoWidth().Padding(0.f, 0.f, 4.f, 0.f)
+					[
+						SNew(SBox).WidthOverride(50.f)
+						[
+							SNew(SNumericEntryBox<float>)
+							.Value_Lambda([this]() -> TOptional<float>
+							{
+								if (const ASpatialFabricManagerActor* M = GetManager())
+									if (const FSpatialAdapterConfig* C = M->AdapterConfigs.Find((uint8)ESpatialAdapterType::Custom))
+										return C->CustomPositionRange.X;
+								return TOptional<float>();
+							})
+							.OnValueCommitted_Lambda([this](float Val, ETextCommit::Type)
+							{
+								if (ASpatialFabricManagerActor* M = GetManager())
+									if (FSpatialAdapterConfig* C = M->AdapterConfigs.Find((uint8)ESpatialAdapterType::Custom))
+									{
+										C->CustomPositionRange.X = Val;
+										M->MarkPackageDirty();
+										if (M->GetRouter()) M->InitializeAdapters();
+									}
+							})
+							.AllowSpin(true).Font(FAppStyle::GetFontStyle("SmallFont"))
+						]
+					]
+					+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center).Padding(0.f, 0.f, 2.f, 0.f)
+					[ SNew(STextBlock).Text(FText::FromString(TEXT("–"))).ColorAndOpacity(FLinearColor(0.5f,0.5f,0.5f)).Font(FAppStyle::GetFontStyle("SmallFont")) ]
+					+ SHorizontalBox::Slot().AutoWidth().Padding(0.f, 0.f, 8.f, 0.f)
+					[
+						SNew(SBox).WidthOverride(50.f)
+						[
+							SNew(SNumericEntryBox<float>)
+							.Value_Lambda([this]() -> TOptional<float>
+							{
+								if (const ASpatialFabricManagerActor* M = GetManager())
+									if (const FSpatialAdapterConfig* C = M->AdapterConfigs.Find((uint8)ESpatialAdapterType::Custom))
+										return C->CustomPositionRange.Y;
+								return TOptional<float>();
+							})
+							.OnValueCommitted_Lambda([this](float Val, ETextCommit::Type)
+							{
+								if (ASpatialFabricManagerActor* M = GetManager())
+									if (FSpatialAdapterConfig* C = M->AdapterConfigs.Find((uint8)ESpatialAdapterType::Custom))
+									{
+										C->CustomPositionRange.Y = Val;
+										M->MarkPackageDirty();
+										if (M->GetRouter()) M->InitializeAdapters();
+									}
+							})
+							.AllowSpin(true).Font(FAppStyle::GetFontStyle("SmallFont"))
+						]
+					]
+					+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center).Padding(0.f, 0.f, 2.f, 0.f)
+					[ SNew(STextBlock).Text(LOCTEXT("GainLabel", "Gain")).ColorAndOpacity(FLinearColor(0.55f,0.55f,0.55f)).Font(FAppStyle::GetFontStyle("SmallFont")) ]
+					+ SHorizontalBox::Slot().AutoWidth().Padding(0.f, 0.f, 4.f, 0.f)
+					[
+						SNew(SBox).WidthOverride(50.f)
+						[
+							SNew(SNumericEntryBox<float>)
+							.Value_Lambda([this]() -> TOptional<float>
+							{
+								if (const ASpatialFabricManagerActor* M = GetManager())
+									if (const FSpatialAdapterConfig* C = M->AdapterConfigs.Find((uint8)ESpatialAdapterType::Custom))
+										return C->CustomGainRange.X;
+								return TOptional<float>();
+							})
+							.OnValueCommitted_Lambda([this](float Val, ETextCommit::Type)
+							{
+								if (ASpatialFabricManagerActor* M = GetManager())
+									if (FSpatialAdapterConfig* C = M->AdapterConfigs.Find((uint8)ESpatialAdapterType::Custom))
+									{
+										C->CustomGainRange.X = Val;
+										M->MarkPackageDirty();
+										if (M->GetRouter()) M->InitializeAdapters();
+									}
+							})
+							.AllowSpin(true).Font(FAppStyle::GetFontStyle("SmallFont"))
+						]
+					]
+					+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center).Padding(0.f, 0.f, 2.f, 0.f)
+					[ SNew(STextBlock).Text(FText::FromString(TEXT("–"))).ColorAndOpacity(FLinearColor(0.5f,0.5f,0.5f)).Font(FAppStyle::GetFontStyle("SmallFont")) ]
+					+ SHorizontalBox::Slot().AutoWidth().Padding(0.f, 0.f, 8.f, 0.f)
+					[
+						SNew(SBox).WidthOverride(50.f)
+						[
+							SNew(SNumericEntryBox<float>)
+							.Value_Lambda([this]() -> TOptional<float>
+							{
+								if (const ASpatialFabricManagerActor* M = GetManager())
+									if (const FSpatialAdapterConfig* C = M->AdapterConfigs.Find((uint8)ESpatialAdapterType::Custom))
+										return C->CustomGainRange.Y;
+								return TOptional<float>();
+							})
+							.OnValueCommitted_Lambda([this](float Val, ETextCommit::Type)
+							{
+								if (ASpatialFabricManagerActor* M = GetManager())
+									if (FSpatialAdapterConfig* C = M->AdapterConfigs.Find((uint8)ESpatialAdapterType::Custom))
+									{
+										C->CustomGainRange.Y = Val;
+										M->MarkPackageDirty();
+										if (M->GetRouter()) M->InitializeAdapters();
+									}
+							})
+							.AllowSpin(true).Font(FAppStyle::GetFontStyle("SmallFont"))
+						]
+					]
+					+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center).Padding(0.f, 0.f, 2.f, 0.f)
+					[ SNew(STextBlock).Text(LOCTEXT("WidthLabel", "Width")).ColorAndOpacity(FLinearColor(0.55f,0.55f,0.55f)).Font(FAppStyle::GetFontStyle("SmallFont")) ]
+					+ SHorizontalBox::Slot().AutoWidth().Padding(0.f, 0.f, 4.f, 0.f)
+					[
+						SNew(SBox).WidthOverride(50.f)
+						[
+							SNew(SNumericEntryBox<float>)
+							.Value_Lambda([this]() -> TOptional<float>
+							{
+								if (const ASpatialFabricManagerActor* M = GetManager())
+									if (const FSpatialAdapterConfig* C = M->AdapterConfigs.Find((uint8)ESpatialAdapterType::Custom))
+										return C->CustomWidthRange.X;
+								return TOptional<float>();
+							})
+							.OnValueCommitted_Lambda([this](float Val, ETextCommit::Type)
+							{
+								if (ASpatialFabricManagerActor* M = GetManager())
+									if (FSpatialAdapterConfig* C = M->AdapterConfigs.Find((uint8)ESpatialAdapterType::Custom))
+									{
+										C->CustomWidthRange.X = Val;
+										M->MarkPackageDirty();
+										if (M->GetRouter()) M->InitializeAdapters();
+									}
+							})
+							.AllowSpin(true).Font(FAppStyle::GetFontStyle("SmallFont"))
+						]
+					]
+					+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center).Padding(0.f, 0.f, 2.f, 0.f)
+					[ SNew(STextBlock).Text(FText::FromString(TEXT("–"))).ColorAndOpacity(FLinearColor(0.5f,0.5f,0.5f)).Font(FAppStyle::GetFontStyle("SmallFont")) ]
+					+ SHorizontalBox::Slot().AutoWidth()
+					[
+						SNew(SBox).WidthOverride(50.f)
+						[
+							SNew(SNumericEntryBox<float>)
+							.Value_Lambda([this]() -> TOptional<float>
+							{
+								if (const ASpatialFabricManagerActor* M = GetManager())
+									if (const FSpatialAdapterConfig* C = M->AdapterConfigs.Find((uint8)ESpatialAdapterType::Custom))
+										return C->CustomWidthRange.Y;
+								return TOptional<float>();
+							})
+							.OnValueCommitted_Lambda([this](float Val, ETextCommit::Type)
+							{
+								if (ASpatialFabricManagerActor* M = GetManager())
+									if (FSpatialAdapterConfig* C = M->AdapterConfigs.Find((uint8)ESpatialAdapterType::Custom))
+									{
+										C->CustomWidthRange.Y = Val;
+										M->MarkPackageDirty();
+										if (M->GetRouter()) M->InitializeAdapters();
+									}
+							})
+							.AllowSpin(true)							.Font(FAppStyle::GetFontStyle("SmallFont"))
 						]
 					]
 				]
@@ -1276,7 +1745,6 @@ TSharedRef<ITableRow> SSpatialFabricPanel::GenerateBindingRow(
 				.Padding(2.f, 0.f)
 				[
 					SNew(SCheckBox)
-					.Style(FAppStyle::Get(), "ToggleButtonCheckbox")
 					.IsChecked_Lambda([WeakMgr, BIdx]()
 					{
 						if (ASpatialFabricManagerActor* M = WeakMgr.Get())
@@ -1298,31 +1766,16 @@ TSharedRef<ITableRow> SSpatialFabricPanel::GenerateBindingRow(
 					.ToolTipText(LOCTEXT("EnableToggle", "Enable / disable this binding"))
 				]
 
-				// Remove button
+				// Remove button — use Property Editor's MakeDeleteButton (same as Details panel)
 				+ SHorizontalBox::Slot()
 				.AutoWidth()
 				.VAlign(VAlign_Center)
 				.Padding(4.f, 0.f, 2.f, 0.f)
 				[
-					SNew(SBox).WidthOverride(28.f).HeightOverride(28.f)
-					[
-						SNew(SButton)
-						.ButtonStyle(FAppStyle::Get(), "FlatButton")
-						.ButtonColorAndOpacity(FLinearColor(0.45f, 0.08f, 0.08f))
-						.HAlign(HAlign_Center).VAlign(VAlign_Center)
-						.ToolTipText(LOCTEXT("RemoveBinding", "Remove this binding"))
-						.OnClicked_Lambda([this, BIdx]() -> FReply
-						{
-							RemoveBinding(BIdx);
-							return FReply::Handled();
-						})
-						[
-							SNew(STextBlock)
-							.Text(FText::FromString(TEXT("\u2715")))
-							.Font(FAppStyle::GetFontStyle("SmallFont"))
-							.ColorAndOpacity(FLinearColor(1.f, 0.5f, 0.5f))
-						]
-					]
+					PropertyCustomizationHelpers::MakeDeleteButton(
+						FSimpleDelegate::CreateLambda([this, BIdx]() { RemoveBinding(BIdx); }),
+						LOCTEXT("RemoveBinding", "Remove this binding"),
+						TAttribute<bool>::CreateLambda([this]() { return true; }))
 				]
 			]
 

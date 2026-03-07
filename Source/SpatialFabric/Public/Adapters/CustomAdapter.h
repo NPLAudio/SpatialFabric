@@ -38,8 +38,17 @@ private:
 	/** Parsed arg names from CustomArgTemplate (e.g. x, y, z). */
 	TArray<FString> CachedArgNames;
 
+	struct FCustomCachedState
+	{
+		FVector PosNorm = FVector(FLT_MAX, FLT_MAX, FLT_MAX);
+		float GainLinear = -999.f;
+		float Width01 = -999.f;
+		bool bEverSent = false;
+	};
+	TMap<int32, FCustomCachedState> LastSentByID;
+
 	void ParseArgTemplate();
-	FString ResolveAddress(const FSpatialNormalizedState& State) const;
+	FString ResolveAddress(const FSpatialNormalizedState& State, const FString* AxisOverride = nullptr) const;
 	TArray<float> BuildArgs(const FSpatialNormalizedState& State) const;
 	void SendObject(const FSpatialNormalizedState& State);
 };

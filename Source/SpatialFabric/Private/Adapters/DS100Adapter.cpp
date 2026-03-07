@@ -76,9 +76,9 @@ void FDS100Adapter::SendObject(const FSpatialNormalizedState& State,
 	const FString Timestamp = FString::Printf(TEXT("%02d:%02d:%02d"),
 		Now.GetHour(), Now.GetMinute(), Now.GetSecond());
 
-	// ── Position (only if moved) ──────────────────────────────────────────────
+	// ── Position (only if moved, or when bSendOnlyOnChange is false) ───────────
 
-	if (!State.StageNormalized.Equals(Cache.PosNorm, UE_KINDA_SMALL_NUMBER))
+	if (!Config.bSendOnlyOnChange || !State.StageNormalized.Equals(Cache.PosNorm, UE_KINDA_SMALL_NUMBER))
 	{
 		Cache.PosNorm = State.StageNormalized;
 
@@ -128,7 +128,7 @@ void FDS100Adapter::SendObject(const FSpatialNormalizedState& State,
 	// Proximity spread can change when the listener moves even if the object is static.
 
 	const float Spread = ComputeSpread(State, Snapshot.ListenerNormalized);
-	if (Spread != Cache.Spread)
+	if (!Config.bSendOnlyOnChange || FMath::Abs(Spread - Cache.Spread) > UE_KINDA_SMALL_NUMBER)
 	{
 		Cache.Spread = Spread;
 
@@ -152,7 +152,7 @@ void FDS100Adapter::SendObject(const FSpatialNormalizedState& State,
 
 	if (const FSpatialObjectBinding* B = CachedBindingsByObjectID.Find(State.ObjectID))
 	{
-		if (B->DS100DelayMode >= 0 && B->DS100DelayMode != Cache.DelayMode)
+		if (B->DS100DelayMode >= 0 && (!Config.bSendOnlyOnChange || B->DS100DelayMode != Cache.DelayMode))
 		{
 			Cache.DelayMode = B->DS100DelayMode;
 

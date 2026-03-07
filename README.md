@@ -203,20 +203,26 @@ Each binding maps one UE actor to one or more protocol targets:
 | **Muted** | Suppress output for this object |
 | **ADM Dref / Dmax** | Distance reference parameters (ADM-OSC only) |
 | **Adapter Targets** | Per-binding adapter type overrides and per-target ObjectID overrides |
+| **CustomFields** | Key-value pairs for Custom adapter placeholders (e.g. `slot`, `channel`) |
 
 > **DS100-specific fields** (Spread Mode, Delay Mode) are available on the
-> binding when the DS100 adapter is enabled via the Manager's Details panel.
+> binding when the DS100 adapter is active. **Custom adapter** bindings support
+> CustomFields for template placeholders like `{slot}` and `{channel}`.
 
 ### Multi-Protocol Output
 
 All adapters run simultaneously — the Manager Actor fans each frame's
 snapshot to every enabled adapter through the Protocol Router.
 
-### Rate Limiting
+### Rate Limiting and Transmit-on-Change
 
-Each adapter has a configurable **Send Rate (Hz)** (default 50 Hz, range 1-120).
-Messages are only sent when the rate limiter allows, preventing network
-saturation on high-framerate systems.
+Each adapter has a configurable **Send Rate (Hz)** (default 50 Hz, range 1-120)
+in the Objects tab. Messages are only sent when the rate limiter allows,
+preventing network saturation on high-framerate systems.
+
+**Only when changed:** When enabled, the adapter sends full state on level
+start, then only when coordinates (and gain/width/mute) change. Reduces
+network traffic when objects are static.
 
 ### Editor Panel
 
@@ -264,13 +270,34 @@ head-tracking.
 **Default port:** 9000
 **Recommended send rate:** ≤ 50 Hz (per ADM-OSC spec)
 
+### Custom (Template)
+
+The **Custom** adapter sends OSC using user-defined address and argument
+templates. Use it for systems that don't follow ADM-OSC or other built-in
+protocols.
+
+| Setting | Description |
+|---------|-------------|
+| **Coords** | **xyz** = Cartesian (x, y, z); **aed** = polar (azimuth, elevation, distance) |
+| **Send** | **Bundled** = one message with multiple args; **Discrete** = one message per value |
+| **Address** | OSC path template with `{placeholders}` |
+| **Args** | Space-separated arg names: `x y z gain width id` (xyz) or `a e d` (aed) |
+| **Range** | Map position [-1..1], gain [0..1], width [0..1] to custom output ranges |
+
+**Placeholders:** `{id}`, `{x}`, `{y}`, `{z}`, `{gain}`, `{width}`, `{label}`,
+`{axis}` (discrete mode only — replaced with current axis name, e.g. `/source/{id}/{axis}` → `/source/1/x`).
+Add per-binding **CustomFields** for `{slot}`, `{channel}`, etc.
+
+**AED arg names:** `azimuth`/`a`, `elevation`/`e`, `distance`/`d`.
+
 ### Additional Adapters
 
 The following adapters are also implemented and available via the Manager
-Actor's Details panel:
+Actor's Details panel or the Objects tab format selector:
 
 | Adapter | System | Default Port | Notes |
 |---------|--------|-------------|-------|
+| **Custom** | Template-based OSC | Configurable | Address/args templates, xyz or aed coords, bundled or discrete sends |
 | **DS100** | d&b audiotechnik DS100 Soundscape | 50010 | Native DS100 OSC; absolute-position or coordinate-mapping modes |
 | **SpaceMap Go** | Meyer Sound SpaceMap Go | 38033 | `/channel/{n}/position X Y` [-1000, 1000] + `/channel/{n}/spread` [0-100] |
 | **TiMax** | TiMax SoundHub | 7000 | Delegates to ADM-OSC adapter internally |
@@ -279,21 +306,28 @@ Actor's Details panel:
 
 ## Editor Panel
 
-Open via Window → **Spatial Fabric**. The panel has five tabs:
+Open via Window → **Spatial Fabric**. The panel has four tabs:
 
 | Tab | Purpose |
 |-----|---------|
 | **Stage** | Stage Volume assignment, physical dimensions, listener config |
-| **Objects** | Add/remove object bindings, set Object IDs |
-| **Radar** | Live 2D top-down visualization |
+| **Objects** | Add/remove object bindings, set Object IDs, format selector (ADM-OSC, Custom, DS100, SpaceMap Go, TiMax) |
 | **Radar** | Live 2D top-down visualization with aspect-correct stage coordinates (front=top, right=right) |
 | **Output** | Live protocol message preview and scrolling message log |
+
+**Objects tab:** The format selector (ADM-OSC, Custom, DS100, etc.) switches the
+active adapter. The **Rate (Hz)** control sets the polling limit (1–120 Hz);
+**Only when changed** sends only when coordinates change (full state on start).
+When **Custom** is selected, a template section appears with coordinate mode
+(xyz/aed), send mode (bundled/discrete), address and args templates, and range
+mapping. Each object row has an **enable checkbox** and a **delete icon** to
+remove the binding.
 
 The panel works in **editor mode** (no PIE required) — an editor tickable
 drives `ProcessFrame()` so you see live data while placing actors.
 
-> **Advanced adapters** (DS100, SpaceMap Go, TiMax) are configured via the
-> Manager Actor's Details panel rather than the Adapters tab.
+> **Advanced adapters** (DS100, SpaceMap Go, TiMax) show protocol-specific
+> options in each binding row when that format is active.
 
 ---
 
@@ -322,6 +356,7 @@ Plugins/SpatialFabric/
     │   │   ├── SpatialOSCServerComponent.h      — Receives OSC UDP (wraps UE OSC plugin)
     │   │   └── Adapters/
     │   │       ├── ADMOSCAdapter.h              — ADM-OSC v1.0
+    │   │       ├── CustomAdapter.h              — Template-based OSC (xyz/aed, bundled/discrete)
     │   │       ├── DS100Adapter.h               — d&b DS100
     │   │       ├── SpaceMapGoAdapter.h          — SpaceMap Go
     │   │       └── TiMaxAdapter.h               — TiMax SoundHub (delegates to ADM-OSC)
@@ -337,18 +372,19 @@ Plugins/SpatialFabric/
     │       ├── SpatialFabricSettings.cpp
     │       ├── Adapters/
     │       │   ├── ADMOSCAdapter.cpp
+    │       │   ├── CustomAdapter.cpp
     │       │   ├── DS100Adapter.cpp
     │       │   ├── SpaceMapGoAdapter.cpp
     │       │   └── TiMaxAdapter.cpp
     │       └── Tests/
-    │           └── SpatialFabricTests.cpp       — 9 automation tests
+    │           └── SpatialFabricTests.cpp       — 7 automation tests
     │
     └── SpatialFabricEditor/             # Editor-only module
         ├── SpatialFabricEditor.Build.cs
         ├── Public/
         │   ├── SpatialFabricEditorModule.h
         │   └── UI/
-        │       └── SSpatialFabricPanel.h        — Dockable Slate panel (5 tabs)
+        │       └── SSpatialFabricPanel.h        — Dockable Slate panel (4 tabs)
         └── Private/
             ├── SpatialFabricEditorModule.cpp
             └── UI/
@@ -400,6 +436,7 @@ Each adapter converts to its wire format at the point of send:
 | DS100 (absolute) | Direct meters | No conversion needed |
 | DS100 (mapped) | X: 0=left, 1=right | `(NormY + 1) * 0.5` |
 | SpaceMap Go | X: left=-1000, right=+1000; Y: back=-1000, front=+1000 | `NormY * 1000` / `NormX * 1000` |
+| Custom | User-defined (xyz or aed, bundled or discrete) | Per template / range mapping |
 | TiMax | Same as ADM-OSC (delegates internally) | Negate Y |
 
 ### Module Dependencies
@@ -459,8 +496,14 @@ Each adapter entry in `AdapterConfigs` on the Manager Actor supports:
 | `TargetIP` | Destination IP address |
 | `TargetPort` | Destination UDP port |
 | `SendRateHz` | Per-adapter rate limit (1-120 Hz) |
+| `bSendOnlyOnChange` | When true, send only when coordinates/gain/width/mute change (full state on start) |
 | `bEnabled` | Enable/disable this adapter |
 | `ADMCoordinateMode` | Cartesian / Polar / Both (ADM-OSC only) |
+| `CustomCoordinateMode` | xyz (Cartesian) or aed (polar) — Custom adapter |
+| `CustomSendMode` | Bundled or Discrete — Custom adapter |
+| `CustomAddressTemplate` | OSC path with `{placeholders}` — Custom adapter |
+| `CustomArgTemplate` | Space-separated arg names — Custom adapter |
+| `CustomPositionRange` / `CustomGainRange` / `CustomWidthRange` | Output range (min, max) — Custom adapter |
 | `bDS100AbsoluteMode` | Absolute meters vs normalized coordinates (DS100 only) |
 | `DS100ChannelOffset` | Channel ID offset (DS100 only) |
 
@@ -470,7 +513,7 @@ Each adapter entry in `AdapterConfigs` on the Manager Actor supports:
 
 ### Automation Tests
 
-SpatialFabric includes 8 UE automation tests (run via Session Frontend →
+SpatialFabric includes 7 UE automation tests (run via Session Frontend →
 Automation → SpatialFabric):
 
 | # | Test | Description |
@@ -501,8 +544,10 @@ Automation → SpatialFabric):
   place multiple Manager Actors in the level.
 - **Networking is disabled in packaged builds** by default. Set
   `bEnableInPackagedBuilds = true` in Project Settings or DefaultEngine.ini.
+  A warning is logged to the Output Log when networking is skipped.
 - **All adapters disabled by default** — enable per-show in the Manager Actor's
-  AdapterConfigs map.
+  AdapterConfigs map. The Objects tab shows a hint and **Enable** button when
+  the active adapter is disabled.
 
 ---
 
