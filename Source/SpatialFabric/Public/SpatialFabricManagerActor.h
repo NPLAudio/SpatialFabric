@@ -81,6 +81,28 @@ public:
 		meta = (TitleProperty = "Label"))
 	TArray<FSpatialObjectBinding> ObjectBindings;
 
+	// ── Custom OSC (on-demand send) ───────────────────────────────────────────
+
+	/** Target IP for Custom OSC Send. Used when SendCustomOSC is called. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SpatialFabric|Custom")
+	FString CustomTargetIP = TEXT("127.0.0.1");
+
+	/** Target port for Custom OSC Send. Used when SendCustomOSC is called. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SpatialFabric|Custom",
+		meta = (ClampMin = "1024", ClampMax = "65535"))
+	int32 CustomTargetPort = 9000;
+
+	/**
+	 * Send an arbitrary OSC message to CustomTargetIP:CustomTargetPort.
+	 * Connect to the custom endpoint, send the message, then restore the previous
+	 * client connection. Safe to call from Blueprint or C++.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "SpatialFabric|Custom")
+	void SendCustomOSC(const FString& Address,
+		const TArray<float>& FloatArgs,
+		const TArray<int32>& IntArgs,
+		const TArray<FString>& StringArgs);
+
 	// ── Adapter endpoint configuration ───────────────────────────────────────
 
 	/**

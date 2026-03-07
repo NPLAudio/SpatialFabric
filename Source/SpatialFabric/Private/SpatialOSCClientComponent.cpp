@@ -129,3 +129,27 @@ void USpatialOSCClientComponent::SendMultiArg(const FString& Address, const TArr
 	}
 	OSCClient->SendOSCMessage(Message);
 }
+
+void USpatialOSCClientComponent::SendMessage(const FString& Address,
+	const TArray<float>& FloatArgs,
+	const TArray<int32>& IntArgs,
+	const TArray<FString>& StringArgs)
+{
+	if (!OSCClient || !OSCClient->IsActive()) return;
+
+	FOSCMessage Message;
+	Message.SetAddress(UOSCManager::ConvertStringToOSCAddress(Address));
+	for (float V : FloatArgs)
+	{
+		UOSCManager::AddFloat(Message, V);
+	}
+	for (int32 V : IntArgs)
+	{
+		UOSCManager::AddInt32(Message, V);
+	}
+	for (const FString& V : StringArgs)
+	{
+		UOSCManager::AddString(Message, V);
+	}
+	OSCClient->SendOSCMessage(Message);
+}

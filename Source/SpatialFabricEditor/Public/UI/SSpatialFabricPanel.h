@@ -79,9 +79,10 @@ private:
 	// ── Radar tab ────────────────────────────────────────────────────────────
 	TSharedPtr<SWidget> RadarView;   // holds the SRadarView (defined in .cpp)
 
-	// ── Output tab (message log) ─────────────────────────────────────────────
+	// ── Output tab (message log + custom send) ─────────────────────────────────
 	TArray<TSharedPtr<FSpatialFabricLogEntry>>                LogItems;
 	TSharedPtr<SListView<TSharedPtr<FSpatialFabricLogEntry>>> LogListView;
+	TSharedPtr<class SEditableTextBox> CustomAddressBox;
 
 	TSharedRef<ITableRow> GenerateLogRow(
 		TSharedPtr<FSpatialFabricLogEntry>       Item,

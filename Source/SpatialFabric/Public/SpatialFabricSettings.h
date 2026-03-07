@@ -52,10 +52,6 @@ public:
 
 	UPROPERTY(EditAnywhere, config, Category = "SpatialFabric|Ports",
 		meta = (ClampMin = "1024", ClampMax = "65535"))
-	int32 DefaultQLabPort = 53000;
-
-	UPROPERTY(EditAnywhere, config, Category = "SpatialFabric|Ports",
-		meta = (ClampMin = "1024", ClampMax = "65535"))
 	int32 DefaultSpaceMapGoPort = 38033;
 
 	// ── Default send rate ───────────────────────────────────────────────────

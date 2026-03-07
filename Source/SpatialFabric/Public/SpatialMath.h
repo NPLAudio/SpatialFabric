@@ -17,7 +17,7 @@
  *   +Z = up
  *
  * This follows UE's native axis orientation and matches the audience /
- * listener perspective (house left/right).  DS100 and QLab mappings are
+ * listener perspective (house left/right).  DS100 mappings are
  * computed from this canonical form.
  */
 struct SPATIALFABRIC_API FSpatialMath
@@ -44,16 +44,15 @@ struct SPATIALFABRIC_API FSpatialMath
 	 */
 	static FVector2D NormalizedToDS100Mapped(FVector Normalized);
 
-	// ── QLab 2D ────────────────────────────────────────────────────────────
+	// ── 2D panning (protocol-agnostic) ─────────────────────────────────────
 
 	/**
-	 * Project a stage-normalized 3D position to a QLab 2D object panning
-	 * coordinate in the horizontal plane.
-	 * Returns: X = QLab panning X (left=-1, right=+1 — maps directly from NormY),
-	 *          Y = QLab panning Y (back=-1, front=+1 — maps directly from NormX).
+	 * Project a stage-normalized 3D position to 2D horizontal panning coordinates.
+	 * Returns: X = pan X (left=-1, right=+1 — maps from NormY),
+	 *          Y = pan Y (back=-1, front=+1 — maps from NormX).
 	 * Elevation is preserved as a spread hint (returned in Z).
 	 */
-	static FVector NormalizedToQLab2D(FVector Normalized);
+	static FVector NormalizedTo2DPanning(FVector Normalized);
 
 	// ── Gain utilities ──────────────────────────────────────────────────────
 

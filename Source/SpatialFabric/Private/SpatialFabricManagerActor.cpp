@@ -12,9 +12,8 @@
 
 // Adapters
 #include "Adapters/ADMOSCAdapter.h"
+#include "Adapters/CustomAdapter.h"
 #include "Adapters/DS100Adapter.h"
-#include "Adapters/QLabObjectAdapter.h"
-#include "Adapters/QLabCueAdapter.h"
 #include "Adapters/SpaceMapGoAdapter.h"
 #include "Adapters/TiMaxAdapter.h"
 
@@ -198,9 +197,8 @@ void ASpatialFabricManagerActor::InitializeAdapters()
 	};
 
 	RegisterOSC(MakeShared<FADMOSCAdapter>(),     ESpatialAdapterType::ADMOSC);
+	RegisterOSC(MakeShared<FCustomAdapter>(),     ESpatialAdapterType::Custom);
 	RegisterOSC(MakeShared<FDS100Adapter>(),      ESpatialAdapterType::DS100);
-	RegisterOSC(MakeShared<FQLabObjectAdapter>(), ESpatialAdapterType::QLabObject);
-	RegisterOSC(MakeShared<FQLabCueAdapter>(),    ESpatialAdapterType::QLabCue);
 	RegisterOSC(MakeShared<FSpaceMapGoAdapter>(), ESpatialAdapterType::SpaceMapGo);
 	RegisterOSC(MakeShared<FTiMaxAdapter>(),      ESpatialAdapterType::TiMax);
 
@@ -228,14 +226,11 @@ void ASpatialFabricManagerActor::PopulateDefaultAdapterConfigs()
 	AdapterConfigs.Add((uint8)ESpatialAdapterType::DS100,
 		MakeConfig(TEXT("127.0.0.1"), S->DefaultDS100Port));
 
-	AdapterConfigs.Add((uint8)ESpatialAdapterType::QLabObject,
-		MakeConfig(TEXT("127.0.0.1"), S->DefaultQLabPort));
-
-	AdapterConfigs.Add((uint8)ESpatialAdapterType::QLabCue,
-		MakeConfig(TEXT("127.0.0.1"), S->DefaultQLabPort));
-
 	AdapterConfigs.Add((uint8)ESpatialAdapterType::SpaceMapGo,
 		MakeConfig(TEXT("127.0.0.1"), S->DefaultSpaceMapGoPort));
+
+	AdapterConfigs.Add((uint8)ESpatialAdapterType::Custom,
+		MakeConfig(TEXT("127.0.0.1"), 9000));
 
 	AdapterConfigs.Add((uint8)ESpatialAdapterType::TiMax,
 		MakeConfig(TEXT("127.0.0.1"), 7000));
@@ -247,6 +242,51 @@ void ASpatialFabricManagerActor::OnOSCMessageReceived(const FString& Address, fl
 	{
 		Router->DispatchIncomingOSC(Address, Value);
 	}
+}
+
+void ASpatialFabricManagerActor::SendCustomOSC(const FString& Address,
+	const TArray<float>& FloatArgs, const TArray<int32>& IntArgs, const TArray<FString>& StringArgs)
+{
+	if (!ClientComponent) { return; }
+
+	FString PrevIP = ClientComponent->GetTargetIP();
+	int32 PrevPort = ClientComponent->GetTargetPort();
+
+	ClientComponent->Connect(CustomTargetIP, CustomTargetPort);
+	ClientComponent->SendMessage(Address, FloatArgs, IntArgs, StringArgs);
+
+	// Restore previous connection
+	if (!PrevIP.IsEmpty() && PrevPort > 0)
+	{
+		ClientComponent->Connect(PrevIP, PrevPort);
+	}
+	else
+	{
+		// Reconnect to first enabled adapter
+		const uint8 ADMKey = (uint8)ESpatialAdapterType::ADMOSC;
+		if (const FSpatialAdapterConfig* Config = AdapterConfigs.Find(ADMKey))
+		{
+			ClientComponent->Connect(Config->TargetIP, Config->TargetPort);
+		}
+		else
+		{
+			ClientComponent->Disconnect();
+		}
+	}
+
+	// Log the send
+	FSpatialFabricLogEntry Entry;
+	Entry.Adapter = TEXT("Custom");
+	Entry.Direction = TEXT("OUT");
+	Entry.Address = Address;
+	FString ValStr;
+	for (float V : FloatArgs) { ValStr += FString::Printf(TEXT("%.3f "), V); }
+	for (int32 V : IntArgs) { ValStr += FString::Printf(TEXT("%d "), V); }
+	for (const FString& V : StringArgs) { ValStr += V + TEXT(" "); }
+	Entry.ValueStr = ValStr.TrimEnd();
+	FDateTime Now = FDateTime::Now();
+	Entry.Timestamp = FString::Printf(TEXT("%02d:%02d:%02d"), Now.GetHour(), Now.GetMinute(), Now.GetSecond());
+	AppendLog(Entry);
 }
 
 void ASpatialFabricManagerActor::ApplyStageVisibility()

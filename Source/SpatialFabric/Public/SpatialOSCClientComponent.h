@@ -70,6 +70,17 @@ public:
 	/** Send all Values as multiple float arguments on a single Address. No-op if not connected or Values is empty. */
 	void SendMultiArg(const FString& Address, const TArray<float>& Values);
 
+	/**
+	 * Send an OSC message with mixed argument types.
+	 * Args are sent in order: all floats, then all ints, then all strings.
+	 * No-op if not connected. Sends even if all arrays are empty (address-only message).
+	 */
+	UFUNCTION(BlueprintCallable, Category = "SpatialFabric|OSC")
+	void SendMessage(const FString& Address,
+		const TArray<float>& FloatArgs,
+		const TArray<int32>& IntArgs,
+		const TArray<FString>& StringArgs);
+
 protected:
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 

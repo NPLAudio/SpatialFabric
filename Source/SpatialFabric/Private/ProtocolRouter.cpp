@@ -96,13 +96,9 @@ FSpatialFrameSnapshot FProtocolRouter::FilterSnapshotForAdapter(
 			{
 				TargetState.ObjectID = Target.ObjectIDOverride;
 			}
-
-			// Store QLab-specific strings as part of the label using a separator
-			// so adapters can parse them without extra fields on FSpatialNormalizedState.
-			if (!Target.QLabCueID.IsEmpty() || !Target.QLabObjectName.IsEmpty())
+			if (AdapterType == ESpatialAdapterType::Custom)
 			{
-				TargetState.Label = FString::Printf(TEXT("%s|%s|%s"),
-					*ObjState.Label, *Target.QLabCueID, *Target.QLabObjectName);
+				TargetState.CustomFields = Target.CustomFields;
 			}
 
 			Filtered.Objects.Add(TargetState);

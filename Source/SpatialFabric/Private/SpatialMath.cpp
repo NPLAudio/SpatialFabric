@@ -32,14 +32,14 @@ FVector2D FSpatialMath::NormalizedToDS100Mapped(FVector Normalized)
 	return FVector2D(DS100X, DS100Y);
 }
 
-FVector FSpatialMath::NormalizedToQLab2D(FVector Normalized)
+FVector FSpatialMath::NormalizedTo2DPanning(FVector Normalized)
 {
-	// QLab audio object panning: X = left(-1)..right(+1), Y = back(-1)..front(+1)
-	// Stage convention: +X = front, +Y = right → QLab X = NormY, QLab Y = NormX
-	const float QLabX = FMath::Clamp(Normalized.Y, -1.f, 1.f);
-	const float QLabY = FMath::Clamp(Normalized.X, -1.f, 1.f);
+	// 2D panning: X = left(-1)..right(+1), Y = back(-1)..front(+1)
+	// Stage convention: +X = front, +Y = right → Pan X = NormY, Pan Y = NormX
+	const float PanX = FMath::Clamp(Normalized.Y, -1.f, 1.f);
+	const float PanY = FMath::Clamp(Normalized.X, -1.f, 1.f);
 	const float SpreadHint = FMath::Abs(Normalized.Z); // elevation mapped to spread hint
-	return FVector(QLabX, QLabY, SpreadHint);
+	return FVector(PanX, PanY, SpreadHint);
 }
 
 float FSpatialMath::LinearToDb(float Linear)

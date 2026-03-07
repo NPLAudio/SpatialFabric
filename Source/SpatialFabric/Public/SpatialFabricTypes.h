@@ -17,8 +17,7 @@ enum class ESpatialAdapterType : uint8
 {
 	ADMOSC      UMETA(DisplayName = "ADM-OSC (L-ISA / General)"),
 	DS100       UMETA(DisplayName = "d&b DS100 (Soundscape)"),
-	QLabObject  UMETA(DisplayName = "QLab Object Audio"),
-	QLabCue     UMETA(DisplayName = "QLab Cue Control"),
+	Custom      UMETA(DisplayName = "Custom (Template)"),
 	SpaceMapGo  UMETA(DisplayName = "Meyer SpaceMap Go"),
 	TiMax       UMETA(DisplayName = "TiMax SoundHub / panLab"),
 };
@@ -123,6 +122,14 @@ struct SPATIALFABRIC_API FSpatialNormalizedState
 	 */
 	UPROPERTY(BlueprintReadOnly, Category = "SpatialFabric")
 	int32 ObjectID = 0;
+
+	/**
+	 * Custom adapter: per-binding key-value pairs for template placeholders.
+	 * Populated by the router from FSpatialAdapterTargetEntry::CustomFields
+	 * when routing to the Custom adapter.
+	 */
+	UPROPERTY(BlueprintReadOnly, Category = "SpatialFabric")
+	TMap<FString, FString> CustomFields;
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -208,14 +215,6 @@ struct SPATIALFABRIC_API FSpatialAdapterConfig
 	EADMCoordinateMode ADMCoordinateMode = EADMCoordinateMode::Polar;
 
 	/**
-	 * QLab-only: workspace ID string (e.g. "1" or a QLab workspace GUID).
-	 * Unused by other adapters.
-	 */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SpatialFabric|Adapter",
-		meta = (EditCondition = "false"))
-	FString QLabWorkspaceID;
-
-	/**
 	 * DS100-only: channel ID offset applied to all object IDs.
 	 * Final channel = binding.DefaultObjectID + ChannelOffset.
 	 */
@@ -231,6 +230,24 @@ struct SPATIALFABRIC_API FSpatialAdapterConfig
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SpatialFabric|Adapter",
 		meta = (EditCondition = "false"))
 	bool bDS100AbsoluteMode = true;
+
+	/**
+	 * Custom adapter: OSC address template. Placeholders: {id}, {x}, {y}, {z},
+	 * {gain}, {width}, {label}, plus any CustomFields keys as {key}.
+	 * Example: /source/{id}/position
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SpatialFabric|Adapter",
+		meta = (EditCondition = "false"))
+	FString CustomAddressTemplate = TEXT("/source/{id}/position");
+
+	/**
+	 * Custom adapter: space-separated arg names to send as floats.
+	 * Supported: x, y, z, gain, width, id
+	 * Example: "x y z" sends StageNormalized.X, Y, Z
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SpatialFabric|Adapter",
+		meta = (EditCondition = "false"))
+	FString CustomArgTemplate = TEXT("x y z");
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -258,23 +275,16 @@ struct SPATIALFABRIC_API FSpatialAdapterTargetEntry
 		meta = (ClampMin = "-1"))
 	int32 ObjectIDOverride = -1;
 
-	/**
-	 * QLab cue identifier (cue number or name) for QLabObject / QLabCue adapters.
-	 * Example: "5" for cue 5, or "myAudioCue" if QLab uses name-based addressing.
-	 */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SpatialFabric")
-	FString QLabCueID;
-
-	/**
-	 * QLab audio object name within the cue (QLabObject adapter only).
-	 * Maps to the {name} token in /cue/{cue}/object/{name}/position/live.
-	 */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SpatialFabric")
-	FString QLabObjectName;
-
 	/** When false, this target entry is skipped for this binding. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SpatialFabric")
 	bool bEnabled = true;
+
+	/**
+	 * Custom adapter: key-value pairs for template placeholders.
+	 * E.g. "slot" -> "5", "channel" -> "A". Template references as {slot}, {channel}.
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SpatialFabric|Custom")
+	TMap<FString, FString> CustomFields;
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -317,7 +327,7 @@ struct SPATIALFABRIC_API FSpatialObjectBinding
 	/**
 	 * Default protocol object/channel ID for this binding.
 	 * Used by all adapter targets that do not specify an ObjectIDOverride.
-	 * E.g. DS100 channel number, ADM-OSC object index, QLab audio object index.
+	 * E.g. DS100 channel number, ADM-OSC object index.
 	 */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SpatialFabric",
 		meta = (ClampMin = "1"))

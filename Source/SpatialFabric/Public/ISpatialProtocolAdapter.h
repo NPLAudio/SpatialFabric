@@ -64,7 +64,7 @@ public:
 	/**
 	 * Handle an incoming OSC message forwarded from the server component.
 	 * Optional — only implement for adapters that consume inbound data
-	 * (e.g. tracking-in or QLab reply handling).
+	 * (e.g. tracking-in or adapter-specific reply handling).
 	 */
 	virtual void HandleIncomingOSC(const FString& Address, float Value) {}
 

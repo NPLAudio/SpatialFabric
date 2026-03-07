@@ -13,6 +13,7 @@
 
 #include "Widgets/Layout/SBorder.h"
 #include "Widgets/Layout/SBox.h"
+#include "Widgets/Layout/SExpandableArea.h"
 #include "Widgets/Layout/SScrollBox.h"
 #include "Widgets/Layout/SWidgetSwitcher.h"
 #include "Widgets/Layout/SWrapBox.h"
@@ -302,8 +303,8 @@ struct FSFFormatDef { ESpatialAdapterType Type; FString Name; FLinearColor Color
 static TArray<FSFFormatDef> GetFormatDefs()
 {
 	return {
-		{ ESpatialAdapterType::ADMOSC,     TEXT("ADM-OSC"),    FLinearColor(0.10f, 0.45f, 0.85f) },
-		{ ESpatialAdapterType::QLabObject, TEXT("QLab Object"), FLinearColor(0.10f, 0.72f, 0.32f) },
+		{ ESpatialAdapterType::ADMOSC, TEXT("ADM-OSC"), FLinearColor(0.10f, 0.45f, 0.85f) },
+		{ ESpatialAdapterType::Custom, TEXT("Custom"),  FLinearColor(0.55f, 0.35f, 0.85f) },
 	};
 }
 
@@ -736,28 +737,40 @@ TSharedRef<SWidget> SSpatialFabricPanel::BuildObjectsTab()
 		.VAlign(VAlign_Center)
 		.Padding(6.f, 0.f, 2.f, 0.f)
 		[
-			SNew(SBox).WidthOverride(110.f)
+			SNew(SHorizontalBox)
+			+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center).Padding(0.f, 0.f, 4.f, 0.f)
 			[
-				SNew(SEditableTextBox)
-				.Text_Lambda([this]() -> FText
-				{
-					const ASpatialFabricManagerActor* Mgr = GetManager();
-					if (!Mgr) return FText::GetEmpty();
-					if (const FSpatialAdapterConfig* C = Mgr->AdapterConfigs.Find((uint8)Mgr->ActiveAdapterType))
-						return FText::FromString(C->TargetIP);
-					return FText::GetEmpty();
-				})
-				.OnTextCommitted_Lambda([this](const FText& Val, ETextCommit::Type)
-				{
-					if (ASpatialFabricManagerActor* Mgr = GetManager())
-						if (FSpatialAdapterConfig* C = Mgr->AdapterConfigs.Find((uint8)Mgr->ActiveAdapterType))
-						{
-							C->TargetIP = Val.ToString();
-							Mgr->MarkPackageDirty();
-							if (Mgr->GetRouter()) Mgr->InitializeAdapters();
-						}
-				})
+				SNew(STextBlock)
+				.Text(LOCTEXT("IPLabel", "IP:"))
+				.ColorAndOpacity(FLinearColor(0.6f, 0.6f, 0.6f))
+				.Font(FAppStyle::GetFontStyle("SmallFont"))
 				.ToolTipText(LOCTEXT("IPTip", "Target IP address for the active protocol adapter"))
+			]
+			+ SHorizontalBox::Slot().AutoWidth()
+			[
+				SNew(SBox).WidthOverride(110.f)
+				[
+					SNew(SEditableTextBox)
+					.Text_Lambda([this]() -> FText
+					{
+						const ASpatialFabricManagerActor* Mgr = GetManager();
+						if (!Mgr) return FText::GetEmpty();
+						if (const FSpatialAdapterConfig* C = Mgr->AdapterConfigs.Find((uint8)Mgr->ActiveAdapterType))
+							return FText::FromString(C->TargetIP);
+						return FText::GetEmpty();
+					})
+					.OnTextCommitted_Lambda([this](const FText& Val, ETextCommit::Type)
+					{
+						if (ASpatialFabricManagerActor* Mgr = GetManager())
+							if (FSpatialAdapterConfig* C = Mgr->AdapterConfigs.Find((uint8)Mgr->ActiveAdapterType))
+							{
+								C->TargetIP = Val.ToString();
+								Mgr->MarkPackageDirty();
+								if (Mgr->GetRouter()) Mgr->InitializeAdapters();
+							}
+					})
+					.ToolTipText(LOCTEXT("IPTip", "Target IP address for the active protocol adapter"))
+				]
 			]
 		];
 
@@ -777,12 +790,8 @@ TSharedRef<SWidget> SSpatialFabricPanel::BuildObjectsTab()
 		{ TEXT("4001  (Spat Revolution)"),   4001 },
 		{ TEXT("7000  (TiMax SoundHub)"),    7000 },
 		{ TEXT("38033 (Meyer SpaceMap Go)"), 38033 },
-		{ TEXT("50011 (d&b DS100)"),         50011 },
+		{ TEXT("50018 (en-bridge)"),         50018 },
 	};
-
-	// Shared flag: true = user selected "Custom" and wants free-form numeric entry.
-	// Starts false; reset to false whenever a preset is chosen.
-	TSharedRef<bool> bADMPortCustomMode = MakeShared<bool>(false);
 
 	// Helper lambda — commit a new port value and reinitialize adapters.
 	auto CommitPort = [this](int32 Val)
@@ -796,35 +805,26 @@ TSharedRef<SWidget> SSpatialFabricPanel::BuildObjectsTab()
 			}
 	};
 
-	// Switcher index 0 = combo (ADM-OSC active, preset mode)
-	//               1 = numeric (ADM-OSC active, custom mode)
-	//               2 = numeric (any other adapter)
-	TSharedPtr<SWidgetSwitcher> PortSwitcher;
-
+	// Port control: dropdown (presets) + numeric field always visible together.
+	// Dropdown populates the field; user can also type custom values directly.
 	FormatRow->AddSlot()
 		.AutoWidth()
 		.VAlign(VAlign_Center)
 		.Padding(0.f, 0.f, 0.f, 0.f)
 		[
-			SAssignNew(PortSwitcher, SWidgetSwitcher)
-			.WidgetIndex_Lambda([this, bADMPortCustomMode]() -> int32
-			{
-				const ASpatialFabricManagerActor* Mgr = GetManager();
-				if (Mgr && Mgr->ActiveAdapterType == ESpatialAdapterType::ADMOSC)
-					return *bADMPortCustomMode ? 1 : 0;
-				return 2;
-			})
-
-			// ── Slot 0: ADM-OSC preset dropdown ────────────────────────
-			+ SWidgetSwitcher::Slot()
+			SNew(SHorizontalBox)
+			// Dropdown (presets) — populates the port field when selected
+			+ SHorizontalBox::Slot()
+			.AutoWidth()
 			[
-				SNew(SBox).WidthOverride(175.f)
+				SNew(SBox)
+				.WidthOverride(175.f)
 				[
 					SNew(SComboButton)
 					.ButtonStyle(FAppStyle::Get(), "SimpleButton")
 					.HasDownArrow(true)
 					.ToolTipText(LOCTEXT("ADMPortPresetTip",
-						"Select a common ADM-OSC receiver port, or choose Custom to enter any value."))
+						"Select a preset to populate the port field, or type a custom value in the field."))
 					.ButtonContent()
 					[
 						SNew(STextBlock)
@@ -838,11 +838,11 @@ TSharedRef<SWidget> SSpatialFabricPanel::BuildObjectsTab()
 							static const FADMPortPreset Presets[] =
 							{
 								{ TEXT("8880  (L-ISA Controller)"),  8880 },
-														{ TEXT("9000  (L-ISA Processor)"),   9000 },
+								{ TEXT("9000  (L-ISA Processor)"),   9000 },
 								{ TEXT("4001  (Spat Revolution)"),   4001 },
 								{ TEXT("7000  (TiMax SoundHub)"),    7000 },
 								{ TEXT("38033 (Meyer SpaceMap Go)"), 38033 },
-								{ TEXT("50011 (d&b DS100)"),         50011 },
+								{ TEXT("50018 (en-bridge)"),         50018 },
 							};
 							for (const FADMPortPreset& Pre : Presets)
 								if (Pre.Port == P)
@@ -851,20 +851,18 @@ TSharedRef<SWidget> SSpatialFabricPanel::BuildObjectsTab()
 						})
 						.Font(FAppStyle::GetFontStyle("SmallFont"))
 					]
-					.OnGetMenuContent_Lambda([this, bADMPortCustomMode, CommitPort]() -> TSharedRef<SWidget>
+					.OnGetMenuContent_Lambda([this, CommitPort]() -> TSharedRef<SWidget>
 					{
 						FMenuBuilder MenuBuilder(true, nullptr);
-
 						static const FADMPortPreset Presets[] =
 						{
 							{ TEXT("8880  (L-ISA Controller)"),  8880 },
-												{ TEXT("9000  (L-ISA Processor)"),   9000 },
+							{ TEXT("9000  (L-ISA Processor)"),   9000 },
 							{ TEXT("4001  (Spat Revolution)"),   4001 },
 							{ TEXT("7000  (TiMax SoundHub)"),    7000 },
 							{ TEXT("38033 (Meyer SpaceMap Go)"), 38033 },
-							{ TEXT("50011 (d&b DS100)"),         50011 },
+							{ TEXT("50018 (en-bridge)"),         50018 },
 						};
-
 						for (const FADMPortPreset& Pre : Presets)
 						{
 							const int32 Port = Pre.Port;
@@ -873,78 +871,22 @@ TSharedRef<SWidget> SSpatialFabricPanel::BuildObjectsTab()
 								FText::FromString(Label),
 								FText::Format(LOCTEXT("ADMPortPresetTipFmt", "Set port to {0}"), Port),
 								FSlateIcon(),
-								FUIAction(FExecuteAction::CreateLambda([this, bADMPortCustomMode, CommitPort, Port]()
+								FUIAction(FExecuteAction::CreateLambda([this, CommitPort, Port]()
 								{
-									*bADMPortCustomMode = false;
 									CommitPort(Port);
 								}))
 							);
 						}
-
-						MenuBuilder.AddSeparator();
-						MenuBuilder.AddMenuEntry(
-							LOCTEXT("ADMPortCustom", "Custom..."),
-							LOCTEXT("ADMPortCustomTip", "Enter any port number manually."),
-							FSlateIcon(),
-							FUIAction(FExecuteAction::CreateLambda([bADMPortCustomMode]()
-							{
-								*bADMPortCustomMode = true;
-							}))
-						);
-
 						return MenuBuilder.MakeWidget();
 					})
 				]
 			]
-
-			// ── Slot 1: ADM-OSC custom numeric entry ────────────────────
-			+ SWidgetSwitcher::Slot()
+			// Port numeric field (always visible)
+			+ SHorizontalBox::Slot()
+			.AutoWidth()
+			.Padding(6.f, 0.f, 0.f, 0.f)
 			[
-				SNew(SHorizontalBox)
-				+ SHorizontalBox::Slot().AutoWidth()
-				[
-					SNew(SBox).WidthOverride(62.f)
-					[
-						SNew(SNumericEntryBox<int32>)
-						.Value_Lambda([this]() -> TOptional<int32>
-						{
-							const ASpatialFabricManagerActor* Mgr = GetManager();
-							if (!Mgr) return TOptional<int32>();
-							if (const FSpatialAdapterConfig* C = Mgr->AdapterConfigs.Find((uint8)Mgr->ActiveAdapterType))
-								return C->TargetPort;
-							return TOptional<int32>();
-						})
-						.OnValueCommitted_Lambda([this, CommitPort](int32 Val, ETextCommit::Type)
-						{
-							CommitPort(Val);
-						})
-						.MinValue(1024).MaxValue(65535).AllowSpin(false)
-						.ToolTipText(LOCTEXT("PortCustomEntryTip", "Enter a custom UDP port (1024–65535)"))
-					]
-				]
-				+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center).Padding(2.f, 0.f, 0.f, 0.f)
-				[
-					SNew(SButton)
-					.ButtonStyle(FAppStyle::Get(), "SimpleButton")
-					.ToolTipText(LOCTEXT("ADMPortBackTip", "Back to preset list"))
-					.OnClicked_Lambda([bADMPortCustomMode]() -> FReply
-					{
-						*bADMPortCustomMode = false;
-						return FReply::Handled();
-					})
-					[
-						SNew(STextBlock)
-						.Text(FText::FromString(TEXT("X")))
-						.Font(FAppStyle::GetFontStyle("SmallFont"))
-						.ColorAndOpacity(FLinearColor(0.6f, 0.6f, 0.6f))
-					]
-				]
-			]
-
-			// ── Slot 2: non-ADM-OSC plain numeric entry ─────────────────
-			+ SWidgetSwitcher::Slot()
-			[
-				SNew(SBox).WidthOverride(62.f)
+				SNew(SBox).WidthOverride(70.f)
 				[
 					SNew(SNumericEntryBox<int32>)
 					.Value_Lambda([this]() -> TOptional<int32>
@@ -959,8 +901,9 @@ TSharedRef<SWidget> SSpatialFabricPanel::BuildObjectsTab()
 					{
 						CommitPort(Val);
 					})
-					.MinValue(1024).MaxValue(65535).AllowSpin(false)
-					.ToolTipText(LOCTEXT("PortTip", "Target UDP port for the active protocol adapter"))
+					.MinValue(1024).MaxValue(65535).AllowSpin(true)
+					.Font(FAppStyle::GetFontStyle("SmallFont"))
+					.ToolTipText(LOCTEXT("PortTip", "Target UDP port. Use dropdown (ADM-OSC) to pick a preset, or type any value 1024–65535."))
 				]
 			]
 		];
@@ -980,6 +923,136 @@ TSharedRef<SWidget> SSpatialFabricPanel::BuildObjectsTab()
 		.AutoHeight()
 		.Padding(4.f, 6.f, 4.f, 4.f)
 		[ FormatRow ]
+
+		// ── Custom template row (visible only when Custom is active) ───────
+		+ SVerticalBox::Slot()
+		.AutoHeight()
+		.Padding(4.f, 2.f, 4.f, 2.f)
+		[
+			SNew(SBorder)
+			.BorderImage(FAppStyle::GetBrush("ToolPanel.DarkGroupBorder"))
+			.Padding(FMargin(6.f, 4.f))
+			.Visibility_Lambda([this]()
+			{
+				const ASpatialFabricManagerActor* M = GetManager();
+				return (M && M->ActiveAdapterType == ESpatialAdapterType::Custom)
+					? EVisibility::Visible : EVisibility::Collapsed;
+			})
+			[
+				SNew(SVerticalBox)
+
+				// Expandable help: placeholder reference
+				+ SVerticalBox::Slot()
+				.AutoHeight()
+				.Padding(0.f, 0.f, 0.f, 6.f)
+				[
+					SNew(SExpandableArea)
+					.InitiallyCollapsed(true)
+					.HeaderContent()
+					[
+						SNew(STextBlock)
+						.Text(LOCTEXT("CustomTemplateHelpHeader", "Template reference (placeholders & args)"))
+						.Font(FAppStyle::GetFontStyle("SmallFont"))
+						.ColorAndOpacity(FLinearColor(0.7f, 0.7f, 0.7f))
+					]
+					.BodyContent()
+					[
+						SNew(SVerticalBox)
+						+ SVerticalBox::Slot()
+						.AutoHeight()
+						.Padding(0.f, 4.f)
+						[
+							SNew(STextBlock)
+							.Text(LOCTEXT("CustomTemplateHelpBody",
+								"Address template: Use {placeholders} in the OSC path. Built-in placeholders:\n"
+								"  {id} = object ID, {x} {y} {z} = normalized position (-1..1)\n"
+								"  {gain} = linear gain, {width} = horizontal extent, {label} = actor name\n"
+								"  Add per-binding CustomFields (e.g. slot, channel) for {slot}, {channel}, etc.\n\n"
+								"Args template: Space-separated names of values to send as floats:\n"
+								"  x y z gain width id — pick any combination. Example: \"x y z\" sends position."))
+							.Font(FAppStyle::GetFontStyle("SmallFont"))
+							.ColorAndOpacity(FLinearColor(0.65f, 0.65f, 0.65f))
+							.AutoWrapText(true)
+						]
+					]
+				]
+
+				// Address and Args editors
+				+ SVerticalBox::Slot()
+				.AutoHeight()
+				[
+					SNew(SHorizontalBox)
+					+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center).Padding(0.f, 0.f, 6.f, 0.f)
+					[
+						SNew(STextBlock)
+						.Text(LOCTEXT("AddressTemplateLabel", "Address:"))
+						.ColorAndOpacity(FLinearColor(0.6f, 0.6f, 0.6f))
+						.Font(FAppStyle::GetFontStyle("SmallFont"))
+						.ToolTipText(LOCTEXT("AddressTemplateTip",
+							"OSC address template. Placeholders: {id}, {x}, {y}, {z}, {gain}, {width}, {label}, plus CustomFields keys"))
+					]
+					+ SHorizontalBox::Slot().FillWidth(1.f)
+					[
+						SNew(SEditableTextBox)
+						.Text_Lambda([this]() -> FText
+						{
+							const ASpatialFabricManagerActor* M = GetManager();
+							if (!M) return FText::GetEmpty();
+							if (const FSpatialAdapterConfig* C = M->AdapterConfigs.Find((uint8)ESpatialAdapterType::Custom))
+								return FText::FromString(C->CustomAddressTemplate);
+							return FText::FromString(TEXT("/source/{id}/position"));
+						})
+						.OnTextCommitted_Lambda([this](const FText& Val, ETextCommit::Type)
+						{
+							if (ASpatialFabricManagerActor* M = GetManager())
+								if (FSpatialAdapterConfig* C = M->AdapterConfigs.Find((uint8)ESpatialAdapterType::Custom))
+								{
+									C->CustomAddressTemplate = Val.ToString();
+									M->MarkPackageDirty();
+									if (M->GetRouter()) M->InitializeAdapters();
+								}
+						})
+						.Font(FAppStyle::GetFontStyle("SmallFont"))
+					]
+					+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center).Padding(12.f, 0.f, 6.f, 0.f)
+					[
+						SNew(STextBlock)
+						.Text(LOCTEXT("ArgTemplateLabel", "Args:"))
+						.ColorAndOpacity(FLinearColor(0.6f, 0.6f, 0.6f))
+						.Font(FAppStyle::GetFontStyle("SmallFont"))
+						.ToolTipText(LOCTEXT("ArgTemplateTip",
+							"Space-separated arg names: x, y, z, gain, width, id"))
+					]
+					+ SHorizontalBox::Slot()
+					.AutoWidth()
+					[
+						SNew(SBox).WidthOverride(120.f)
+						[
+							SNew(SEditableTextBox)
+							.Text_Lambda([this]() -> FText
+							{
+								const ASpatialFabricManagerActor* M = GetManager();
+								if (!M) return FText::FromString(TEXT("x y z"));
+								if (const FSpatialAdapterConfig* C = M->AdapterConfigs.Find((uint8)ESpatialAdapterType::Custom))
+									return FText::FromString(C->CustomArgTemplate);
+								return FText::FromString(TEXT("x y z"));
+							})
+							.OnTextCommitted_Lambda([this](const FText& Val, ETextCommit::Type)
+							{
+								if (ASpatialFabricManagerActor* M = GetManager())
+									if (FSpatialAdapterConfig* C = M->AdapterConfigs.Find((uint8)ESpatialAdapterType::Custom))
+									{
+										C->CustomArgTemplate = Val.ToString();
+										M->MarkPackageDirty();
+										if (M->GetRouter()) M->InitializeAdapters();
+									}
+							})
+							.Font(FAppStyle::GetFontStyle("SmallFont"))
+						]
+					]
+				]
+			]
+		]
 
 		// ── Separator ────────────────────────────────────────────────────
 		+ SVerticalBox::Slot()
@@ -1949,109 +2022,6 @@ TSharedRef<ITableRow> SSpatialFabricPanel::GenerateBindingRow(
 				]
 			]
 
-			// ── QLab sub-row (visible only when QLabObject is the active format) ──
-			+ SVerticalBox::Slot()
-			.AutoHeight()
-			.Padding(4.f, 2.f, 4.f, 2.f)
-			[
-				SNew(SBorder)
-				.BorderImage(FAppStyle::GetBrush("ToolPanel.DarkGroupBorder"))
-				.Padding(FMargin(6.f, 3.f))
-				.Visibility_Lambda([WeakMgr]()
-				{
-					const ASpatialFabricManagerActor* M = WeakMgr.Get();
-					return (M && M->ActiveAdapterType == ESpatialAdapterType::QLabObject)
-						? EVisibility::Visible : EVisibility::Collapsed;
-				})
-				[
-					SNew(SHorizontalBox)
-
-					// "Cue ID:" label
-					+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center).Padding(0.f, 0.f, 4.f, 0.f)
-					[
-						SNew(STextBlock)
-						.Text(LOCTEXT("QLabCueIDLabel", "Cue ID:"))
-						.ColorAndOpacity(FLinearColor(0.6f, 0.6f, 0.6f))
-						.Font(FAppStyle::GetFontStyle("SmallFont"))
-						.ToolTipText(LOCTEXT("QLabCueIDTip",
-							"QLab cue number or name (VAR).\nExample: 5"))
-					]
-
-					// Cue ID text box
-					+ SHorizontalBox::Slot().AutoWidth().Padding(0.f, 0.f, 8.f, 0.f)
-					[
-						SNew(SBox).WidthOverride(80.f)
-						[
-							SNew(SEditableTextBox)
-							.Font(FAppStyle::GetFontStyle("SmallFont"))
-							.Text_Lambda([WeakMgr, BIdx]() -> FText
-							{
-								if (ASpatialFabricManagerActor* M = WeakMgr.Get())
-									if (M->ObjectBindings.IsValidIndex(BIdx))
-										for (const FSpatialAdapterTargetEntry& T : M->ObjectBindings[BIdx].Targets)
-											if (T.AdapterType == ESpatialAdapterType::QLabObject)
-												return FText::FromString(T.QLabCueID);
-								return FText::GetEmpty();
-							})
-							.OnTextCommitted_Lambda([WeakMgr, BIdx](const FText& Text, ETextCommit::Type)
-							{
-								if (ASpatialFabricManagerActor* M = WeakMgr.Get())
-									if (M->ObjectBindings.IsValidIndex(BIdx))
-										for (FSpatialAdapterTargetEntry& T : M->ObjectBindings[BIdx].Targets)
-											if (T.AdapterType == ESpatialAdapterType::QLabObject)
-											{
-												T.QLabCueID = Text.ToString();
-												M->MarkPackageDirty();
-												break;
-											}
-							})
-						]
-					]
-
-					// "Object:" label
-					+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center).Padding(0.f, 0.f, 4.f, 0.f)
-					[
-						SNew(STextBlock)
-						.Text(LOCTEXT("QLabObjNameLabel", "Object:"))
-						.ColorAndOpacity(FLinearColor(0.6f, 0.6f, 0.6f))
-						.Font(FAppStyle::GetFontStyle("SmallFont"))
-						.ToolTipText(LOCTEXT("QLabObjNameTip",
-							"Audio object name within the cue.\n"
-							"Maps to {name} in /cue/{id}/object/{name}/position/live"))
-					]
-
-					// Object Name text box
-					+ SHorizontalBox::Slot().AutoWidth()
-					[
-						SNew(SBox).WidthOverride(100.f)
-						[
-							SNew(SEditableTextBox)
-							.Font(FAppStyle::GetFontStyle("SmallFont"))
-							.Text_Lambda([WeakMgr, BIdx]() -> FText
-							{
-								if (ASpatialFabricManagerActor* M = WeakMgr.Get())
-									if (M->ObjectBindings.IsValidIndex(BIdx))
-										for (const FSpatialAdapterTargetEntry& T : M->ObjectBindings[BIdx].Targets)
-											if (T.AdapterType == ESpatialAdapterType::QLabObject)
-												return FText::FromString(T.QLabObjectName);
-								return FText::GetEmpty();
-							})
-							.OnTextCommitted_Lambda([WeakMgr, BIdx](const FText& Text, ETextCommit::Type)
-							{
-								if (ASpatialFabricManagerActor* M = WeakMgr.Get())
-									if (M->ObjectBindings.IsValidIndex(BIdx))
-										for (FSpatialAdapterTargetEntry& T : M->ObjectBindings[BIdx].Targets)
-											if (T.AdapterType == ESpatialAdapterType::QLabObject)
-											{
-												T.QLabObjectName = Text.ToString();
-												M->MarkPackageDirty();
-												break;
-											}
-							})
-						]
-					]
-				]
-			]
 		];
 }
 
@@ -2174,9 +2144,7 @@ void SSpatialFabricPanel::SetActiveFormat(ESpatialAdapterType Type)
 	// Enable only the selected adapter; disable all Phase-1 adapters' configs
 	static const ESpatialAdapterType Phase1[] = {
 		ESpatialAdapterType::ADMOSC,
-		ESpatialAdapterType::DS100,
-		ESpatialAdapterType::QLabObject,
-		ESpatialAdapterType::SpaceMapGo,
+		ESpatialAdapterType::Custom,
 	};
 	for (const ESpatialAdapterType T : Phase1)
 	{
@@ -2367,31 +2335,17 @@ static FString FormatOutputPreview(
 			return FString::Printf(TEXT("/dbaudio1/coordinatemapping/source_position_xy/1/%d  %.3f %.3f"), ID, Mapped.X, Mapped.Y);
 		}
 	}
-	case ESpatialAdapterType::QLabObject:
-	{
-		// Parse packed label: "<label>|<cueID>|<objectName>"
-		FString CueID, ObjName;
-		TArray<FString> Parts;
-		Obj.Label.ParseIntoArray(Parts, TEXT("|"), false);
-		if (Parts.Num() >= 3 && !Parts[1].IsEmpty() && !Parts[2].IsEmpty())
-		{
-			CueID = Parts[1];
-			ObjName = Parts[2];
-		}
-		else
-		{
-			CueID = FString::FromInt(ID);
-			ObjName = Obj.Label;
-		}
-		const FVector QL = FSpatialMath::NormalizedToQLab2D(Obj.StageNormalized);
-		return FString::Printf(TEXT("/cue/%s/object/%s/position/live  %.3f %.3f"), *CueID, *ObjName, QL.X, QL.Y);
-	}
 	case ESpatialAdapterType::SpaceMapGo:
 	{
 		const float SMX = FMath::Clamp((float)Obj.StageNormalized.Y * 1000.f, -1000.f, 1000.f);
 		const float SMY = FMath::Clamp((float)Obj.StageNormalized.X * 1000.f, -1000.f, 1000.f);
 		const float Spread = FMath::Clamp(Obj.Width01 * 100.f, 0.f, 100.f);
 		return FString::Printf(TEXT("/channel/%d/position  %.0f %.0f\n/channel/%d/spread  %.0f"), ID, SMX, SMY, ID, Spread);
+	}
+	case ESpatialAdapterType::Custom:
+	{
+		const FVector& N = Obj.StageNormalized;
+		return FString::Printf(TEXT("/source/%d/position  %.3f %.3f %.3f"), ID, N.X, N.Y, N.Z);
 	}
 	default:
 		return FString::Printf(TEXT("[%d] %.3f %.3f %.3f"), ID,
@@ -2489,6 +2443,57 @@ TSharedRef<SWidget> SSpatialFabricPanel::BuildOutputTab()
 				.Font(FAppStyle::GetFontStyle("SmallFont"))
 				.AutoWrapText(false)
 				.ColorAndOpacity(FLinearColor(0.8f, 0.9f, 0.7f))
+			]
+		]
+
+		// ── Custom OSC Send ───────────────────────────────────────────────
+		+ SVerticalBox::Slot()
+		.AutoHeight()
+		.Padding(6.f, 4.f, 6.f, 2.f)
+		[
+			SNew(SBorder)
+			.BorderImage(FAppStyle::GetBrush("ToolPanel.DarkGroupBorder"))
+			.Padding(FMargin(6.f, 4.f))
+			[
+				SNew(SHorizontalBox)
+				+ SHorizontalBox::Slot().FillWidth(1.f).VAlign(VAlign_Center)
+				[
+					SNew(SHorizontalBox)
+					+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center).Padding(0.f, 0.f, 6.f, 0.f)
+					[
+						SNew(STextBlock)
+						.Text(LOCTEXT("CustomOSCLabel", "Custom OSC:"))
+						.Font(FAppStyle::GetFontStyle("SmallFont"))
+					]
+					+ SHorizontalBox::Slot().FillWidth(1.f)
+					[
+						SAssignNew(CustomAddressBox, SEditableTextBox)
+						.Font(FAppStyle::GetFontStyle("SmallFont"))
+						.HintText(LOCTEXT("CustomOSCHint", "/address (e.g. /trigger/5)"))
+					]
+				]
+				+ SHorizontalBox::Slot().AutoWidth().Padding(6.f, 0.f, 0.f, 0.f)
+				[
+					SNew(SButton)
+					.Text(LOCTEXT("SendCustom", "Send"))
+					.OnClicked_Lambda([this]() -> FReply
+					{
+						ASpatialFabricManagerActor* Mgr = GetManager();
+						if (Mgr && CustomAddressBox.IsValid())
+						{
+							const FString Addr = CustomAddressBox->GetText().ToString().TrimStartAndEnd();
+							if (!Addr.IsEmpty())
+							{
+								Mgr->SendCustomOSC(Addr, {}, {}, {});
+								RefreshLog();
+							}
+						}
+						return FReply::Handled();
+					})
+					.ToolTipText(LOCTEXT("SendCustomTip",
+						"Send the address to CustomTargetIP:CustomTargetPort.\n"
+						"Use Blueprint SendCustomOSC for messages with arguments."))
+				]
 			]
 		]
 

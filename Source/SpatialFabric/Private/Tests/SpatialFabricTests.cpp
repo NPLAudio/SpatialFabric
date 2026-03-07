@@ -167,35 +167,7 @@ bool FDS100AddressTest::RunTest(const FString& Parameters)
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-//  Test 5: QLab Object address format
-// ─────────────────────────────────────────────────────────────────────────────
-
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(
-	FQLabObjectAddressTest,
-	"SpatialFabric.Adapters.QLabObjectAddress",
-	EAutomationTestFlags::EditorContext | EAutomationTestFlags::SmokeFilter)
-
-bool FQLabObjectAddressTest::RunTest(const FString& Parameters)
-{
-	// Test vector: cue="5", name="A"
-	const FString CueID = TEXT("5");
-	const FString ObjName = TEXT("A");
-
-	const FString PosAddr = FString::Printf(
-		TEXT("/cue/%s/object/%s/position/live"), *CueID, *ObjName);
-	TestEqual("QLab position/live address", PosAddr,
-		TEXT("/cue/5/object/A/position/live"));
-
-	const FString SpreadAddr = FString::Printf(
-		TEXT("/cue/%s/object/%s/spread/live"), *CueID, *ObjName);
-	TestEqual("QLab spread/live address", SpreadAddr,
-		TEXT("/cue/5/object/A/spread/live"));
-
-	return true;
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-//  Test 6: Listener-relative coordinate transform
+//  Test 5: Listener-relative coordinate transform
 // ─────────────────────────────────────────────────────────────────────────────
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
