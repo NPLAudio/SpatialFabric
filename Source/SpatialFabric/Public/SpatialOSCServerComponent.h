@@ -62,7 +62,7 @@ protected:
 private:
 	/** Underlying UE OSC server object. */
 	UPROPERTY()
-	TObjectPtr<UOSCServer> OSCServer;
+	UOSCServer* OSCServer;
 
 	/** IP address the server is bound to. */
 	FString CurrentIP;

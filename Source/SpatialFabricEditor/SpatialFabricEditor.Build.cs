@@ -24,11 +24,10 @@ public class SpatialFabricEditor : ModuleRules
 			"SlateCore",
 			"InputCore",
 			"UnrealEd",
+			"EditorStyle",
 			"LevelEditor",
-			"EditorFramework",
 			"OSC",
 			"WorkspaceMenuStructure",
-			"ToolMenus",
 		});
 	}
 }

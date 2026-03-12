@@ -34,13 +34,21 @@ need real-time spatial audio positioning from Unreal Engine.
 
 | Requirement | Version |
 |-------------|---------|
-| Unreal Engine | **5.4** or newer (developed on 5.7) |
+| Unreal Engine | **5.x only** |
 | Visual Studio | 2022 (Windows) or Xcode 15+ (macOS) |
 | UE Plugin | **OSC** (built-in, must be enabled) |
 
 SpatialFabric includes its own `USpatialOSCClientComponent` and
 `USpatialOSCServerComponent` that wrap UE's built-in OSC plugin directly.
 No additional plugins are required beyond OSC.
+
+### Compatibility
+
+| Engine | Status | Notes |
+|--------|--------|-------|
+| **UE 5.7** | Verified | Full project and plugin build verified locally on macOS. |
+| **UE 5.4** | Verified | Confirmed working on UE 5.4. |
+| **UE 4.x** | Not supported | SpatialFabric is maintained as a UE5 plugin. |
 
 ---
 
@@ -97,6 +105,9 @@ regenerate project files.
 ```
 
 Adjust the UE path and target name to match your installation.
+
+For UE 5.4 and other 5.x installs, use the matching engine path for that
+version when invoking the build script.
 
 ### Dependency summary
 

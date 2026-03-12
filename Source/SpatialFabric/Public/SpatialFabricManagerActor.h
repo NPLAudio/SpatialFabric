@@ -117,7 +117,7 @@ public:
 
 	/** Receives incoming OSC via UE5's OSC plugin. */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "SpatialFabric|Components")
-	TObjectPtr<USpatialOSCServerComponent> ServerComponent;
+	USpatialOSCServerComponent* ServerComponent;
 
 	/**
 	 * Shared OSC client — passed to all OSC-based adapters for sending.
@@ -126,11 +126,11 @@ public:
 	 * concurrent targets, create multiple manager actors.
 	 */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "SpatialFabric|Components")
-	TObjectPtr<USpatialOSCClientComponent> ClientComponent;
+	USpatialOSCClientComponent* ClientComponent;
 
 	/** Spatial object registry component. */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "SpatialFabric|Components")
-	TObjectPtr<USpatialObjectRegistry> RegistryComponent;
+	USpatialObjectRegistry* RegistryComponent;
 
 	// ── Log ──────────────────────────────────────────────────────────────────
 
@@ -206,7 +206,7 @@ private:
 
 	/** Cached resolved pointer to the stage volume (updated each tick). */
 	UPROPERTY()
-	TObjectPtr<ASpatialStageVolume> ResolvedStageVolume;
+	ASpatialStageVolume* ResolvedStageVolume;
 
 	/** Bound to ServerComponent::OnMessageReceived — forwards to router. */
 	UFUNCTION()

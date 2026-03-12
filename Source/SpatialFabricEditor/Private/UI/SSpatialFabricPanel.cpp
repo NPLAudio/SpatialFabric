@@ -5,6 +5,7 @@
 #include "SpatialFabricSettings.h"
 #include "SpatialStageVolume.h"
 #include "SpatialFabricTypes.h"
+#include "SpatialFabricEditorCompatibility.h"
 #include "SpatialMath.h"
 
 #include "Editor.h"
@@ -26,7 +27,6 @@
 #include "Widgets/Views/STableRow.h"
 #include "Widgets/Input/SComboButton.h"
 #include "Widgets/Images/SImage.h"
-#include "Styling/AppStyle.h"
 #include "PropertyCustomizationHelpers.h"
 #include "Widgets/SLeafWidget.h"
 #include "Rendering/DrawElements.h"
@@ -173,7 +173,7 @@ public:
 		}
 
 		// ── No-data hint ────────────────────────────────────────────────────
-		if (!bHasSnapshot || CachedSnapshot.Objects.IsEmpty())
+		if (!bHasSnapshot || SFArrayIsEmpty(CachedSnapshot.Objects))
 		{
 			const FString HintStr = bHasSnapshot
 				? TEXT("No objects tracked")
@@ -539,7 +539,7 @@ TSharedRef<SWidget> SSpatialFabricPanel::BuildStageTab()
 					{
 						FMenuBuilder MenuBuilder(true, nullptr);
 
-						if (SVActorList.IsEmpty())
+						if (SFArrayIsEmpty(SVActorList))
 						{
 							MenuBuilder.AddMenuEntry(
 								LOCTEXT("NoSVInLevel", "No Stage Volume in level"),
@@ -2864,7 +2864,7 @@ TSharedRef<SWidget> SSpatialFabricPanel::BuildOutputTab()
 					if (!Mgr) { return LOCTEXT("OutputNoMgr", "No SpatialFabricManagerActor in level"); }
 
 					const FSpatialFrameSnapshot& Snap = Mgr->GetLastSnapshot();
-					if (Snap.Objects.IsEmpty()) { return LOCTEXT("OutputEmpty", "No objects tracked"); }
+					if (SFArrayIsEmpty(Snap.Objects)) { return LOCTEXT("OutputEmpty", "No objects tracked"); }
 
 					const ESpatialAdapterType Type = Mgr->ActiveAdapterType;
 					const uint8 TypeKey = static_cast<uint8>(Type);

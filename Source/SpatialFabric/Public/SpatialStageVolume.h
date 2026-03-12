@@ -56,7 +56,7 @@ public:
 
 	/** Box component whose extent defines the coordinate space in UE units. */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Stage")
-	TObjectPtr<UBoxComponent> StageBox;
+	UBoxComponent* StageBox;
 
 	// ── Physical dimensions (meters) ────────────────────────────────────────
 

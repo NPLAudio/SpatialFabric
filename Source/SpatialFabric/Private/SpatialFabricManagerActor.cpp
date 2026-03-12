@@ -102,7 +102,7 @@ void ASpatialFabricManagerActor::ProcessFrame(float DeltaTime)
 	if (!Router) { return; }
 
 	LastSnapshot =
-		RegistryComponent->BuildSnapshot(ObjectBindings, ResolvedStageVolume.Get());
+		RegistryComponent->BuildSnapshot(ObjectBindings, ResolvedStageVolume);
 
 	Router->ProcessFrame(LastSnapshot, ObjectBindings, DeltaTime);
 }
@@ -296,7 +296,7 @@ void ASpatialFabricManagerActor::SendCustomOSC(const FString& Address,
 
 void ASpatialFabricManagerActor::ApplyStageVisibility()
 {
-	ASpatialStageVolume* SV = ResolvedStageVolume.Get();
+	ASpatialStageVolume* SV = ResolvedStageVolume;
 	if (!SV) { SV = StageVolume.Get(); }
 	if (!IsValid(SV)) { return; }
 

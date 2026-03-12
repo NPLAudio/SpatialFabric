@@ -87,7 +87,7 @@ protected:
 private:
 	/** Underlying UE OSC client object. Null when disconnected. */
 	UPROPERTY()
-	TObjectPtr<UOSCClient> OSCClient;
+	UOSCClient* OSCClient;
 
 	/** IP address this client targets. */
 	FString CurrentIP;

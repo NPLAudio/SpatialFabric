@@ -146,12 +146,12 @@ struct SPATIALFABRIC_API FSpatialFrameSnapshot
 
 	/** World time (seconds) when this snapshot was captured. */
 	UPROPERTY(BlueprintReadOnly, Category = "SpatialFabric")
-	double Timestamp = 0.0;
+	float Timestamp = 0.0f;
 
 	/**
 	 * Listener position in stage-normalized space [-1,1].
 	 * Set when a ListenerActor is assigned on the Stage Volume.
-	 * Forwarded to adapters that emit listener data (ADM-OSC /adm/lis/*).
+	 * Forwarded to adapters that emit listener data under the ADM-OSC listener path.
 	 */
 	UPROPERTY(BlueprintReadOnly, Category = "SpatialFabric")
 	FVector ListenerNormalized = FVector::ZeroVector;
