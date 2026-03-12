@@ -33,6 +33,7 @@ public:
 private:
 	// ── Manager access ───────────────────────────────────────────────────────
 	ASpatialFabricManagerActor* GetManager() const;
+	FReply SpawnManagerActor();
 	void RefreshFromManager();
 
 	// ── Tab switching ────────────────────────────────────────────────────────

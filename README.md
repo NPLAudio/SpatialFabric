@@ -34,21 +34,13 @@ need real-time spatial audio positioning from Unreal Engine.
 
 | Requirement | Version |
 |-------------|---------|
-| Unreal Engine | **5.x only** |
+| Unreal Engine | **5.4 - 5.7** |
 | Visual Studio | 2022 (Windows) or Xcode 15+ (macOS) |
 | UE Plugin | **OSC** (built-in, must be enabled) |
 
 SpatialFabric includes its own `USpatialOSCClientComponent` and
 `USpatialOSCServerComponent` that wrap UE's built-in OSC plugin directly.
 No additional plugins are required beyond OSC.
-
-### Compatibility
-
-| Engine | Status | Notes |
-|--------|--------|-------|
-| **UE 5.7** | Verified | Full project and plugin build verified locally on macOS. |
-| **UE 5.4** | Verified | Confirmed working on UE 5.4. |
-| **UE 4.x** | Not supported | SpatialFabric is maintained as a UE5 plugin. |
 
 ---
 
@@ -122,19 +114,22 @@ SpatialFabric
 
 ## Quick Start
 
-1. **Place a Stage Volume** in your level:
-   - In the Place Actors panel, search **"Spatial Stage Volume"** and drag it
-     into the viewport.
+1. **Open the Spatial Fabric panel**:
+   - In the Unreal Editor, go to Window → **Spatial Fabric**.
+   - Use this panel as the main setup and monitoring surface after the plugin
+     is installed.
+
+2. **Create or locate the Manager Actor**:
+   - If the level does not already contain a **Spatial Fabric Manager**, the
+     panel shows a warning banner at the top.
+   - Click **Spawn Manager Actor** from that banner to create and select it.
+
+3. **Create the Stage Volume from the panel**:
+   - In the **Stage** tab, click **Spawn Stage Volume in Level**. If a stage
+     volume already exists, the same control lets you select and assign it.
    - Scale and position the box to match your physical audio space.
    - Set **Physical Width/Depth/Height (meters)** in the Details panel to match
      real-world dimensions.
-
-2. **Place a Manager Actor**:
-   - Search **"Spatial Fabric Manager"** in Place Actors and drag it into the
-     level.
-   - In the Details panel, assign your **Stage Volume** reference.
-
-3. **Open the Spatial Fabric panel**: Window → **Spatial Fabric**.
 
 4. **Add object bindings**:
    - In the **Objects** tab, click **+ Add Selected Actors**.
@@ -301,17 +296,21 @@ Add per-binding **CustomFields** for `{slot}`, `{channel}`, etc.
 
 **AED arg names:** `azimuth`/`a`, `elevation`/`e`, `distance`/`d`.
 
-### Additional Adapters
+### Custom Adapter
 
-The following adapters are also implemented and available via the Manager
-Actor's Details panel or the Objects tab format selector:
+The **Custom** adapter is available from the Manager Actor's Details panel and
+the Objects tab format selector.
 
-| Adapter | System | Default Port | Notes |
-|---------|--------|-------------|-------|
-| **Custom** | Template-based OSC | Configurable | Address/args templates, xyz or aed coords, bundled or discrete sends |
-| **DS100** | d&b audiotechnik DS100 Soundscape | 50010 | Native DS100 OSC; absolute-position or coordinate-mapping modes |
-| **SpaceMap Go** | Meyer Sound SpaceMap Go | 38033 | `/channel/{n}/position X Y` [-1000, 1000] + `/channel/{n}/spread` [0-100] |
-| **TiMax** | TiMax SoundHub | 7000 | Delegates to ADM-OSC adapter internally |
+Use it when you need template-based OSC output instead of one of the built-in
+protocol-specific adapters.
+
+| Setting | Description |
+|---------|-------------|
+| **Address** | OSC path template with `{placeholders}` |
+| **Args** | Space-separated arg names such as `x y z gain width id` |
+| **Coords** | `xyz` for Cartesian or `aed` for polar coordinates |
+| **Send** | Bundled or discrete message sending |
+| **Range** | Output remapping for position, gain, and width values |
 
 ---
 
@@ -459,7 +458,7 @@ SpatialFabric (runtime):
 
 SpatialFabricEditor (editor-only):
     SpatialFabric, EditorSubsystem, PropertyEditor, UnrealEd,
-    LevelEditor, EditorFramework, OSC, WorkspaceMenuStructure, ToolMenus
+    LevelEditor, EditorStyle, OSC, WorkspaceMenuStructure
 ```
 
 ---
@@ -574,3 +573,10 @@ If SpatialFabric is useful to you, consider
 MIT License — see [LICENSE](LICENSE) for full text.
 
 Copyright (c) 2026 SpatialFabric Contributors.
+
+### Trademark Notice
+
+L-Acoustics, L-ISA, FLUX::, SPAT Revolution, d&b, Soundscape, Meyer Sound,
+SpaceMap Go, TiMax, SoundHub, Sound Particles, and Space Controller are the
+property of their respective owners. SpatialFabric is an independent plugin and
+is not affiliated with, endorsed by, or sponsored by those manufacturers.

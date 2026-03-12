@@ -377,6 +377,43 @@ void SSpatialFabricPanel::Construct(const FArguments& InArgs)
 				.ColorAndOpacity(FLinearColor(0.85f, 0.85f, 0.85f))
 			]
 
+			+ SVerticalBox::Slot()
+			.AutoHeight()
+			.Padding(2.f, 0.f, 2.f, 6.f)
+			[
+				SNew(SBorder)
+				.Visibility_Lambda([this]()
+				{
+					return GetManager() ? EVisibility::Collapsed : EVisibility::Visible;
+				})
+				.BorderImage(FAppStyle::GetBrush("ToolPanel.GroupBorder"))
+				.BorderBackgroundColor(FLinearColor(0.38f, 0.22f, 0.08f))
+				.Padding(FMargin(8.f, 6.f))
+				[
+					SNew(SHorizontalBox)
+					+ SHorizontalBox::Slot()
+					.FillWidth(1.f)
+					.VAlign(VAlign_Center)
+					.Padding(0.f, 0.f, 8.f, 0.f)
+					[
+						SNew(STextBlock)
+						.Text(LOCTEXT("MissingManagerBanner",
+							"No Spatial Fabric Manager actor was found in this level. Click Spawn Manager Actor to create one."))
+						.AutoWrapText(true)
+						.ColorAndOpacity(FLinearColor(1.0f, 0.86f, 0.66f))
+					]
+					+ SHorizontalBox::Slot()
+					.AutoWidth()
+					.VAlign(VAlign_Center)
+					[
+						SNew(SButton)
+						.Text(LOCTEXT("SpawnManagerActor", "Spawn Manager Actor"))
+						.ButtonColorAndOpacity(FLinearColor(0.15f, 0.45f, 0.80f))
+						.OnClicked(this, &SSpatialFabricPanel::SpawnManagerActor)
+					]
+				]
+			]
+
 			// ── Tab strip ─────────────────────────────────────────────────
 			+ SVerticalBox::Slot()
 			.AutoHeight()
@@ -433,8 +470,8 @@ TSharedRef<SWidget> SSpatialFabricPanel::BuildStageTab()
 			[
 				SNew(STextBlock)
 				.Text(LOCTEXT("StageHelp",
-					"1. Place an ASpatialStageVolume in the level (or click Spawn below).\n"
-					"2. Assign it to the SpatialFabricManagerActor → StageVolume property.\n"
+					"1. Make sure a Spatial Fabric Manager actor exists in the level.\n"
+					"2. Click Spawn Stage Volume in Level below, or assign an existing stage volume.\n"
 					"3. Set Physical Width / Depth / Height on the Stage Volume to match your real space."))
 				.AutoWrapText(true)
 				.ColorAndOpacity(FLinearColor(0.75f, 0.75f, 0.75f))
@@ -2643,6 +2680,27 @@ ASpatialFabricManagerActor* SSpatialFabricPanel::GetManager() const
 	for (TActorIterator<ASpatialFabricManagerActor> It(World); It; ++It)
 		return *It;
 	return nullptr;
+}
+
+FReply SSpatialFabricPanel::SpawnManagerActor()
+{
+	if (!GEditor) { return FReply::Handled(); }
+
+	UWorld* World = GEditor->PlayWorld
+		? GEditor->PlayWorld.Get()
+		: GEditor->GetEditorWorldContext().World();
+	if (!World) { return FReply::Handled(); }
+
+	ASpatialFabricManagerActor* Manager =
+		ASpatialFabricManagerActor::GetOrSpawnManager(World);
+	if (!Manager) { return FReply::Handled(); }
+
+	GEditor->SelectNone(false, true);
+	GEditor->SelectActor(Manager, true, true);
+	Manager->MarkPackageDirty();
+	RefreshFromManager();
+
+	return FReply::Handled();
 }
 
 void SSpatialFabricPanel::RefreshFromManager()
