@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/logo.png" alt="SpatialFabric" width="400"/>
+</p>
+
 # SpatialFabric [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE) [![Buy Me a Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-support-yellow?logo=buymeacoffee)](https://buymeacoffee.com/notpunny)
 
 Multi-protocol spatial audio show-control plugin for Unreal Engine. Maps UE
