@@ -5,10 +5,10 @@
 # SpatialFabric [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE) [![Buy Me a Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-support-yellow?logo=buymeacoffee)](https://buymeacoffee.com/notpunny)
 
 Multi-protocol spatial audio show-control plugin for Unreal Engine. Maps UE
-actor positions to spatial audio renderers via **ADM-OSC** —
+actor positions to spatial audio processors via **ADM-OSC** —
 without writing a line of Blueprint or C++.
 
-Through ADM-OSC, a single output reaches any compatible renderer: L-Acoustics
+Through ADM-OSC, a single output reaches any compatible spatial audio processor: L-Acoustics
 L-ISA, FLUX:: SPAT Revolution, d&b Soundscape, Meyer Sound SpaceMap Go, TiMax
 SoundHub, and other ADM-OSC–compliant systems.
 
@@ -142,7 +142,7 @@ SpatialFabric
 
 5. **Enable an output adapter**:
    - In the **Objects** tab (or the Manager's Details panel), enable
-     **ADM-OSC** (for any ADM-OSC–compatible renderer) or another adapter.
+     **ADM-OSC** (for any ADM-OSC–compatible spatial audio processor) or another adapter.
    - Set the **Target IP** and **Port** for your audio system.
 
 6. **Press Play** (or use the editor panel in edit mode) and verify output
@@ -248,7 +248,7 @@ Details panel for advanced use.
 
 [ADM-OSC](https://adm-osc.github.io/ADM-OSC/) is the open standard for
 object-based audio positioning over OSC ([spec on GitHub](https://github.com/immersive-audio-live/ADM-OSC)).
-A single ADM-OSC output from SpatialFabric works with any compliant renderer:
+A single ADM-OSC output from SpatialFabric works with any compliant spatial audio processor:
 
 | System | Vendor | Documentation |
 |--------|--------|---------------|
