@@ -172,6 +172,10 @@ public:
 	/** Append a log entry; trims to MaxLogEntries. */
 	void AppendLog(const FSpatialFabricLogEntry& Entry);
 
+	/** Clear all log entries. Called by the editor panel Clear button. */
+	UFUNCTION(BlueprintCallable, Category = "SpatialFabric|Log")
+	void ClearMessageLog();
+
 	/**
 	 * Find the first ASpatialFabricManagerActor in WorldContextObject's world.
 	 * Spawns a new one if none exists.
@@ -214,4 +218,11 @@ private:
 
 	/** Apply default adapter configs from USpatialFabricSettings. */
 	void PopulateDefaultAdapterConfigs();
+
+	/**
+	 * Resolve the Stage Volume for this actor's world. Handles PIE where
+	 * TSoftObjectPtr may resolve to the Editor world's actor instead of the
+	 * PIE-world duplicate. Falls back to first ASpatialStageVolume in world.
+	 */
+	ASpatialStageVolume* ResolveStageVolumeForThisWorld();
 };

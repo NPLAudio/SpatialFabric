@@ -96,4 +96,7 @@ private:
 
 	/** Cached binding count — list is only rebuilt when this changes. */
 	int32 LastKnownBindingCount = -1;
+
+	/** True when last tick was in PIE; used to detect Editor↔PIE switch for row rebuild. */
+	bool bLastTickWasPIE = false;
 };

@@ -483,7 +483,10 @@ TSharedRef<SWidget> SSpatialFabricPanel::BuildStageTab()
 				// Label changes: "Select / Assign" when a stage volume exists, "Spawn" when none.
 				.Text_Lambda([this]()
 				{
-					UWorld* W = GEditor ? GEditor->GetEditorWorldContext().World() : nullptr;
+					// Use same world as GetManager() (Editor or PIE)
+					UWorld* W = GEditor
+						? (GEditor->PlayWorld ? GEditor->PlayWorld.Get() : GEditor->GetEditorWorldContext().World())
+						: nullptr;
 					if (W)
 						for (TActorIterator<ASpatialStageVolume> It(W); It; ++It)
 							return LOCTEXT("SelectStage", "Select / Assign Stage Volume");
@@ -494,7 +497,10 @@ TSharedRef<SWidget> SSpatialFabricPanel::BuildStageTab()
 				.OnClicked_Lambda([this]() -> FReply
 				{
 					if (!GEditor) return FReply::Handled();
-					UWorld* W = GEditor->GetEditorWorldContext().World();
+					// Use same world as GetManager() so spawn/assign works in PIE
+					UWorld* W = GEditor->PlayWorld
+						? GEditor->PlayWorld.Get()
+						: GEditor->GetEditorWorldContext().World();
 					if (!W) return FReply::Handled();
 
 					// Reuse existing stage volume if one is already in the level.
@@ -1691,7 +1697,7 @@ TSharedRef<ITableRow> SSpatialFabricPanel::GenerateBindingRow(
 	}
 
 	const FSpatialObjectBinding& B = Mgr->ObjectBindings[BIdx];
-	TWeakObjectPtr<ASpatialFabricManagerActor> WeakMgr(Mgr);
+	// Use [this, BIdx] + GetManager() so controls work in both Editor and PIE (avoid stale WeakMgr)
 
 	// Resolve actor for display name
 	AActor* Actor = B.TargetActor.Get();
@@ -1719,9 +1725,9 @@ TSharedRef<ITableRow> SSpatialFabricPanel::GenerateBindingRow(
 				[
 					SNew(STextBlock)
 					.Text(FText::FromString(DisplayName))
-					.ColorAndOpacity_Lambda([WeakMgr, BIdx]()
+					.ColorAndOpacity_Lambda([this, BIdx]()
 					{
-						if (ASpatialFabricManagerActor* M = WeakMgr.Get())
+						if (ASpatialFabricManagerActor* M = GetManager())
 							if (M->ObjectBindings.IsValidIndex(BIdx))
 							{
 								if (!M->ObjectBindings[BIdx].TargetActor.Get())
@@ -1753,16 +1759,16 @@ TSharedRef<ITableRow> SSpatialFabricPanel::GenerateBindingRow(
 						SNew(SBox).WidthOverride(52.f)
 						[
 							SNew(SNumericEntryBox<int32>)
-							.Value_Lambda([WeakMgr, BIdx]() -> TOptional<int32>
+							.Value_Lambda([this, BIdx]() -> TOptional<int32>
 							{
-								if (ASpatialFabricManagerActor* M = WeakMgr.Get())
+								if (ASpatialFabricManagerActor* M = GetManager())
 									if (M->ObjectBindings.IsValidIndex(BIdx))
 										return M->ObjectBindings[BIdx].DefaultObjectID;
 								return TOptional<int32>();
 							})
-							.OnValueCommitted_Lambda([WeakMgr, BIdx](int32 Val, ETextCommit::Type)
+							.OnValueCommitted_Lambda([this, BIdx](int32 Val, ETextCommit::Type)
 							{
-								if (ASpatialFabricManagerActor* M = WeakMgr.Get())
+								if (ASpatialFabricManagerActor* M = GetManager())
 									if (M->ObjectBindings.IsValidIndex(BIdx))
 									{
 										M->ObjectBindings[BIdx].DefaultObjectID = FMath::Max(1, Val);
@@ -1782,18 +1788,18 @@ TSharedRef<ITableRow> SSpatialFabricPanel::GenerateBindingRow(
 				.Padding(2.f, 0.f)
 				[
 					SNew(SCheckBox)
-					.IsChecked_Lambda([WeakMgr, BIdx]()
+					.IsChecked_Lambda([this, BIdx]()
 					{
-						if (ASpatialFabricManagerActor* M = WeakMgr.Get())
+						if (ASpatialFabricManagerActor* M = GetManager())
 							if (M->ObjectBindings.IsValidIndex(BIdx))
 								return M->ObjectBindings[BIdx].bEnabled
 									? ECheckBoxState::Checked
 									: ECheckBoxState::Unchecked;
 						return ECheckBoxState::Unchecked;
 					})
-					.OnCheckStateChanged_Lambda([WeakMgr, BIdx](ECheckBoxState State)
+					.OnCheckStateChanged_Lambda([this, BIdx](ECheckBoxState State)
 					{
-						if (ASpatialFabricManagerActor* M = WeakMgr.Get())
+						if (ASpatialFabricManagerActor* M = GetManager())
 							if (M->ObjectBindings.IsValidIndex(BIdx))
 							{
 								M->ObjectBindings[BIdx].bEnabled = (State == ECheckBoxState::Checked);
@@ -1824,9 +1830,9 @@ TSharedRef<ITableRow> SSpatialFabricPanel::GenerateBindingRow(
 				SNew(SBorder)
 				.BorderImage(FAppStyle::GetBrush("ToolPanel.DarkGroupBorder"))
 				.Padding(FMargin(6.f, 3.f))
-				.Visibility_Lambda([WeakMgr]()
+				.Visibility_Lambda([this]()
 				{
-					const ASpatialFabricManagerActor* M = WeakMgr.Get();
+					const ASpatialFabricManagerActor* M = GetManager();
 					return (M && M->ActiveAdapterType == ESpatialAdapterType::DS100)
 						? EVisibility::Visible : EVisibility::Collapsed;
 				})
@@ -1850,18 +1856,18 @@ TSharedRef<ITableRow> SSpatialFabricPanel::GenerateBindingRow(
 							SNew(SButton)
 							.ButtonStyle(FAppStyle::Get(), "FlatButton")
 							.HAlign(HAlign_Center)
-							.ButtonColorAndOpacity_Lambda([WeakMgr, BIdx]()
+							.ButtonColorAndOpacity_Lambda([this, BIdx]()
 							{
-								if (ASpatialFabricManagerActor* M = WeakMgr.Get())
+								if (ASpatialFabricManagerActor* M = GetManager())
 									if (M->ObjectBindings.IsValidIndex(BIdx))
 										if (M->ObjectBindings[BIdx].DS100SpreadMode == EDS100SpreadMode::Fixed)
 											return FLinearColor(1.00f, 0.42f, 0.10f);
 								return FLinearColor(0.18f, 0.18f, 0.18f);
 							})
 							.ToolTipText(LOCTEXT("SpreadFixedTip", "Fixed: send Width01 as spread unchanged"))
-							.OnClicked_Lambda([WeakMgr, BIdx]() -> FReply
+							.OnClicked_Lambda([this, BIdx]() -> FReply
 							{
-								if (ASpatialFabricManagerActor* M = WeakMgr.Get())
+								if (ASpatialFabricManagerActor* M = GetManager())
 									if (M->ObjectBindings.IsValidIndex(BIdx))
 									{
 										M->ObjectBindings[BIdx].DS100SpreadMode = EDS100SpreadMode::Fixed;
@@ -1881,9 +1887,9 @@ TSharedRef<ITableRow> SSpatialFabricPanel::GenerateBindingRow(
 							SNew(SButton)
 							.ButtonStyle(FAppStyle::Get(), "FlatButton")
 							.HAlign(HAlign_Center)
-							.ButtonColorAndOpacity_Lambda([WeakMgr, BIdx]()
+							.ButtonColorAndOpacity_Lambda([this, BIdx]()
 							{
-								if (ASpatialFabricManagerActor* M = WeakMgr.Get())
+								if (ASpatialFabricManagerActor* M = GetManager())
 									if (M->ObjectBindings.IsValidIndex(BIdx))
 										if (M->ObjectBindings[BIdx].DS100SpreadMode == EDS100SpreadMode::Proximity)
 											return FLinearColor(0.10f, 0.72f, 0.80f);
@@ -1892,9 +1898,9 @@ TSharedRef<ITableRow> SSpatialFabricPanel::GenerateBindingRow(
 							.ToolTipText(LOCTEXT("SpreadProxTip",
 								"Proximity: spread grows inverse-square as listener nears source.\n"
 								"Min = far spread, Max = at-source spread, Dist = reference distance."))
-							.OnClicked_Lambda([WeakMgr, BIdx]() -> FReply
+							.OnClicked_Lambda([this, BIdx]() -> FReply
 							{
-								if (ASpatialFabricManagerActor* M = WeakMgr.Get())
+								if (ASpatialFabricManagerActor* M = GetManager())
 									if (M->ObjectBindings.IsValidIndex(BIdx))
 									{
 										M->ObjectBindings[BIdx].DS100SpreadMode = EDS100SpreadMode::Proximity;
@@ -1910,9 +1916,9 @@ TSharedRef<ITableRow> SSpatialFabricPanel::GenerateBindingRow(
 					+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center)
 					[
 						SNew(SBox)
-						.Visibility_Lambda([WeakMgr, BIdx]()
+						.Visibility_Lambda([this, BIdx]()
 						{
-							if (ASpatialFabricManagerActor* M = WeakMgr.Get())
+							if (ASpatialFabricManagerActor* M = GetManager())
 								if (M->ObjectBindings.IsValidIndex(BIdx))
 									return M->ObjectBindings[BIdx].DS100SpreadMode == EDS100SpreadMode::Proximity
 										? EVisibility::Visible : EVisibility::Collapsed;
@@ -1929,16 +1935,16 @@ TSharedRef<ITableRow> SSpatialFabricPanel::GenerateBindingRow(
 								SNew(SBox).WidthOverride(48.f)
 								[
 									SNew(SNumericEntryBox<float>)
-									.Value_Lambda([WeakMgr, BIdx]() -> TOptional<float>
+									.Value_Lambda([this, BIdx]() -> TOptional<float>
 									{
-										if (ASpatialFabricManagerActor* M = WeakMgr.Get())
+										if (ASpatialFabricManagerActor* M = GetManager())
 											if (M->ObjectBindings.IsValidIndex(BIdx))
 												return M->ObjectBindings[BIdx].DS100SpreadMin;
 										return TOptional<float>();
 									})
-									.OnValueCommitted_Lambda([WeakMgr, BIdx](float Val, ETextCommit::Type)
+									.OnValueCommitted_Lambda([this, BIdx](float Val, ETextCommit::Type)
 									{
-										if (ASpatialFabricManagerActor* M = WeakMgr.Get())
+										if (ASpatialFabricManagerActor* M = GetManager())
 											if (M->ObjectBindings.IsValidIndex(BIdx))
 											{
 												M->ObjectBindings[BIdx].DS100SpreadMin = FMath::Clamp(Val, 0.f, 1.f);
@@ -1958,16 +1964,16 @@ TSharedRef<ITableRow> SSpatialFabricPanel::GenerateBindingRow(
 								SNew(SBox).WidthOverride(48.f)
 								[
 									SNew(SNumericEntryBox<float>)
-									.Value_Lambda([WeakMgr, BIdx]() -> TOptional<float>
+									.Value_Lambda([this, BIdx]() -> TOptional<float>
 									{
-										if (ASpatialFabricManagerActor* M = WeakMgr.Get())
+										if (ASpatialFabricManagerActor* M = GetManager())
 											if (M->ObjectBindings.IsValidIndex(BIdx))
 												return M->ObjectBindings[BIdx].DS100SpreadMax;
 										return TOptional<float>();
 									})
-									.OnValueCommitted_Lambda([WeakMgr, BIdx](float Val, ETextCommit::Type)
+									.OnValueCommitted_Lambda([this, BIdx](float Val, ETextCommit::Type)
 									{
-										if (ASpatialFabricManagerActor* M = WeakMgr.Get())
+										if (ASpatialFabricManagerActor* M = GetManager())
 											if (M->ObjectBindings.IsValidIndex(BIdx))
 											{
 												M->ObjectBindings[BIdx].DS100SpreadMax = FMath::Clamp(Val, 0.f, 1.f);
@@ -1987,16 +1993,16 @@ TSharedRef<ITableRow> SSpatialFabricPanel::GenerateBindingRow(
 								SNew(SBox).WidthOverride(48.f)
 								[
 									SNew(SNumericEntryBox<float>)
-									.Value_Lambda([WeakMgr, BIdx]() -> TOptional<float>
+									.Value_Lambda([this, BIdx]() -> TOptional<float>
 									{
-										if (ASpatialFabricManagerActor* M = WeakMgr.Get())
+										if (ASpatialFabricManagerActor* M = GetManager())
 											if (M->ObjectBindings.IsValidIndex(BIdx))
 												return M->ObjectBindings[BIdx].DS100ProximityMaxDistance;
 										return TOptional<float>();
 									})
-									.OnValueCommitted_Lambda([WeakMgr, BIdx](float Val, ETextCommit::Type)
+									.OnValueCommitted_Lambda([this, BIdx](float Val, ETextCommit::Type)
 									{
-										if (ASpatialFabricManagerActor* M = WeakMgr.Get())
+										if (ASpatialFabricManagerActor* M = GetManager())
 											if (M->ObjectBindings.IsValidIndex(BIdx))
 											{
 												M->ObjectBindings[BIdx].DS100ProximityMaxDistance = FMath::Max(Val, 0.01f);
@@ -2027,16 +2033,16 @@ TSharedRef<ITableRow> SSpatialFabricPanel::GenerateBindingRow(
 						SNew(SBox).WidthOverride(48.f)
 						[
 							SNew(SNumericEntryBox<int32>)
-							.Value_Lambda([WeakMgr, BIdx]() -> TOptional<int32>
+							.Value_Lambda([this, BIdx]() -> TOptional<int32>
 							{
-								if (ASpatialFabricManagerActor* M = WeakMgr.Get())
+								if (ASpatialFabricManagerActor* M = GetManager())
 									if (M->ObjectBindings.IsValidIndex(BIdx))
 										return M->ObjectBindings[BIdx].DS100DelayMode;
 								return TOptional<int32>();
 							})
-							.OnValueCommitted_Lambda([WeakMgr, BIdx](int32 Val, ETextCommit::Type)
+							.OnValueCommitted_Lambda([this, BIdx](int32 Val, ETextCommit::Type)
 							{
-								if (ASpatialFabricManagerActor* M = WeakMgr.Get())
+								if (ASpatialFabricManagerActor* M = GetManager())
 									if (M->ObjectBindings.IsValidIndex(BIdx))
 									{
 										M->ObjectBindings[BIdx].DS100DelayMode = FMath::Clamp(Val, -1, 2);
@@ -2058,9 +2064,9 @@ TSharedRef<ITableRow> SSpatialFabricPanel::GenerateBindingRow(
 			SNew(SBorder)
 			.BorderImage(FAppStyle::GetBrush("ToolPanel.DarkGroupBorder"))
 			.Padding(FMargin(6.f, 3.f))
-			.Visibility_Lambda([WeakMgr]()
+			.Visibility_Lambda([this]()
 			{
-				const ASpatialFabricManagerActor* M = WeakMgr.Get();
+				const ASpatialFabricManagerActor* M = GetManager();
 				return (M && M->ActiveAdapterType == ESpatialAdapterType::ADMOSC)
 					? EVisibility::Visible : EVisibility::Collapsed;
 			})
@@ -2068,6 +2074,7 @@ TSharedRef<ITableRow> SSpatialFabricPanel::GenerateBindingRow(
 				SNew(SHorizontalBox)
 
 				// ── Coord mode buttons: xyz / aed / both ──────────────
+				// Use GetManager() so changes apply to PIE Manager when in PIE
 				+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center).Padding(0.f, 0.f, 6.f, 0.f)
 				[
 					SNew(SHorizontalBox)
@@ -2080,16 +2087,16 @@ TSharedRef<ITableRow> SSpatialFabricPanel::GenerateBindingRow(
 					+ SHorizontalBox::Slot().AutoWidth()
 					[
 						SNew(SButton)
-						.ButtonColorAndOpacity_Lambda([WeakMgr]()
+						.ButtonColorAndOpacity_Lambda([this]()
 						{
-							const ASpatialFabricManagerActor* M = WeakMgr.Get();
+							const ASpatialFabricManagerActor* M = GetManager();
 							const FSpatialAdapterConfig* C = M ? M->AdapterConfigs.Find((uint8)ESpatialAdapterType::ADMOSC) : nullptr;
 							return (C && C->ADMCoordinateMode == EADMCoordinateMode::Cartesian)
 								? FLinearColor(0.10f, 0.45f, 0.85f) : FLinearColor(0.18f, 0.18f, 0.18f);
 						})
-						.OnClicked_Lambda([WeakMgr]() -> FReply
+						.OnClicked_Lambda([this]() -> FReply
 						{
-							if (ASpatialFabricManagerActor* M = WeakMgr.Get())
+							if (ASpatialFabricManagerActor* M = GetManager())
 								if (FSpatialAdapterConfig* C = M->AdapterConfigs.Find((uint8)ESpatialAdapterType::ADMOSC))
 								{ C->ADMCoordinateMode = EADMCoordinateMode::Cartesian; M->MarkPackageDirty(); if (M->GetRouter()) M->InitializeAdapters(); }
 							return FReply::Handled();
@@ -2100,16 +2107,16 @@ TSharedRef<ITableRow> SSpatialFabricPanel::GenerateBindingRow(
 					+ SHorizontalBox::Slot().AutoWidth()
 					[
 						SNew(SButton)
-						.ButtonColorAndOpacity_Lambda([WeakMgr]()
+						.ButtonColorAndOpacity_Lambda([this]()
 						{
-							const ASpatialFabricManagerActor* M = WeakMgr.Get();
+							const ASpatialFabricManagerActor* M = GetManager();
 							const FSpatialAdapterConfig* C = M ? M->AdapterConfigs.Find((uint8)ESpatialAdapterType::ADMOSC) : nullptr;
 							return (C && C->ADMCoordinateMode == EADMCoordinateMode::Polar)
 								? FLinearColor(0.10f, 0.45f, 0.85f) : FLinearColor(0.18f, 0.18f, 0.18f);
 						})
-						.OnClicked_Lambda([WeakMgr]() -> FReply
+						.OnClicked_Lambda([this]() -> FReply
 						{
-							if (ASpatialFabricManagerActor* M = WeakMgr.Get())
+							if (ASpatialFabricManagerActor* M = GetManager())
 								if (FSpatialAdapterConfig* C = M->AdapterConfigs.Find((uint8)ESpatialAdapterType::ADMOSC))
 								{ C->ADMCoordinateMode = EADMCoordinateMode::Polar; M->MarkPackageDirty(); if (M->GetRouter()) M->InitializeAdapters(); }
 							return FReply::Handled();
@@ -2120,16 +2127,16 @@ TSharedRef<ITableRow> SSpatialFabricPanel::GenerateBindingRow(
 					+ SHorizontalBox::Slot().AutoWidth()
 					[
 						SNew(SButton)
-						.ButtonColorAndOpacity_Lambda([WeakMgr]()
+						.ButtonColorAndOpacity_Lambda([this]()
 						{
-							const ASpatialFabricManagerActor* M = WeakMgr.Get();
+							const ASpatialFabricManagerActor* M = GetManager();
 							const FSpatialAdapterConfig* C = M ? M->AdapterConfigs.Find((uint8)ESpatialAdapterType::ADMOSC) : nullptr;
 							return (C && C->ADMCoordinateMode == EADMCoordinateMode::Both)
 								? FLinearColor(0.10f, 0.45f, 0.85f) : FLinearColor(0.18f, 0.18f, 0.18f);
 						})
-						.OnClicked_Lambda([WeakMgr]() -> FReply
+						.OnClicked_Lambda([this]() -> FReply
 						{
-							if (ASpatialFabricManagerActor* M = WeakMgr.Get())
+							if (ASpatialFabricManagerActor* M = GetManager())
 								if (FSpatialAdapterConfig* C = M->AdapterConfigs.Find((uint8)ESpatialAdapterType::ADMOSC))
 								{ C->ADMCoordinateMode = EADMCoordinateMode::Both; M->MarkPackageDirty(); if (M->GetRouter()) M->InitializeAdapters(); }
 							return FReply::Handled();
@@ -2156,16 +2163,16 @@ TSharedRef<ITableRow> SSpatialFabricPanel::GenerateBindingRow(
 					SNew(SBox).WidthOverride(60.f)
 					[
 						SNew(SNumericEntryBox<float>)
-						.Value_Lambda([WeakMgr, BIdx]() -> TOptional<float>
+						.Value_Lambda([this, BIdx]() -> TOptional<float>
 						{
-							if (const ASpatialFabricManagerActor* M = WeakMgr.Get())
+							if (const ASpatialFabricManagerActor* M = GetManager())
 								if (M->ObjectBindings.IsValidIndex(BIdx))
 									return M->ObjectBindings[BIdx].Width01;
 							return TOptional<float>();
 						})
-						.OnValueCommitted_Lambda([WeakMgr, BIdx](float Val, ETextCommit::Type)
+						.OnValueCommitted_Lambda([this, BIdx](float Val, ETextCommit::Type)
 						{
-							if (ASpatialFabricManagerActor* M = WeakMgr.Get())
+							if (ASpatialFabricManagerActor* M = GetManager())
 								if (M->ObjectBindings.IsValidIndex(BIdx))
 								{
 									M->ObjectBindings[BIdx].Width01 = FMath::Clamp(Val, 0.f, 1.f);
@@ -2194,16 +2201,16 @@ TSharedRef<ITableRow> SSpatialFabricPanel::GenerateBindingRow(
 					+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center)
 					[
 						SNew(SCheckBox)
-						.IsChecked_Lambda([WeakMgr, BIdx]() -> ECheckBoxState
+						.IsChecked_Lambda([this, BIdx]() -> ECheckBoxState
 						{
-							if (const ASpatialFabricManagerActor* M = WeakMgr.Get())
+							if (const ASpatialFabricManagerActor* M = GetManager())
 								if (M->ObjectBindings.IsValidIndex(BIdx))
 									return M->ObjectBindings[BIdx].bADMSendGain ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
 							return ECheckBoxState::Unchecked;
 						})
-						.OnCheckStateChanged_Lambda([WeakMgr, BIdx](ECheckBoxState NewState)
+						.OnCheckStateChanged_Lambda([this, BIdx](ECheckBoxState NewState)
 						{
-							if (ASpatialFabricManagerActor* M = WeakMgr.Get())
+							if (ASpatialFabricManagerActor* M = GetManager())
 								if (M->ObjectBindings.IsValidIndex(BIdx))
 								{
 									M->ObjectBindings[BIdx].bADMSendGain = (NewState == ECheckBoxState::Checked);
@@ -2222,25 +2229,25 @@ TSharedRef<ITableRow> SSpatialFabricPanel::GenerateBindingRow(
 					+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center)
 					[
 						SNew(SBox).WidthOverride(52.f)
-						.Visibility_Lambda([WeakMgr, BIdx]() -> EVisibility
+						.Visibility_Lambda([this, BIdx]() -> EVisibility
 						{
-							if (const ASpatialFabricManagerActor* M = WeakMgr.Get())
+							if (const ASpatialFabricManagerActor* M = GetManager())
 								if (M->ObjectBindings.IsValidIndex(BIdx))
 									return M->ObjectBindings[BIdx].bADMSendGain ? EVisibility::Visible : EVisibility::Collapsed;
 							return EVisibility::Collapsed;
 						})
 						[
 							SNew(SNumericEntryBox<float>)
-							.Value_Lambda([WeakMgr, BIdx]() -> TOptional<float>
+							.Value_Lambda([this, BIdx]() -> TOptional<float>
 							{
-								if (const ASpatialFabricManagerActor* M = WeakMgr.Get())
+								if (const ASpatialFabricManagerActor* M = GetManager())
 									if (M->ObjectBindings.IsValidIndex(BIdx))
 										return M->ObjectBindings[BIdx].GainLinear;
 								return TOptional<float>();
 							})
-							.OnValueCommitted_Lambda([WeakMgr, BIdx](float Val, ETextCommit::Type)
+							.OnValueCommitted_Lambda([this, BIdx](float Val, ETextCommit::Type)
 							{
-								if (ASpatialFabricManagerActor* M = WeakMgr.Get())
+								if (ASpatialFabricManagerActor* M = GetManager())
 									if (M->ObjectBindings.IsValidIndex(BIdx))
 									{
 										M->ObjectBindings[BIdx].GainLinear = FMath::Clamp(Val, 0.f, 2.f);
@@ -2262,16 +2269,16 @@ TSharedRef<ITableRow> SSpatialFabricPanel::GenerateBindingRow(
 					+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center)
 					[
 						SNew(SCheckBox)
-						.IsChecked_Lambda([WeakMgr, BIdx]() -> ECheckBoxState
+						.IsChecked_Lambda([this, BIdx]() -> ECheckBoxState
 						{
-							if (const ASpatialFabricManagerActor* M = WeakMgr.Get())
+							if (const ASpatialFabricManagerActor* M = GetManager())
 								if (M->ObjectBindings.IsValidIndex(BIdx))
 									return M->ObjectBindings[BIdx].bADMSendMute ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
 							return ECheckBoxState::Unchecked;
 						})
-						.OnCheckStateChanged_Lambda([WeakMgr, BIdx](ECheckBoxState NewState)
+						.OnCheckStateChanged_Lambda([this, BIdx](ECheckBoxState NewState)
 						{
-							if (ASpatialFabricManagerActor* M = WeakMgr.Get())
+							if (ASpatialFabricManagerActor* M = GetManager())
 								if (M->ObjectBindings.IsValidIndex(BIdx))
 								{
 									M->ObjectBindings[BIdx].bADMSendMute = (NewState == ECheckBoxState::Checked);
@@ -2291,9 +2298,9 @@ TSharedRef<ITableRow> SSpatialFabricPanel::GenerateBindingRow(
 					+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center)
 					[
 						SNew(SBox)
-						.Visibility_Lambda([WeakMgr, BIdx]() -> EVisibility
+						.Visibility_Lambda([this, BIdx]() -> EVisibility
 						{
-							if (const ASpatialFabricManagerActor* M = WeakMgr.Get())
+							if (const ASpatialFabricManagerActor* M = GetManager())
 								if (M->ObjectBindings.IsValidIndex(BIdx))
 									return M->ObjectBindings[BIdx].bADMSendMute ? EVisibility::Visible : EVisibility::Collapsed;
 							return EVisibility::Collapsed;
@@ -2301,18 +2308,18 @@ TSharedRef<ITableRow> SSpatialFabricPanel::GenerateBindingRow(
 						[
 							SNew(SButton)
 							.ButtonStyle(FAppStyle::Get(), "ToggleButton")
-							.ButtonColorAndOpacity_Lambda([WeakMgr, BIdx]() -> FLinearColor
+							.ButtonColorAndOpacity_Lambda([this, BIdx]() -> FLinearColor
 							{
-								if (const ASpatialFabricManagerActor* M = WeakMgr.Get())
+								if (const ASpatialFabricManagerActor* M = GetManager())
 									if (M->ObjectBindings.IsValidIndex(BIdx))
 										return M->ObjectBindings[BIdx].bMuted
 											? FLinearColor(0.7f, 0.15f, 0.05f)
 											: FLinearColor(0.18f, 0.18f, 0.18f);
 								return FLinearColor(0.18f, 0.18f, 0.18f);
 							})
-							.OnClicked_Lambda([WeakMgr, BIdx]() -> FReply
+							.OnClicked_Lambda([this, BIdx]() -> FReply
 							{
-								if (ASpatialFabricManagerActor* M = WeakMgr.Get())
+								if (ASpatialFabricManagerActor* M = GetManager())
 									if (M->ObjectBindings.IsValidIndex(BIdx))
 									{
 										M->ObjectBindings[BIdx].bMuted = !M->ObjectBindings[BIdx].bMuted;
@@ -2325,9 +2332,9 @@ TSharedRef<ITableRow> SSpatialFabricPanel::GenerateBindingRow(
 							.HAlign(HAlign_Center).VAlign(VAlign_Center)
 							[
 								SNew(STextBlock)
-								.Text_Lambda([WeakMgr, BIdx]() -> FText
+								.Text_Lambda([this, BIdx]() -> FText
 								{
-									if (const ASpatialFabricManagerActor* M = WeakMgr.Get())
+									if (const ASpatialFabricManagerActor* M = GetManager())
 										if (M->ObjectBindings.IsValidIndex(BIdx))
 											return M->ObjectBindings[BIdx].bMuted
 												? LOCTEXT("MutedOn", "MUTED")
@@ -2348,16 +2355,16 @@ TSharedRef<ITableRow> SSpatialFabricPanel::GenerateBindingRow(
 					+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center)
 					[
 						SNew(SCheckBox)
-						.IsChecked_Lambda([WeakMgr, BIdx]() -> ECheckBoxState
+						.IsChecked_Lambda([this, BIdx]() -> ECheckBoxState
 						{
-							if (const ASpatialFabricManagerActor* M = WeakMgr.Get())
+							if (const ASpatialFabricManagerActor* M = GetManager())
 								if (M->ObjectBindings.IsValidIndex(BIdx))
 									return M->ObjectBindings[BIdx].bADMSendName ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
 							return ECheckBoxState::Unchecked;
 						})
-						.OnCheckStateChanged_Lambda([WeakMgr, BIdx](ECheckBoxState NewState)
+						.OnCheckStateChanged_Lambda([this, BIdx](ECheckBoxState NewState)
 						{
-							if (ASpatialFabricManagerActor* M = WeakMgr.Get())
+							if (ASpatialFabricManagerActor* M = GetManager())
 								if (M->ObjectBindings.IsValidIndex(BIdx))
 								{
 									M->ObjectBindings[BIdx].bADMSendName = (NewState == ECheckBoxState::Checked);
@@ -2376,25 +2383,25 @@ TSharedRef<ITableRow> SSpatialFabricPanel::GenerateBindingRow(
 					+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center)
 					[
 						SNew(SBox).WidthOverride(100.f)
-						.Visibility_Lambda([WeakMgr, BIdx]() -> EVisibility
+						.Visibility_Lambda([this, BIdx]() -> EVisibility
 						{
-							if (const ASpatialFabricManagerActor* M = WeakMgr.Get())
+							if (const ASpatialFabricManagerActor* M = GetManager())
 								if (M->ObjectBindings.IsValidIndex(BIdx))
 									return M->ObjectBindings[BIdx].bADMSendName ? EVisibility::Visible : EVisibility::Collapsed;
 							return EVisibility::Collapsed;
 						})
 						[
 							SNew(SEditableTextBox)
-							.Text_Lambda([WeakMgr, BIdx]() -> FText
+							.Text_Lambda([this, BIdx]() -> FText
 							{
-								if (const ASpatialFabricManagerActor* M = WeakMgr.Get())
+								if (const ASpatialFabricManagerActor* M = GetManager())
 									if (M->ObjectBindings.IsValidIndex(BIdx))
 										return FText::FromString(M->ObjectBindings[BIdx].ADMNameOverride);
 								return FText::GetEmpty();
 							})
-							.OnTextCommitted_Lambda([WeakMgr, BIdx](const FText& NewText, ETextCommit::Type)
+							.OnTextCommitted_Lambda([this, BIdx](const FText& NewText, ETextCommit::Type)
 							{
-								if (ASpatialFabricManagerActor* M = WeakMgr.Get())
+								if (ASpatialFabricManagerActor* M = GetManager())
 									if (M->ObjectBindings.IsValidIndex(BIdx))
 									{
 										M->ObjectBindings[BIdx].ADMNameOverride = NewText.ToString();
@@ -2422,9 +2429,9 @@ TSharedRef<ITableRow> SSpatialFabricPanel::GenerateBindingRow(
 				SNew(SBorder)
 				.BorderImage(FAppStyle::GetBrush("ToolPanel.DarkGroupBorder"))
 				.Padding(FMargin(6.f, 3.f))
-				.Visibility_Lambda([WeakMgr]()
+				.Visibility_Lambda([this]()
 				{
-					const ASpatialFabricManagerActor* M = WeakMgr.Get();
+					const ASpatialFabricManagerActor* M = GetManager();
 					return (M && M->ActiveAdapterType == ESpatialAdapterType::SpaceMapGo)
 						? EVisibility::Visible : EVisibility::Collapsed;
 				})
@@ -2435,9 +2442,9 @@ TSharedRef<ITableRow> SSpatialFabricPanel::GenerateBindingRow(
 					+ SHorizontalBox::Slot().FillWidth(1.f).VAlign(VAlign_Center)
 					[
 						SNew(STextBlock)
-						.Text_Lambda([WeakMgr, BIdx]() -> FText
+						.Text_Lambda([this, BIdx]() -> FText
 						{
-							if (const ASpatialFabricManagerActor* M = WeakMgr.Get())
+							if (const ASpatialFabricManagerActor* M = GetManager())
 								if (M->ObjectBindings.IsValidIndex(BIdx))
 								{
 									const FSpatialNormalizedState* State = nullptr;
@@ -2478,16 +2485,16 @@ TSharedRef<ITableRow> SSpatialFabricPanel::GenerateBindingRow(
 						SNew(SBox).WidthOverride(52.f)
 						[
 							SNew(SNumericEntryBox<float>)
-							.Value_Lambda([WeakMgr, BIdx]() -> TOptional<float>
+							.Value_Lambda([this, BIdx]() -> TOptional<float>
 							{
-								if (const ASpatialFabricManagerActor* M = WeakMgr.Get())
+								if (const ASpatialFabricManagerActor* M = GetManager())
 									if (M->ObjectBindings.IsValidIndex(BIdx))
 										return M->ObjectBindings[BIdx].Width01 * 100.f;
 								return TOptional<float>();
 							})
-							.OnValueCommitted_Lambda([WeakMgr, BIdx](float Val, ETextCommit::Type)
+							.OnValueCommitted_Lambda([this, BIdx](float Val, ETextCommit::Type)
 							{
-								if (ASpatialFabricManagerActor* M = WeakMgr.Get())
+								if (ASpatialFabricManagerActor* M = GetManager())
 									if (M->ObjectBindings.IsValidIndex(BIdx))
 									{
 										M->ObjectBindings[BIdx].Width01 = FMath::Clamp(Val, 0.f, 100.f) / 100.f;
@@ -2725,9 +2732,16 @@ void SSpatialFabricPanel::RebuildSVList()
 EActiveTimerReturnType SSpatialFabricPanel::OnRefreshTimer(
 	double InCurrentTime, float InDeltaTime)
 {
+	const bool bNowInPIE = (GEditor && GEditor->PlayWorld);
+	if (bNowInPIE != bLastTickWasPIE)
+	{
+		bLastTickWasPIE = bNowInPIE;
+		// Rebuild bindings and stage-volume list when switching Editor↔PIE
+		RebuildBindingList();
+		RebuildSVList();
+	}
+
 	// Only rebuild the row list when the binding count changes.
-	// Row widgets use _Lambda callbacks that re-query live each paint frame,
-	// so they never need a full row rebuild just because values changed.
 	const ASpatialFabricManagerActor* Mgr = GetManager();
 	const int32 CurCount = Mgr ? Mgr->ObjectBindings.Num() : 0;
 	if (CurCount != LastKnownBindingCount)
@@ -3027,6 +3041,10 @@ TSharedRef<SWidget> SSpatialFabricPanel::BuildOutputTab()
 				.ButtonStyle(FAppStyle::Get(), "NoBorder")
 				.OnClicked_Lambda([this]() -> FReply
 				{
+					if (ASpatialFabricManagerActor* Mgr = GetManager())
+					{
+						Mgr->ClearMessageLog();
+					}
 					LogItems.Empty();
 					if (LogListView.IsValid()) LogListView->RequestListRefresh();
 					return FReply::Handled();

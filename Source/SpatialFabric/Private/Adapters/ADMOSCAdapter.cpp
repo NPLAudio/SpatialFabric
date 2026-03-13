@@ -93,7 +93,12 @@ void FADMOSCAdapter::SendObject(const FSpatialNormalizedState& State)
 	if (!Client) { return; }
 
 	const int32 ID = State.ObjectID;
-	const FVector& P = State.StageNormalized;
+	// ADM-OSC spec: Cartesian x,y,z and polar inputs must be normalized [-1,1].
+	// Clamp defensively so we never emit out-of-spec values.
+	const FVector P(
+		FMath::Clamp((float)State.StageNormalized.X, -1.f, 1.f),
+		FMath::Clamp((float)State.StageNormalized.Y, -1.f, 1.f),
+		FMath::Clamp((float)State.StageNormalized.Z, -1.f, 1.f));
 
 	// ── Position (coordinate mode) ──────────────────────────────────────
 	if (CoordMode == EADMCoordinateMode::Cartesian || CoordMode == EADMCoordinateMode::Both)
@@ -130,6 +135,7 @@ void FADMOSCAdapter::SendCartesian(int32 ID, const FVector& Norm)
 	//   ADM X = our +Y (right)
 	//   ADM Y = our +X (front)
 	//   ADM Z = our +Z (up)
+	// Norm is pre-clamped to [-1,1] in SendObject.
 	const float ADMX = (float)Norm.Y;
 	const float ADMY = (float)Norm.X;
 	const float ADMZ = (float)Norm.Z;

@@ -35,7 +35,9 @@ public:
 	 *
 	 * @param Bindings   The manager's object bindings array (read-only).
 	 * @param Stage      The stage volume used for coordinate normalization.
-	 *                   May be null — positions will be in raw UE cm if so.
+	 *                   If null, a fallback uses the manager location as origin
+	 *                   and a default 20×15×8 m stage to produce normalized [-1,1]
+	 *                   coords (ADM-OSC compliant).
 	 */
 	FSpatialFrameSnapshot BuildSnapshot(
 		const TArray<FSpatialObjectBinding>& Bindings,

@@ -73,10 +73,18 @@ FSpatialFrameSnapshot USpatialObjectRegistry::BuildSnapshot(
 		}
 		else
 		{
-			// Fallback: raw UE units converted to meters (1 UE unit = 1 cm by default)
-			const FVector WorldM = WorldPos * 0.01f;
-			State.StageNormalized = WorldM; // not normalized — adapters should handle this
-			State.StageMeters     = WorldM;
+			// Fallback when no Stage Volume: normalize using manager location as
+			// origin and default stage size (20×15×8 m). Produces ADM-OSC–spec
+			// normalized coords [-1,1] and polar ranges (azim, elev, dist).
+			const AActor* Owner = GetOwner();
+			const FVector Origin = Owner ? Owner->GetActorLocation() : FVector::ZeroVector;
+			const FVector HalfExtentUU(1000.f, 750.f, 400.f); // 10m×7.5m×4m half (20×15×8 full)
+			const FVector Local = WorldPos - Origin;
+			State.StageNormalized = FVector(
+				FMath::Clamp((HalfExtentUU.X > 0.f) ? (Local.X / HalfExtentUU.X) : 0.f, -1.f, 1.f),
+				FMath::Clamp((HalfExtentUU.Y > 0.f) ? (Local.Y / HalfExtentUU.Y) : 0.f, -1.f, 1.f),
+				FMath::Clamp((HalfExtentUU.Z > 0.f) ? (Local.Z / HalfExtentUU.Z) : 0.f, -1.f, 1.f));
+			State.StageMeters = State.StageNormalized * FVector(10.f, 7.5f, 4.f); // half-extent in m
 		}
 
 		Snapshot.Objects.Add(State);

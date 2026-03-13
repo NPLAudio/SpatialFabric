@@ -38,7 +38,7 @@ void ASpatialFabricManagerActor::BeginPlay()
 	Super::BeginPlay();
 
 	// Resolve stage volume and apply visibility early (before early return)
-	ResolvedStageVolume = StageVolume.Get();
+	ResolvedStageVolume = ResolveStageVolumeForThisWorld();
 	if (IsValid(ResolvedStageVolume))
 	{
 		AddTickPrerequisiteActor(ResolvedStageVolume);
@@ -82,10 +82,10 @@ void ASpatialFabricManagerActor::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
-	// Re-resolve stage volume each tick (handles late binding in PIE)
+	// Re-resolve stage volume each tick (handles late binding + PIE world mismatch)
 	if (!IsValid(ResolvedStageVolume) && !StageVolume.IsNull())
 	{
-		ResolvedStageVolume = StageVolume.Get();
+		ResolvedStageVolume = ResolveStageVolumeForThisWorld();
 		if (IsValid(ResolvedStageVolume))
 		{
 			AddTickPrerequisiteActor(ResolvedStageVolume);
@@ -142,6 +142,11 @@ void ASpatialFabricManagerActor::DisconnectClient()
 }
 
 // ── Log ───────────────────────────────────────────────────────────────────
+
+void ASpatialFabricManagerActor::ClearMessageLog()
+{
+	MessageLog.Empty();
+}
 
 void ASpatialFabricManagerActor::AppendLog(const FSpatialFabricLogEntry& Entry)
 {
@@ -294,10 +299,31 @@ void ASpatialFabricManagerActor::SendCustomOSC(const FString& Address,
 	AppendLog(Entry);
 }
 
+ASpatialStageVolume* ASpatialFabricManagerActor::ResolveStageVolumeForThisWorld()
+{
+	ASpatialStageVolume* SV = StageVolume.Get();
+	// TSoftObjectPtr can resolve to the Editor world's actor during PIE instead of
+	// the PIE-world duplicate, causing wrong-world coordinates. Validate same world.
+	if (IsValid(SV) && SV->GetWorld() != GetWorld())
+	{
+		SV = nullptr; // Wrong world — don't use
+	}
+	if (!SV && GetWorld())
+	{
+		// Fallback: find an ASpatialStageVolume in this world (handles PIE duplication)
+		for (TActorIterator<ASpatialStageVolume> It(GetWorld()); It; ++It)
+		{
+			SV = *It;
+			break;
+		}
+	}
+	return SV;
+}
+
 void ASpatialFabricManagerActor::ApplyStageVisibility()
 {
 	ASpatialStageVolume* SV = ResolvedStageVolume;
-	if (!SV) { SV = StageVolume.Get(); }
+	if (!SV) { SV = ResolveStageVolumeForThisWorld(); }
 	if (!IsValid(SV)) { return; }
 
 	// Only apply in game worlds (PIE or packaged); editor viewport is unaffected
