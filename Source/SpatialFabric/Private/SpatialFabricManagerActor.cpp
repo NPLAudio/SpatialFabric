@@ -13,9 +13,6 @@
 // Adapters
 #include "Adapters/ADMOSCAdapter.h"
 #include "Adapters/CustomAdapter.h"
-#include "Adapters/DS100Adapter.h"
-#include "Adapters/SpaceMapGoAdapter.h"
-#include "Adapters/TiMaxAdapter.h"
 
 ASpatialFabricManagerActor::ASpatialFabricManagerActor()
 {
@@ -208,9 +205,6 @@ void ASpatialFabricManagerActor::InitializeAdapters()
 
 	RegisterOSC(MakeShared<FADMOSCAdapter>(),     ESpatialAdapterType::ADMOSC);
 	RegisterOSC(MakeShared<FCustomAdapter>(),     ESpatialAdapterType::Custom);
-	RegisterOSC(MakeShared<FDS100Adapter>(),      ESpatialAdapterType::DS100);
-	RegisterOSC(MakeShared<FSpaceMapGoAdapter>(), ESpatialAdapterType::SpaceMapGo);
-	RegisterOSC(MakeShared<FTiMaxAdapter>(),      ESpatialAdapterType::TiMax);
 
 	// Connect the shared OSC client to the first OSC adapter (user can override)
 	ConnectClient();
@@ -233,17 +227,8 @@ void ASpatialFabricManagerActor::PopulateDefaultAdapterConfigs()
 	AdapterConfigs.Add((uint8)ESpatialAdapterType::ADMOSC,
 		MakeConfig(TEXT("127.0.0.1"), S->DefaultADMOSCPort, /*bEnabled=*/true));
 
-	AdapterConfigs.Add((uint8)ESpatialAdapterType::DS100,
-		MakeConfig(TEXT("127.0.0.1"), S->DefaultDS100Port));
-
-	AdapterConfigs.Add((uint8)ESpatialAdapterType::SpaceMapGo,
-		MakeConfig(TEXT("127.0.0.1"), S->DefaultSpaceMapGoPort));
-
 	AdapterConfigs.Add((uint8)ESpatialAdapterType::Custom,
 		MakeConfig(TEXT("127.0.0.1"), 9000));
-
-	AdapterConfigs.Add((uint8)ESpatialAdapterType::TiMax,
-		MakeConfig(TEXT("127.0.0.1"), 7000));
 }
 
 void ASpatialFabricManagerActor::OnOSCMessageReceived(const FString& Address, float Value)

@@ -44,15 +44,7 @@ public:
 	// ── Default outgoing ports per adapter ─────────────────────────────────
 	UPROPERTY(EditAnywhere, config, Category = "SpatialFabric|Ports",
 		meta = (ClampMin = "1024", ClampMax = "65535"))
-	int32 DefaultDS100Port = 50010;
-
-	UPROPERTY(EditAnywhere, config, Category = "SpatialFabric|Ports",
-		meta = (ClampMin = "1024", ClampMax = "65535"))
 	int32 DefaultADMOSCPort = 9000;
-
-	UPROPERTY(EditAnywhere, config, Category = "SpatialFabric|Ports",
-		meta = (ClampMin = "1024", ClampMax = "65535"))
-	int32 DefaultSpaceMapGoPort = 38033;
 
 	// ── Default send rate ───────────────────────────────────────────────────
 	/** Default maximum packets-per-second for all adapters (overridable per-adapter). */

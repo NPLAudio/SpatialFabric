@@ -17,8 +17,7 @@
  *   +Z = up
  *
  * This follows UE's native axis orientation and matches the audience /
- * listener perspective (house left/right).  DS100 mappings are
- * computed from this canonical form.
+ * listener perspective (house left/right).
  */
 struct SPATIALFABRIC_API FSpatialMath
 {
@@ -33,16 +32,6 @@ struct SPATIALFABRIC_API FSpatialMath
 	 * negated internally before computing atan2.
 	 */
 	static FVector CartesianToPolar(FVector Normalized);
-
-	// ── DS100 ───────────────────────────────────────────────────────────────
-
-	/**
-	 * Map a stage-normalized position to DS100 coordinate-mapping [0..1] range.
-	 * DS100 coordinate mapping: X: 0=left, 1=right.  Y: 0=back, 1=front.
-	 * Stage +Y (right) maps to DS100 X=1; stage +X (front) maps to DS100 Y=1.
-	 * Z is dropped for 2D mapping.
-	 */
-	static FVector2D NormalizedToDS100Mapped(FVector Normalized);
 
 	// ── 2D panning (protocol-agnostic) ─────────────────────────────────────
 

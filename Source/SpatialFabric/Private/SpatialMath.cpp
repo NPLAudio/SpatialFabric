@@ -22,16 +22,6 @@ FVector FSpatialMath::CartesianToPolar(FVector Normalized)
 		(float)Distance);
 }
 
-FVector2D FSpatialMath::NormalizedToDS100Mapped(FVector Normalized)
-{
-	// Normalized is in [-1,1] with +Y = right (audience perspective).
-	// DS100 coordinate mapping expects [0,1]: X: 0=left, 1=right.  Y: 0=back, 1=front.
-	// Right (+Y) → DS100 X=1, left (-Y) → DS100 X=0.
-	const float DS100X = FMath::Clamp((Normalized.Y + 1.f) * 0.5f, 0.f, 1.f); // left-right
-	const float DS100Y = FMath::Clamp((Normalized.X + 1.f) * 0.5f, 0.f, 1.f); // front-back
-	return FVector2D(DS100X, DS100Y);
-}
-
 FVector FSpatialMath::NormalizedTo2DPanning(FVector Normalized)
 {
 	// 2D panning: X = left(-1)..right(+1), Y = back(-1)..front(+1)

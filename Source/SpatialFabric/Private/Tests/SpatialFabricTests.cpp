@@ -134,40 +134,7 @@ bool FADMOSCAddressTest::RunTest(const FString& Parameters)
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-//  Test 4: DS100 address format
-// ─────────────────────────────────────────────────────────────────────────────
-
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(
-	FDS100AddressTest,
-	"SpatialFabric.Adapters.DS100Address",
-	EAutomationTestFlags::EditorContext | EAutomationTestFlags::SmokeFilter)
-
-bool FDS100AddressTest::RunTest(const FString& Parameters)
-{
-	// Test vector: id=42, absolute position
-	const int32 ID = 42;
-	const FString ExpectedAddr = TEXT("/dbaudio1/positioning/source_position/42");
-	const FString ActualAddr = FString::Printf(
-		TEXT("/dbaudio1/positioning/source_position/%d"), ID);
-	TestEqual("DS100 source_position address", ActualAddr, ExpectedAddr);
-
-	// Spread address
-	const FString SpreadAddr = FString::Printf(
-		TEXT("/dbaudio1/positioning/source_spread/%d"), ID);
-	TestEqual("DS100 spread address", SpreadAddr,
-		TEXT("/dbaudio1/positioning/source_spread/42"));
-
-	// Coordinate mapping mode address
-	const FString MappedAddr = FString::Printf(
-		TEXT("/dbaudio1/coordinatemapping/source_position_xy/%d/%d"), 1, ID);
-	TestEqual("DS100 coord mapping address", MappedAddr,
-		TEXT("/dbaudio1/coordinatemapping/source_position_xy/1/42"));
-
-	return true;
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-//  Test 5: Listener-relative coordinate transform
+//  Test 4: Listener-relative coordinate transform
 // ─────────────────────────────────────────────────────────────────────────────
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
@@ -255,36 +222,6 @@ bool FSpatialMathListenerRotatedTest::RunTest(const FString& Parameters)
 		TestTrue("Rotated: front object X > 0", Norm.X > 0.f);
 		TestTrue("Rotated: front object Y ~ 0", FMath::IsNearlyZero(Norm.Y, 0.01f));
 	}
-
-	return true;
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-//  Test 8: DS100 coordinate mapping conversion
-// ─────────────────────────────────────────────────────────────────────────────
-
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(
-	FDS100NormMappedTest,
-	"SpatialFabric.Math.DS100Mapped",
-	EAutomationTestFlags::EditorContext | EAutomationTestFlags::SmokeFilter)
-
-bool FDS100NormMappedTest::RunTest(const FString& Parameters)
-{
-	// Center (0,0,0) → DS100 (0.5, 0.5)
-	const FVector2D Center = FSpatialMath::NormalizedToDS100Mapped(FVector::ZeroVector);
-	TestTrue("DS100 center X = 0.5", FMath::IsNearlyEqual(Center.X, 0.5f, 0.001f));
-	TestTrue("DS100 center Y = 0.5", FMath::IsNearlyEqual(Center.Y, 0.5f, 0.001f));
-
-	// Front-right (norm=(1,1,0): +X=front, +Y=right) → DS100 (1, 1)
-	// DS100: X 0=left 1=right, Y 0=back 1=front
-	const FVector2D FrontRight = FSpatialMath::NormalizedToDS100Mapped(FVector(1.f, 1.f, 0.f));
-	TestTrue("DS100 front-right X = 1", FMath::IsNearlyEqual(FrontRight.X, 1.f, 0.001f));
-	TestTrue("DS100 front-right Y = 1", FMath::IsNearlyEqual(FrontRight.Y, 1.f, 0.001f));
-
-	// Front-left (norm=(1,-1,0): +X=front, -Y=left) → DS100 (0, 1)
-	const FVector2D FrontLeft = FSpatialMath::NormalizedToDS100Mapped(FVector(1.f, -1.f, 0.f));
-	TestTrue("DS100 front-left X = 0", FMath::IsNearlyEqual(FrontLeft.X, 0.f, 0.001f));
-	TestTrue("DS100 front-left Y = 1", FMath::IsNearlyEqual(FrontLeft.Y, 1.f, 0.001f));
 
 	return true;
 }

@@ -6,7 +6,7 @@ without writing a line of Blueprint or C++.
 
 Through ADM-OSC, a single output reaches any compatible renderer: L-Acoustics
 L-ISA, FLUX:: SPAT Revolution, d&b Soundscape, Meyer Sound SpaceMap Go, TiMax
-SoundHub, and any other ADM-OSC–compliant system.
+SoundHub, and other ADM-OSC–compliant systems.
 
 An open-source tool for theatre, concert, and immersive-audio designers who
 need real-time spatial audio positioning from Unreal Engine.
@@ -187,7 +187,7 @@ actor positions are **normalized to [-1, 1]** relative to this volume — an
 actor at the center maps to (0, 0, 0), an actor at the +X face maps to
 (1, 0, 0). Positions outside the box are clamped.
 
-- **Physical dimensions** (meters) for absolute-position protocols (DS100)
+- **Physical dimensions** (meters) for coordinate scaling
 - **Axis flip** (X/Y/Z) checkboxes for convention overrides
 - **Listener actor** (optional) shifts the coordinate origin to a player pawn,
   camera, or any actor — enables binaural/head-tracked output
@@ -211,8 +211,7 @@ Each binding maps one UE actor to one or more protocol targets:
 | **Adapter Targets** | Per-binding adapter type overrides and per-target ObjectID overrides |
 | **CustomFields** | Key-value pairs for Custom adapter placeholders (e.g. `slot`, `channel`) |
 
-> **DS100-specific fields** (Spread Mode, Delay Mode) are available on the
-> binding when the DS100 adapter is active. **Custom adapter** bindings support
+> **Custom adapter** bindings support
 > CustomFields for template placeholders like `{slot}` and `{channel}`.
 
 ### Multi-Protocol Output
@@ -234,7 +233,7 @@ network traffic when objects are static.
 
 A dockable Slate panel with four tabs for configuration and live monitoring
 without requiring Play mode. **ADM-OSC** is shown by default in the Objects
-tab; DS100, SpaceMap Go, and TiMax are available in the Manager Actor's
+tab; ADM-OSC and Custom are available in the Manager Actor's
 Details panel for advanced use.
 
 ---
@@ -321,11 +320,11 @@ Open via Window → **Spatial Fabric**. The panel has four tabs:
 | Tab | Purpose |
 |-----|---------|
 | **Stage** | Stage Volume assignment, physical dimensions, listener config |
-| **Objects** | Add/remove object bindings, set Object IDs, format selector (ADM-OSC, Custom, DS100, SpaceMap Go, TiMax) |
+| **Objects** | Add/remove object bindings, set Object IDs, format selector (ADM-OSC, Custom) |
 | **Radar** | Live 2D top-down visualization with aspect-correct stage coordinates (front=top, right=right) |
 | **Output** | Live protocol message preview and scrolling message log |
 
-**Objects tab:** The format selector (ADM-OSC, Custom, DS100, etc.) switches the
+**Objects tab:** The format selector (ADM-OSC, Custom) switches the
 active adapter. The **Rate (Hz)** control sets the polling limit (1–120 Hz);
 **Only when changed** sends only when coordinates change (full state on start).
 When **Custom** is selected, a template section appears with coordinate mode
@@ -336,7 +335,7 @@ remove the binding.
 The panel works in **editor mode** (no PIE required) — an editor tickable
 drives `ProcessFrame()` so you see live data while placing actors.
 
-> **Advanced adapters** (DS100, SpaceMap Go, TiMax) show protocol-specific
+> **Adapter-specific** fields (ADM-OSC gain/mute/name, Custom template) show
 > options in each binding row when that format is active.
 
 ---
@@ -365,11 +364,8 @@ Plugins/SpatialFabric/
     │   │   ├── SpatialOSCClientComponent.h      — Sends OSC UDP (wraps UE OSC plugin)
     │   │   ├── SpatialOSCServerComponent.h      — Receives OSC UDP (wraps UE OSC plugin)
     │   │   └── Adapters/
-    │   │       ├── ADMOSCAdapter.h              — ADM-OSC v1.0
-    │   │       ├── CustomAdapter.h              — Template-based OSC (xyz/aed, bundled/discrete)
-    │   │       ├── DS100Adapter.h               — d&b DS100
-    │   │       ├── SpaceMapGoAdapter.h          — SpaceMap Go
-    │   │       └── TiMaxAdapter.h               — TiMax SoundHub (delegates to ADM-OSC)
+    │   │       ├── ADMOSCAdapter.h              — ADM-OSC v1.0 (L-ISA, etc.)
+    │   │       └── CustomAdapter.h               — Template-based OSC (xyz/aed, bundled/discrete)
     │   └── Private/
     │       ├── SpatialFabricManagerActor.cpp
     │       ├── SpatialStageVolume.cpp
@@ -382,12 +378,9 @@ Plugins/SpatialFabric/
     │       ├── SpatialFabricSettings.cpp
     │       ├── Adapters/
     │       │   ├── ADMOSCAdapter.cpp
-    │       │   ├── CustomAdapter.cpp
-    │       │   ├── DS100Adapter.cpp
-    │       │   ├── SpaceMapGoAdapter.cpp
-    │       │   └── TiMaxAdapter.cpp
+    │       │   └── CustomAdapter.cpp
     │       └── Tests/
-    │           └── SpatialFabricTests.cpp       — 7 automation tests
+    │           └── SpatialFabricTests.cpp       — 5 automation tests
     │
     └── SpatialFabricEditor/             # Editor-only module
         ├── SpatialFabricEditor.Build.cs
@@ -443,11 +436,7 @@ Each adapter converts to its wire format at the point of send:
 |---------|----------------|------------|
 | ADM-OSC Cartesian | +Y = left | Negate Y |
 | ADM-OSC Polar | Azimuth +left (CCW) | Negate Y before atan2 |
-| DS100 (absolute) | Direct meters | No conversion needed |
-| DS100 (mapped) | X: 0=left, 1=right | `(NormY + 1) * 0.5` |
-| SpaceMap Go | X: left=-1000, right=+1000; Y: back=-1000, front=+1000 | `NormY * 1000` / `NormX * 1000` |
 | Custom | User-defined (xyz or aed, bundled or discrete) | Per template / range mapping |
-| TiMax | Same as ADM-OSC (delegates internally) | Negate Y |
 
 ### Module Dependencies
 
@@ -492,9 +481,7 @@ Accessible via Project Settings → Plugins → **Spatial Fabric**:
 | `bEnableInEditor` | `true` | Enable networking in the editor |
 | `bEnableInPackagedBuilds` | `false` | Enable networking in shipped builds |
 | `DefaultOSCListenPort` | `8100` | Incoming OSC port |
-| `DefaultDS100Port` | `50010` | DS100 default send port |
 | `DefaultADMOSCPort` | `9000` | ADM-OSC default send port |
-| `DefaultSpaceMapGoPort` | `38033` | SpaceMap Go default send port |
 | `DefaultSendRateHz` | `50.0` | Default adapter send rate (Hz) |
 
 ### Per-Adapter Configuration
@@ -514,8 +501,6 @@ Each adapter entry in `AdapterConfigs` on the Manager Actor supports:
 | `CustomAddressTemplate` | OSC path with `{placeholders}` — Custom adapter |
 | `CustomArgTemplate` | Space-separated arg names — Custom adapter |
 | `CustomPositionRange` / `CustomGainRange` / `CustomWidthRange` | Output range (min, max) — Custom adapter |
-| `bDS100AbsoluteMode` | Absolute meters vs normalized coordinates (DS100 only) |
-| `DS100ChannelOffset` | Channel ID offset (DS100 only) |
 
 ---
 
@@ -523,7 +508,7 @@ Each adapter entry in `AdapterConfigs` on the Manager Actor supports:
 
 ### Automation Tests
 
-SpatialFabric includes 7 UE automation tests (run via Session Frontend →
+SpatialFabric includes 5 UE automation tests (run via Session Frontend →
 Automation → SpatialFabric):
 
 | # | Test | Description |
@@ -531,10 +516,8 @@ Automation → SpatialFabric):
 | 1 | `Math.Center` | Object at stage center → normalized (0, 0, 0) |
 | 2 | `Math.Corner` | Corner positions, clamping, meter conversion |
 | 3 | `Adapters.ADMOSCAddress` | ADM-OSC address format and value range validation |
-| 4 | `Adapters.DS100Address` | DS100 address format (absolute + coord-mapping + spread) |
-| 5 | `Math.ListenerRelative` | Listener-relative coordinate transform (no rotation) |
-| 6 | `Math.ListenerRelativeRotated` | Listener-relative with yaw rotation (Y-axis sign) |
-| 7 | `Math.DS100Mapped` | DS100 coordinate mapping math (front-right/front-left) |
+| 4 | `Math.ListenerRelative` | Listener-relative coordinate transform (no rotation) |
+| 5 | `Math.ListenerRelativeRotated` | Listener-relative with yaw rotation (Y-axis sign) |
 
 ### Recommended External Tools
 
@@ -543,7 +526,6 @@ Automation → SpatialFabric):
 | [Protokol](https://hexler.net/protokol) (free) | General-purpose OSC monitor |
 | [python-osc](https://pypi.org/project/python-osc/) | Scripted testing and CI |
 | [L-ISA Controller](https://www.l-acoustics.com/) (free offline) | ADM-OSC visual verification |
-| [R1 Remote](https://www.dbaudio.com/) (free) | DS100 visual verification |
 
 ---
 

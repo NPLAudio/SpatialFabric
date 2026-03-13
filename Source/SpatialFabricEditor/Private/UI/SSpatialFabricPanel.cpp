@@ -825,17 +825,19 @@ TSharedRef<SWidget> SSpatialFabricPanel::BuildObjectsTab()
 	//   8880 — L-ISA Controller
 	//   9000 — L-ISA Processor
 	//   4001 — Spat Revolution
+	//   50010 — d&b Soundscape (DS100)
 	//   7000 — TiMax SoundHub
 	// 38033 — Meyer SpaceMap Go
 	struct FADMPortPreset { const TCHAR* Label; int32 Port; };
 	static const FADMPortPreset ADMPortPresets[] =
 	{
-		{ TEXT("8880  (L-ISA Controller)"),  8880 },
-		{ TEXT("9000  (L-ISA Processor)"),   9000 },
-		{ TEXT("4001  (Spat Revolution)"),   4001 },
-		{ TEXT("7000  (TiMax SoundHub)"),    7000 },
-		{ TEXT("38033 (Meyer SpaceMap Go)"), 38033 },
-		{ TEXT("50018 (en-bridge)"),         50018 },
+		{ TEXT("8880  (L-ISA Controller)"),    8880 },
+		{ TEXT("9000  (L-ISA Processor)"),     9000 },
+		{ TEXT("4001  (Spat Revolution)"),     4001 },
+		{ TEXT("50010 (d&b Soundscape)"),     50010 },
+		{ TEXT("7000  (TiMax SoundHub)"),      7000 },
+		{ TEXT("38033 (Meyer SpaceMap Go)"),   38033 },
+		{ TEXT("50018 (en-bridge)"),          50018 },
 	};
 
 	// Helper lambda — commit a new port value and reinitialize adapters.
@@ -1822,240 +1824,6 @@ TSharedRef<ITableRow> SSpatialFabricPanel::GenerateBindingRow(
 				]
 			]
 
-			// ── DS100 sub-row (visible only when DS100 is the active format) ──
-			+ SVerticalBox::Slot()
-			.AutoHeight()
-			.Padding(4.f, 2.f, 4.f, 2.f)
-			[
-				SNew(SBorder)
-				.BorderImage(FAppStyle::GetBrush("ToolPanel.DarkGroupBorder"))
-				.Padding(FMargin(6.f, 3.f))
-				.Visibility_Lambda([this]()
-				{
-					const ASpatialFabricManagerActor* M = GetManager();
-					return (M && M->ActiveAdapterType == ESpatialAdapterType::DS100)
-						? EVisibility::Visible : EVisibility::Collapsed;
-				})
-				[
-					SNew(SHorizontalBox)
-
-					// "Spread:" label
-					+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center).Padding(0.f, 0.f, 4.f, 0.f)
-					[
-						SNew(STextBlock)
-						.Text(LOCTEXT("SpreadLabel", "Spread:"))
-						.ColorAndOpacity(FLinearColor(0.6f, 0.6f, 0.6f))
-						.Font(FAppStyle::GetFontStyle("SmallFont"))
-					]
-
-					// Fixed button
-					+ SHorizontalBox::Slot().AutoWidth().Padding(0.f, 0.f, 2.f, 0.f)
-					[
-						SNew(SBox).HeightOverride(22.f).MinDesiredWidth(46.f)
-						[
-							SNew(SButton)
-							.ButtonStyle(FAppStyle::Get(), "FlatButton")
-							.HAlign(HAlign_Center)
-							.ButtonColorAndOpacity_Lambda([this, BIdx]()
-							{
-								if (ASpatialFabricManagerActor* M = GetManager())
-									if (M->ObjectBindings.IsValidIndex(BIdx))
-										if (M->ObjectBindings[BIdx].DS100SpreadMode == EDS100SpreadMode::Fixed)
-											return FLinearColor(1.00f, 0.42f, 0.10f);
-								return FLinearColor(0.18f, 0.18f, 0.18f);
-							})
-							.ToolTipText(LOCTEXT("SpreadFixedTip", "Fixed: send Width01 as spread unchanged"))
-							.OnClicked_Lambda([this, BIdx]() -> FReply
-							{
-								if (ASpatialFabricManagerActor* M = GetManager())
-									if (M->ObjectBindings.IsValidIndex(BIdx))
-									{
-										M->ObjectBindings[BIdx].DS100SpreadMode = EDS100SpreadMode::Fixed;
-										M->MarkPackageDirty();
-									}
-								return FReply::Handled();
-							})
-							[ SNew(STextBlock).Text(LOCTEXT("Fixed", "Fixed")).Font(FAppStyle::GetFontStyle("SmallFont")).ColorAndOpacity(FLinearColor::White) ]
-						]
-					]
-
-					// Proximity button
-					+ SHorizontalBox::Slot().AutoWidth().Padding(0.f, 0.f, 8.f, 0.f)
-					[
-						SNew(SBox).HeightOverride(22.f).MinDesiredWidth(64.f)
-						[
-							SNew(SButton)
-							.ButtonStyle(FAppStyle::Get(), "FlatButton")
-							.HAlign(HAlign_Center)
-							.ButtonColorAndOpacity_Lambda([this, BIdx]()
-							{
-								if (ASpatialFabricManagerActor* M = GetManager())
-									if (M->ObjectBindings.IsValidIndex(BIdx))
-										if (M->ObjectBindings[BIdx].DS100SpreadMode == EDS100SpreadMode::Proximity)
-											return FLinearColor(0.10f, 0.72f, 0.80f);
-								return FLinearColor(0.18f, 0.18f, 0.18f);
-							})
-							.ToolTipText(LOCTEXT("SpreadProxTip",
-								"Proximity: spread grows inverse-square as listener nears source.\n"
-								"Min = far spread, Max = at-source spread, Dist = reference distance."))
-							.OnClicked_Lambda([this, BIdx]() -> FReply
-							{
-								if (ASpatialFabricManagerActor* M = GetManager())
-									if (M->ObjectBindings.IsValidIndex(BIdx))
-									{
-										M->ObjectBindings[BIdx].DS100SpreadMode = EDS100SpreadMode::Proximity;
-										M->MarkPackageDirty();
-									}
-								return FReply::Handled();
-							})
-							[ SNew(STextBlock).Text(LOCTEXT("Proximity", "Proximity")).Font(FAppStyle::GetFontStyle("SmallFont")).ColorAndOpacity(FLinearColor::White) ]
-						]
-					]
-
-					// Proximity controls — only shown in Proximity mode
-					+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center)
-					[
-						SNew(SBox)
-						.Visibility_Lambda([this, BIdx]()
-						{
-							if (ASpatialFabricManagerActor* M = GetManager())
-								if (M->ObjectBindings.IsValidIndex(BIdx))
-									return M->ObjectBindings[BIdx].DS100SpreadMode == EDS100SpreadMode::Proximity
-										? EVisibility::Visible : EVisibility::Collapsed;
-							return EVisibility::Collapsed;
-						})
-						[
-							SNew(SHorizontalBox)
-
-							// Min label + spinner
-							+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center).Padding(0.f, 0.f, 3.f, 0.f)
-							[ SNew(STextBlock).Text(LOCTEXT("MinLabel", "Min")).ColorAndOpacity(FLinearColor(0.55f,0.55f,0.55f)).Font(FAppStyle::GetFontStyle("SmallFont")) ]
-							+ SHorizontalBox::Slot().AutoWidth().Padding(0.f, 0.f, 6.f, 0.f)
-							[
-								SNew(SBox).WidthOverride(48.f)
-								[
-									SNew(SNumericEntryBox<float>)
-									.Value_Lambda([this, BIdx]() -> TOptional<float>
-									{
-										if (ASpatialFabricManagerActor* M = GetManager())
-											if (M->ObjectBindings.IsValidIndex(BIdx))
-												return M->ObjectBindings[BIdx].DS100SpreadMin;
-										return TOptional<float>();
-									})
-									.OnValueCommitted_Lambda([this, BIdx](float Val, ETextCommit::Type)
-									{
-										if (ASpatialFabricManagerActor* M = GetManager())
-											if (M->ObjectBindings.IsValidIndex(BIdx))
-											{
-												M->ObjectBindings[BIdx].DS100SpreadMin = FMath::Clamp(Val, 0.f, 1.f);
-												M->MarkPackageDirty();
-											}
-									})
-									.MinValue(0.f).MaxValue(1.f).AllowSpin(true)
-									.Font(FAppStyle::GetFontStyle("SmallFont"))
-								]
-							]
-
-							// Max label + spinner
-							+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center).Padding(0.f, 0.f, 3.f, 0.f)
-							[ SNew(STextBlock).Text(LOCTEXT("MaxLabel", "Max")).ColorAndOpacity(FLinearColor(0.55f,0.55f,0.55f)).Font(FAppStyle::GetFontStyle("SmallFont")) ]
-							+ SHorizontalBox::Slot().AutoWidth().Padding(0.f, 0.f, 6.f, 0.f)
-							[
-								SNew(SBox).WidthOverride(48.f)
-								[
-									SNew(SNumericEntryBox<float>)
-									.Value_Lambda([this, BIdx]() -> TOptional<float>
-									{
-										if (ASpatialFabricManagerActor* M = GetManager())
-											if (M->ObjectBindings.IsValidIndex(BIdx))
-												return M->ObjectBindings[BIdx].DS100SpreadMax;
-										return TOptional<float>();
-									})
-									.OnValueCommitted_Lambda([this, BIdx](float Val, ETextCommit::Type)
-									{
-										if (ASpatialFabricManagerActor* M = GetManager())
-											if (M->ObjectBindings.IsValidIndex(BIdx))
-											{
-												M->ObjectBindings[BIdx].DS100SpreadMax = FMath::Clamp(Val, 0.f, 1.f);
-												M->MarkPackageDirty();
-											}
-									})
-									.MinValue(0.f).MaxValue(1.f).AllowSpin(true)
-									.Font(FAppStyle::GetFontStyle("SmallFont"))
-								]
-							]
-
-							// Dist label + spinner
-							+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center).Padding(0.f, 0.f, 3.f, 0.f)
-							[ SNew(STextBlock).Text(LOCTEXT("DistLabel", "Dist")).ColorAndOpacity(FLinearColor(0.55f,0.55f,0.55f)).Font(FAppStyle::GetFontStyle("SmallFont")) ]
-							+ SHorizontalBox::Slot().AutoWidth()
-							[
-								SNew(SBox).WidthOverride(48.f)
-								[
-									SNew(SNumericEntryBox<float>)
-									.Value_Lambda([this, BIdx]() -> TOptional<float>
-									{
-										if (ASpatialFabricManagerActor* M = GetManager())
-											if (M->ObjectBindings.IsValidIndex(BIdx))
-												return M->ObjectBindings[BIdx].DS100ProximityMaxDistance;
-										return TOptional<float>();
-									})
-									.OnValueCommitted_Lambda([this, BIdx](float Val, ETextCommit::Type)
-									{
-										if (ASpatialFabricManagerActor* M = GetManager())
-											if (M->ObjectBindings.IsValidIndex(BIdx))
-											{
-												M->ObjectBindings[BIdx].DS100ProximityMaxDistance = FMath::Max(Val, 0.01f);
-												M->MarkPackageDirty();
-											}
-									})
-									.MinValue(0.01f).AllowSpin(true)
-									.Font(FAppStyle::GetFontStyle("SmallFont"))
-								]
-							]
-						]
-					]
-
-					// Spacer
-					+ SHorizontalBox::Slot().FillWidth(1.f)
-
-					// "Delay:" label + spinner
-					+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center).Padding(0.f, 0.f, 4.f, 0.f)
-					[
-						SNew(STextBlock)
-						.Text(LOCTEXT("DelayLabel", "Delay:"))
-						.ColorAndOpacity(FLinearColor(0.6f, 0.6f, 0.6f))
-						.Font(FAppStyle::GetFontStyle("SmallFont"))
-						.ToolTipText(LOCTEXT("DelayTip", "DS100 delay mode: -1=off (not sent), 0=off, 1=tight, 2=full"))
-					]
-					+ SHorizontalBox::Slot().AutoWidth()
-					[
-						SNew(SBox).WidthOverride(48.f)
-						[
-							SNew(SNumericEntryBox<int32>)
-							.Value_Lambda([this, BIdx]() -> TOptional<int32>
-							{
-								if (ASpatialFabricManagerActor* M = GetManager())
-									if (M->ObjectBindings.IsValidIndex(BIdx))
-										return M->ObjectBindings[BIdx].DS100DelayMode;
-								return TOptional<int32>();
-							})
-							.OnValueCommitted_Lambda([this, BIdx](int32 Val, ETextCommit::Type)
-							{
-								if (ASpatialFabricManagerActor* M = GetManager())
-									if (M->ObjectBindings.IsValidIndex(BIdx))
-									{
-										M->ObjectBindings[BIdx].DS100DelayMode = FMath::Clamp(Val, -1, 2);
-										M->MarkPackageDirty();
-									}
-							})
-							.MinValue(-1).MaxValue(2).AllowSpin(true)
-							.Font(FAppStyle::GetFontStyle("SmallFont"))
-						]
-					]
-				]
-			]
-
 			// ── ADM-OSC sub-row (visible when ADMOSC is the active format) ──
 		+ SVerticalBox::Slot()
 		.AutoHeight()
@@ -2421,104 +2189,6 @@ TSharedRef<ITableRow> SSpatialFabricPanel::GenerateBindingRow(
 			]
 		]
 
-		// ── SpaceMap Go sub-row (visible only when SpaceMapGo is the active format) ──
-			+ SVerticalBox::Slot()
-			.AutoHeight()
-			.Padding(4.f, 2.f, 4.f, 2.f)
-			[
-				SNew(SBorder)
-				.BorderImage(FAppStyle::GetBrush("ToolPanel.DarkGroupBorder"))
-				.Padding(FMargin(6.f, 3.f))
-				.Visibility_Lambda([this]()
-				{
-					const ASpatialFabricManagerActor* M = GetManager();
-					return (M && M->ActiveAdapterType == ESpatialAdapterType::SpaceMapGo)
-						? EVisibility::Visible : EVisibility::Collapsed;
-				})
-				[
-					SNew(SHorizontalBox)
-
-					// â”€â”€ Live position display â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-					+ SHorizontalBox::Slot().FillWidth(1.f).VAlign(VAlign_Center)
-					[
-						SNew(STextBlock)
-						.Text_Lambda([this, BIdx]() -> FText
-						{
-							if (const ASpatialFabricManagerActor* M = GetManager())
-								if (M->ObjectBindings.IsValidIndex(BIdx))
-								{
-									const FSpatialNormalizedState* State = nullptr;
-									for (const FSpatialNormalizedState& S : M->GetLastSnapshot().Objects)
-										if (S.ObjectID == M->ObjectBindings[BIdx].DefaultObjectID)
-											{ State = &S; break; }
-									if (State)
-									{
-										const float SMX = FMath::Clamp(State->StageNormalized.Y * 1000.f, -1000.f, 1000.f);
-										const float SMY = FMath::Clamp(State->StageNormalized.X * 1000.f, -1000.f, 1000.f);
-										return FText::Format(
-											LOCTEXT("SMGLive", "/channel/{0}/position  {1}  {2}"),
-											State->ObjectID,
-											FText::AsNumber(SMX, &FNumberFormattingOptions()
-												.SetMinimumFractionalDigits(0).SetMaximumFractionalDigits(0)),
-											FText::AsNumber(SMY, &FNumberFormattingOptions()
-												.SetMinimumFractionalDigits(0).SetMaximumFractionalDigits(0)));
-									}
-								}
-							return LOCTEXT("SMGHint", "/channel/{id}/position  X  Y");
-						})
-						.Font(FAppStyle::GetFontStyle("SmallFont"))
-						.ColorAndOpacity(FLinearColor(0.6f, 0.6f, 0.6f))
-					]
-
-					// â”€â”€ Spread label â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-					+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center).Padding(8.f, 0.f, 4.f, 0.f)
-					[
-						SNew(STextBlock)
-						.Text(LOCTEXT("SMGSpreadLabel", "Spread"))
-						.Font(FAppStyle::GetFontStyle("SmallFont"))
-						.ColorAndOpacity(FLinearColor(0.6f, 0.6f, 0.6f))
-					]
-
-					// â”€â”€ Spread numeric entry (0â€“100) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-					+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center)
-					[
-						SNew(SBox).WidthOverride(52.f)
-						[
-							SNew(SNumericEntryBox<float>)
-							.Value_Lambda([this, BIdx]() -> TOptional<float>
-							{
-								if (const ASpatialFabricManagerActor* M = GetManager())
-									if (M->ObjectBindings.IsValidIndex(BIdx))
-										return M->ObjectBindings[BIdx].Width01 * 100.f;
-								return TOptional<float>();
-							})
-							.OnValueCommitted_Lambda([this, BIdx](float Val, ETextCommit::Type)
-							{
-								if (ASpatialFabricManagerActor* M = GetManager())
-									if (M->ObjectBindings.IsValidIndex(BIdx))
-									{
-										M->ObjectBindings[BIdx].Width01 = FMath::Clamp(Val, 0.f, 100.f) / 100.f;
-										M->MarkPackageDirty();
-									}
-							})
-							.MinValue(0.f).MaxValue(100.f).AllowSpin(true)
-							.Font(FAppStyle::GetFontStyle("SmallFont"))
-							.ToolTipText(LOCTEXT("SMGSpreadTip",
-								"Spread [0-100]. Logarithmic scale. 14 = optimal default."))
-						]
-					]
-
-					// â”€â”€ % suffix â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-					+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center).Padding(3.f, 0.f, 0.f, 0.f)
-					[
-						SNew(STextBlock)
-						.Text(LOCTEXT("SMGSpreadPct", "%"))
-						.Font(FAppStyle::GetFontStyle("SmallFont"))
-						.ColorAndOpacity(FLinearColor(0.6f, 0.6f, 0.6f))
-					]
-				]
-			]
-
 		];
 }
 
@@ -2821,7 +2491,6 @@ TSharedRef<SWidget> SSpatialFabricPanel::BuildRadarTab()
 static FString FormatOutputPreview(
 	ESpatialAdapterType AdapterType,
 	const FSpatialNormalizedState& Obj,
-	bool bDS100Absolute,
 	EADMCoordinateMode ADMCoordMode = EADMCoordinateMode::Cartesian)
 {
 	const int32 ID = Obj.ObjectID;
@@ -2846,26 +2515,6 @@ static FString FormatOutputPreview(
 		}
 		Lines += FString::Printf(TEXT("/adm/obj/%d/w  %.3f"), ID, Obj.Width01);
 		return Lines;
-	}
-	case ESpatialAdapterType::DS100:
-	{
-		if (bDS100Absolute)
-		{
-			const FVector& M = Obj.StageMeters;
-			return FString::Printf(TEXT("/dbaudio1/positioning/source_position/%d  %.3f %.3f %.3f"), ID, M.X, M.Y, M.Z);
-		}
-		else
-		{
-			const FVector2D Mapped = FSpatialMath::NormalizedToDS100Mapped(Obj.StageNormalized);
-			return FString::Printf(TEXT("/dbaudio1/coordinatemapping/source_position_xy/1/%d  %.3f %.3f"), ID, Mapped.X, Mapped.Y);
-		}
-	}
-	case ESpatialAdapterType::SpaceMapGo:
-	{
-		const float SMX = FMath::Clamp((float)Obj.StageNormalized.Y * 1000.f, -1000.f, 1000.f);
-		const float SMY = FMath::Clamp((float)Obj.StageNormalized.X * 1000.f, -1000.f, 1000.f);
-		const float Spread = FMath::Clamp(Obj.Width01 * 100.f, 0.f, 100.f);
-		return FString::Printf(TEXT("/channel/%d/position  %.0f %.0f\n/channel/%d/spread  %.0f"), ID, SMX, SMY, ID, Spread);
 	}
 	case ESpatialAdapterType::Custom:
 	{
@@ -2941,7 +2590,6 @@ TSharedRef<SWidget> SSpatialFabricPanel::BuildOutputTab()
 					const ESpatialAdapterType Type = Mgr->ActiveAdapterType;
 					const uint8 TypeKey = static_cast<uint8>(Type);
 					const FSpatialAdapterConfig* Cfg = Mgr->AdapterConfigs.Find(TypeKey);
-					const bool bAbsolute = Cfg ? Cfg->bDS100AbsoluteMode : true;
 					const EADMCoordinateMode ADMCoordMode = Cfg
 						? Cfg->ADMCoordinateMode
 						: EADMCoordinateMode::Cartesian;
@@ -2952,7 +2600,7 @@ TSharedRef<SWidget> SSpatialFabricPanel::BuildOutputTab()
 						const FString Muted = Obj.bMuted ? TEXT(" [MUTED]") : TEXT("");
 						Result += FString::Printf(TEXT("%s (ID %d)%s\n  %s\n"),
 							*Obj.Label, Obj.ObjectID, *Muted,
-							*FormatOutputPreview(Type, Obj, bAbsolute, ADMCoordMode));
+							*FormatOutputPreview(Type, Obj, ADMCoordMode));
 					}
 
 					if (Snap.bHasListener)

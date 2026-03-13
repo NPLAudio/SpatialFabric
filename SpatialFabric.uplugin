@@ -3,7 +3,7 @@
 	"Version": 1,
 	"VersionName": "1.0",
 	"FriendlyName": "SpatialFabric",
-	"Description": "Multi-protocol spatial audio show-control plugin for Unreal Engine. Maps UE actor positions to DS100, ADM-OSC, SpaceMap Go, TiMax, and Custom OSC via a configurable Stage Volume bounding box.",
+	"Description": "Multi-protocol spatial audio show-control plugin for Unreal Engine. Maps UE actor positions to spatial audio renderers via ADM-OSC and Custom OSC. ADM-OSC compatibility includes L-ISA, d&b Soundscape, Meyer SpaceMap Go, TiMax, and other ADM-OSC–compliant systems.",
 	"Category": "Live Design",
 	"CreatedBy": "SpatialFabric Contributors",
 	"CreatedByURL": "https://github.com/dhhuston/SpatialFabric",
