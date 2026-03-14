@@ -1,0 +1,101 @@
+# Create a release zip of the SpatialFabric plugin for NPLAudio/SpatialFabric
+# Trigger: push a version tag (v*) or run manually from Actions tab
+#
+# Usage:
+#   git tag v1.0.0
+#   git push origin v1.0.0
+#
+# Or: Actions -> Release Plugin -> Run workflow
+
+name: Release Plugin
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version (e.g. 1.0.0)'
+        required: true
+        default: '1.0.0'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Determine version
+        id: version
+        env:
+          INPUT_VERSION: ${{ github.event.inputs.version }}
+          TAG_REF: ${{ github.ref }}
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            VERSION="$INPUT_VERSION"
+          else
+            VERSION="${TAG_REF#refs/tags/}"
+            VERSION="${VERSION#v}"
+          fi
+          # Sanitize: allow only semver chars (digits and dots)
+          SAFE_VERSION=$(echo "$VERSION" | tr -cd '0-9.')
+          [ -z "$SAFE_VERSION" ] && SAFE_VERSION="0.0.0"
+          echo "tag=v${SAFE_VERSION}" >> $GITHUB_OUTPUT
+          echo "name=${SAFE_VERSION}" >> $GITHUB_OUTPUT
+
+      - name: Create plugin zip
+        env:
+          RELEASE_NAME: ${{ steps.version.outputs.name }}
+        run: |
+          PLUGIN_DIR=SpatialFabric
+          mkdir -p dist/${PLUGIN_DIR}
+          rsync -a \
+            --exclude='.git' \
+            --exclude='.github' \
+            --exclude='.gitignore' \
+            --exclude='.claude' \
+            --exclude='docs' \
+            --exclude='Binaries' \
+            --exclude='Intermediate' \
+            --exclude='Saved' \
+            --exclude='*.pdb' \
+            --exclude='.DS_Store' \
+            . dist/${PLUGIN_DIR}/
+          cd dist
+          zip -r "SpatialFabric-${RELEASE_NAME}.zip" ${PLUGIN_DIR}
+          cd ..
+          echo "ZIP_PATH=dist/SpatialFabric-${RELEASE_NAME}.zip" >> $GITHUB_ENV
+          echo "ZIP_NAME=SpatialFabric-${RELEASE_NAME}.zip" >> $GITHUB_ENV
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ env.ZIP_PATH }}
+          name: Release ${{ steps.version.outputs.name }}
+          body: |
+            ## SpatialFabric ${{ steps.version.outputs.name }}
+
+            Multi-protocol spatial audio show-control plugin for Unreal Engine.
+
+            ### Installation
+
+            1. Download the zip file
+            2. Extract and copy the `SpatialFabric` folder into your project's `Plugins` directory
+            3. Restart Unreal Editor
+
+            ### Requirements
+
+            - Unreal Engine 5.x
+            - OSC plugin (bundled with UE5)
+          tag_name: ${{ steps.version.outputs.tag }}
+          draft: false
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
