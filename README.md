@@ -55,7 +55,7 @@ No additional plugins are required beyond OSC.
 1. **Download or clone** this repository:
 
    ```bash
-   git clone https://github.com/dhhuston/SpatialFabric.git
+   git clone https://github.com/NPLAudio/SpatialFabric.git
    ```
 
 2. **Copy the plugin** into your project's `Plugins/` folder:
