@@ -16,6 +16,8 @@ ASpatialStageVolume::ASpatialStageVolume()
 	StageBox = CreateDefaultSubobject<UBoxComponent>(TEXT("StageBox"));
 	StageBox->SetBoxExtent(FVector(1000.f, 750.f, 400.f)); // default ~20m×15m×8m in cm
 	StageBox->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	StageBox->SetCollisionProfileName(FName("NoCollision"));
+	StageBox->SetGenerateOverlapEvents(false);
 	StageBox->SetLineThickness(2.f);
 	RootComponent = StageBox;
 }
@@ -167,6 +169,11 @@ void ASpatialStageVolume::ClearListener()
 void ASpatialStageVolume::BeginPlay()
 {
 	Super::BeginPlay();
+	if (StageBox)
+	{
+		StageBox->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+		StageBox->SetCollisionProfileName(FName("NoCollision"));
+	}
 	DesignLocation = GetActorLocation();
 	DesignRotation = GetActorRotation();
 	ResolveListenerThisFrame();
