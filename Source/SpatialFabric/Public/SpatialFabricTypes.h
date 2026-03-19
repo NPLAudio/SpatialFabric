@@ -213,7 +213,7 @@ struct SPATIALFABRIC_API FSpatialAdapterConfig
 	/** Target UDP port for this adapter. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SpatialFabric|Adapter",
 		meta = (ClampMin = "1024", ClampMax = "65535"))
-	int32 TargetPort = 9000;
+	int32 TargetPort = 50018;
 
 	/** Maximum packets per second sent by this adapter (rate limiting). */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SpatialFabric|Adapter",
@@ -238,7 +238,7 @@ struct SPATIALFABRIC_API FSpatialAdapterConfig
 	 */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SpatialFabric|Adapter",
 		meta = (EditCondition = "false"))
-	EADMCoordinateMode ADMCoordinateMode = EADMCoordinateMode::Polar;
+	EADMCoordinateMode ADMCoordinateMode = EADMCoordinateMode::Cartesian;
 
 	/**
 	 * Custom adapter: OSC address template. Placeholders: {id}, {x}, {y}, {z},

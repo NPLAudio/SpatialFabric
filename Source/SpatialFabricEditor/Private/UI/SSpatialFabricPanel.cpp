@@ -809,9 +809,19 @@ TSharedRef<SWidget> SSpatialFabricPanel::BuildObjectsTab()
 						if (ASpatialFabricManagerActor* Mgr = GetManager())
 							if (FSpatialAdapterConfig* C = Mgr->AdapterConfigs.Find((uint8)Mgr->ActiveAdapterType))
 							{
-								C->TargetIP = Val.ToString();
+								const FString NewIP = Val.ToString().TrimStartAndEnd();
+								C->TargetIP = NewIP.IsEmpty() ? TEXT("127.0.0.1") : NewIP;
 								Mgr->MarkPackageDirty();
 								if (Mgr->GetRouter()) Mgr->InitializeAdapters();
+								// Persist to project settings so new managers and levels use this IP
+								if (USpatialFabricSettings* S = GetMutableDefault<USpatialFabricSettings>())
+								{
+									if (Mgr->ActiveAdapterType == ESpatialAdapterType::ADMOSC)
+										S->DefaultADMOSTargetIP = C->TargetIP;
+									else if (Mgr->ActiveAdapterType == ESpatialAdapterType::Custom)
+										S->DefaultCustomTargetIP = C->TargetIP;
+									S->SaveConfig();
+								}
 							}
 					})
 					.ToolTipText(LOCTEXT("IPTip", "Target IP address for the active protocol adapter"))
@@ -849,6 +859,12 @@ TSharedRef<SWidget> SSpatialFabricPanel::BuildObjectsTab()
 				C->TargetPort = FMath::Clamp(Val, 1024, 65535);
 				Mgr->MarkPackageDirty();
 				if (Mgr->GetRouter()) Mgr->InitializeAdapters();
+				// Persist to project settings so new managers use this port
+				if (USpatialFabricSettings* S = GetMutableDefault<USpatialFabricSettings>())
+				{
+					S->DefaultADMOSCPort = C->TargetPort;
+					S->SaveConfig();
+				}
 			}
 	};
 
@@ -885,11 +901,12 @@ TSharedRef<SWidget> SSpatialFabricPanel::BuildObjectsTab()
 							static const FADMPortPreset Presets[] =
 							{
 								{ TEXT("8880  (L-ISA Controller)"),  8880 },
-								{ TEXT("9000  (L-ISA Processor)"),   9000 },
-								{ TEXT("4001  (Spat Revolution)"),   4001 },
-								{ TEXT("7000  (TiMax SoundHub)"),    7000 },
+								{ TEXT("9000  (L-ISA Processor)"),  9000 },
+								{ TEXT("4001  (Spat Revolution)"),  4001 },
+								{ TEXT("50010 (d&b Soundscape)"),   50010 },
+								{ TEXT("7000  (TiMax SoundHub)"),  7000 },
 								{ TEXT("38033 (Meyer SpaceMap Go)"), 38033 },
-								{ TEXT("50018 (en-bridge)"),         50018 },
+								{ TEXT("50018 (en-bridge)"),       50018 },
 							};
 							for (const FADMPortPreset& Pre : Presets)
 								if (Pre.Port == P)
@@ -906,9 +923,10 @@ TSharedRef<SWidget> SSpatialFabricPanel::BuildObjectsTab()
 							{ TEXT("8880  (L-ISA Controller)"),  8880 },
 							{ TEXT("9000  (L-ISA Processor)"),   9000 },
 							{ TEXT("4001  (Spat Revolution)"),   4001 },
-							{ TEXT("7000  (TiMax SoundHub)"),    7000 },
+							{ TEXT("50010 (d&b Soundscape)"),   50010 },
+							{ TEXT("7000  (TiMax SoundHub)"),   7000 },
 							{ TEXT("38033 (Meyer SpaceMap Go)"), 38033 },
-							{ TEXT("50018 (en-bridge)"),         50018 },
+							{ TEXT("50018 (en-bridge)"),        50018 },
 						};
 						for (const FADMPortPreset& Pre : Presets)
 						{
@@ -2318,9 +2336,6 @@ void SSpatialFabricPanel::SetActiveFormat(ESpatialAdapterType Type)
 		if (FSpatialAdapterConfig* Config = Mgr->AdapterConfigs.Find((uint8)T))
 		{
 			Config->bEnabled = (T == Type);
-			// Ensure ADM-OSC defaults to Polar so elevation (/aed) is sent out of the box.
-			if (T == ESpatialAdapterType::ADMOSC && Config->ADMCoordinateMode == EADMCoordinateMode::Cartesian)
-				Config->ADMCoordinateMode = EADMCoordinateMode::Polar;
 		}
 	}
 

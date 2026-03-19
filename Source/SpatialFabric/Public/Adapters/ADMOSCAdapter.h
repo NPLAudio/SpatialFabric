@@ -28,7 +28,7 @@
  *     /adm/lis/xyz   x y z
  *     /adm/lis/ypr   yaw pitch roll
  *
- * Default target port: 9000 (L-ISA Controller default).
+ * Default target port: 50018 (en-bridge).
  * Recommended send rate: ≤50 Hz (per ADM-OSC spec).
  */
 class SPATIALFABRIC_API FADMOSCAdapter : public ISpatialProtocolAdapter

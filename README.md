@@ -149,6 +149,14 @@ SpatialFabric
    with a tool like [Protokol](https://hexler.net/protokol) or your audio
    system's OSC monitor.
 
+### Protokol not receiving?
+
+1. **Press Play** — OSC is only sent when the game is running (PIE or packaged).
+2. **Protokol receive port** — Add an OSC Input in Protokol that **receives/listens** on port **50018** (default). Unreal sends TO this port; Protokol must bind to it.
+3. **Target IP** — Ensure the Manager sends to `127.0.0.1` if Protokol is on the same machine.
+4. **Objects bound** — You must have at least one object bound with the ADM-OSC target enabled. Use **+ Add Selected Actors** in the Objects tab.
+5. **Enable Debug Messages** — Project Settings → Plugins → Spatial Fabric → Enable Debug Messages to see OSC connect/disconnect in the Output Log.
+
 ---
 
 ## Coordinate Convention
@@ -276,7 +284,7 @@ head-tracking.
 | `/adm/lis/xyz` | x y z | Listener position |
 | `/adm/lis/ypr` | yaw pitch roll | Listener orientation |
 
-**Default port:** 9000
+**Default port:** 50018 (en-bridge)
 **Recommended send rate:** ≤ 50 Hz (per ADM-OSC spec)
 
 ### Custom (Template)
@@ -485,7 +493,7 @@ Accessible via Project Settings → Plugins → **Spatial Fabric**:
 | `bEnableInEditor` | `true` | Enable networking in the editor |
 | `bEnableInPackagedBuilds` | `false` | Enable networking in shipped builds |
 | `DefaultOSCListenPort` | `8100` | Incoming OSC port |
-| `DefaultADMOSCPort` | `9000` | ADM-OSC default send port |
+| `DefaultADMOSCPort` | `50018` | ADM-OSC default send port (en-bridge) |
 | `DefaultSendRateHz` | `50.0` | Default adapter send rate (Hz) |
 
 ### Per-Adapter Configuration

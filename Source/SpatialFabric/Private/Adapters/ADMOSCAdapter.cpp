@@ -167,7 +167,7 @@ void FADMOSCAdapter::SendPolar(int32 ID, const FVector& Norm)
 	// Spec: azimuth [-180, 180], elevation [-90, 90].  atan2 stays in range
 	// analytically, but clamp defensively for NaN safety and spec compliance.
 	const float ClampedAzim = FMath::Clamp((float)Polar.X, -180.0f, 180.0f);
-	const float ClampedElev = FMath::Clamp((float)Polar.Y,  -90.0f,  90.0f);
+	const float ClampedElev = FMath::Clamp((float)Polar.Y, -90.0f, 90.0f);
 
 	const FString Addr = FString::Printf(TEXT("/adm/obj/%d/aed"), ID);
 	Client->SendMultiArg(Addr, { ClampedAzim, ClampedElev, NormalizedDist });

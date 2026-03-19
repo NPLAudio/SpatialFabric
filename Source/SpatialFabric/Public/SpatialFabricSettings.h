@@ -16,7 +16,7 @@
  * Remote Control's -RCWebInterfaceEnable pattern).  Users must opt-in
  * via config or at runtime.
  */
-UCLASS(config = Engine, defaultconfig, meta = (DisplayName = "Spatial Fabric"))
+UCLASS(config = SpatialFabric, defaultconfig, meta = (DisplayName = "Spatial Fabric"))
 class SPATIALFABRIC_API USpatialFabricSettings : public UDeveloperSettings
 {
 	GENERATED_BODY()
@@ -41,10 +41,17 @@ public:
 		meta = (ClampMin = "1024", ClampMax = "65535"))
 	int32 DefaultOSCListenPort = 8100;
 
-	// ── Default outgoing ports per adapter ─────────────────────────────────
+	// ── Default outgoing IP and ports per adapter ──────────────────────────
+	/** Saved when user changes IP in the panel; used when spawning new managers. */
+	UPROPERTY(EditAnywhere, config, Category = "SpatialFabric|Ports")
+	FString DefaultADMOSTargetIP = TEXT("127.0.0.1");
+
+	UPROPERTY(EditAnywhere, config, Category = "SpatialFabric|Ports")
+	FString DefaultCustomTargetIP = TEXT("127.0.0.1");
+
 	UPROPERTY(EditAnywhere, config, Category = "SpatialFabric|Ports",
 		meta = (ClampMin = "1024", ClampMax = "65535"))
-	int32 DefaultADMOSCPort = 9000;
+	int32 DefaultADMOSCPort = 50018;
 
 	// ── Default send rate ───────────────────────────────────────────────────
 	/** Default maximum packets-per-second for all adapters (overridable per-adapter). */

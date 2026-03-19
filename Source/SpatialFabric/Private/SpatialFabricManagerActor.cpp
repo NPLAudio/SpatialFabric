@@ -225,10 +225,12 @@ void ASpatialFabricManagerActor::PopulateDefaultAdapterConfigs()
 	};
 
 	AdapterConfigs.Add((uint8)ESpatialAdapterType::ADMOSC,
-		MakeConfig(TEXT("127.0.0.1"), S->DefaultADMOSCPort, /*bEnabled=*/true));
+		MakeConfig(S->DefaultADMOSTargetIP.IsEmpty() ? TEXT("127.0.0.1") : S->DefaultADMOSTargetIP,
+		          S->DefaultADMOSCPort, /*bEnabled=*/true));
 
 	AdapterConfigs.Add((uint8)ESpatialAdapterType::Custom,
-		MakeConfig(TEXT("127.0.0.1"), 9000));
+		MakeConfig(S->DefaultCustomTargetIP.IsEmpty() ? TEXT("127.0.0.1") : S->DefaultCustomTargetIP,
+		          S->DefaultADMOSCPort));
 }
 
 void ASpatialFabricManagerActor::OnOSCMessageReceived(const FString& Address, float Value)
