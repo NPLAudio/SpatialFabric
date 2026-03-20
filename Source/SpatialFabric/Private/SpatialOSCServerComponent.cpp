@@ -1,5 +1,7 @@
 // Copyright (c) 2026 SpatialFabric Contributors. Licensed under the MIT License.
 
+// Listens on a UDP port; OnOscMessageReceivedNative → HandleOSCMessage → broadcast.
+
 #include "SpatialOSCServerComponent.h"
 #include "SpatialFabricSettings.h"
 #include "OSCManager.h"
@@ -14,6 +16,7 @@ DEFINE_LOG_CATEGORY_STATIC(LogSpatialOSCServer, Log, All);
 
 USpatialOSCServerComponent::USpatialOSCServerComponent()
 {
+	// Incoming OSC is callback-driven (OnOscMessageReceivedNative), not polled in Tick
 	PrimaryComponentTick.bCanEverTick = false;
 }
 
@@ -32,6 +35,7 @@ void USpatialOSCServerComponent::StartListening(const FString& IP, int32 Port)
 {
 	StopListening();
 
+	// bStartListening=true starts receive immediately; other flags are UE OSC defaults
 	OSCServer = UOSCManager::CreateOSCServer(IP, Port, false, true, GetName(), this);
 
 	if (!OSCServer)
@@ -72,6 +76,7 @@ void USpatialOSCServerComponent::HandleOSCMessage(const FOSCMessage& Message, co
 	float Value = 0.f;
 	bool bFoundFloat = false;
 
+	// SpatialFabric's delegate is (Address, float) — take first numeric arg we can read
 	TArray<float> Floats;
 	UOSCManager::GetAllFloats(Message, Floats);
 	if (Floats.Num() > 0)

@@ -9,6 +9,9 @@
 /**
  * FCustomAdapter
  *
+ * Address and argument templates use simple string replacement — {id}, {x}, etc.
+ * Parsed arg names are lowercased in ParseArgTemplate for consistent matching.
+ *
  * Template-based OSC adapter for arbitrary protocols.
  * Uses CustomAddressTemplate and CustomArgTemplate from FSpatialAdapterConfig.
  *

@@ -1,5 +1,11 @@
 // Copyright (c) 2026 SpatialFabric Contributors. Licensed under the MIT License.
 
+/**
+ * Stage volume: defines normalization basis. ResolveListenerThisFrame runs every
+ * Tick before WorldToNormalized — it updates CachedListenerPos/Rot and may move
+ * this actor to follow the listener. Collision is disabled so the box never blocks gameplay.
+ */
+
 #include "SpatialStageVolume.h"
 #include "Components/BoxComponent.h"
 #include "DrawDebugHelpers.h"
@@ -26,15 +32,18 @@ ASpatialStageVolume::ASpatialStageVolume()
 
 FVector ASpatialStageVolume::ComputeLocalVector(FVector WorldPos) const
 {
+	// Vector from listener (or stage center when Off) to the world point
 	FVector Local = WorldPos - CachedListenerPos;
 
 	if (bListenerResolved && ListenerMode == EListenerMode::FollowPositionAndOrientation)
 	{
+		// Express offset in listener-local axes: "in front" becomes +X, etc.
 		if (!CachedListenerRot.IsNearlyZero())
 			Local = CachedListenerRot.UnrotateVector(Local);
 	}
 	else
 	{
+		// Stage-fixed: unrotate by the box orientation (stage may be rotated in the level)
 		Local = StageBox->GetComponentQuat().UnrotateVector(Local);
 	}
 
@@ -46,6 +55,7 @@ FVector ASpatialStageVolume::WorldToNormalized(FVector WorldPos) const
 	const FVector Local = ComputeLocalVector(WorldPos);
 	const FVector HalfExtentUU = StageBox->GetScaledBoxExtent();
 
+	// Scale local offset by inverse half-extent → roughly [-1,1] before clamp
 	FVector Norm;
 	Norm.X = (HalfExtentUU.X > 0.f) ? (Local.X / HalfExtentUU.X) : 0.f;
 	Norm.Y = (HalfExtentUU.Y > 0.f) ? (Local.Y / HalfExtentUU.Y) : 0.f;
@@ -63,6 +73,7 @@ FVector ASpatialStageVolume::WorldToNormalized(FVector WorldPos) const
 
 FVector ASpatialStageVolume::WorldToMeters(FVector WorldPos) const
 {
+	// Norm * half-extent in meters = physical offset from stage center (per axis)
 	return WorldToNormalized(WorldPos) * GetHalfExtentMeters();
 }
 

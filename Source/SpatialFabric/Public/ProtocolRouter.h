@@ -9,6 +9,10 @@
 /**
  * FProtocolRouter
  *
+ * Not a UObject — no UCLASS, no garbage collection. The manager holds a
+ * TUniquePtr<FProtocolRouter>. Each registered adapter is a TSharedPtr; here the
+ * router is the main owner.
+ *
  * Plain C++ class (no UObject) that fans out each FSpatialFrameSnapshot
  * to all enabled protocol adapters.
  *

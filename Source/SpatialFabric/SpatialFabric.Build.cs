@@ -1,4 +1,5 @@
 // Copyright (c) 2026 SpatialFabric Contributors. Licensed under the MIT License.
+// Declares the runtime module and its link dependencies (OSC = UE's built-in plugin).
 
 using UnrealBuildTool;
 

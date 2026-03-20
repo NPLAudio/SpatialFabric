@@ -1,4 +1,5 @@
 // Copyright (c) 2026 SpatialFabric Contributors. Licensed under the MIT License.
+// Editor-only module: depends on SpatialFabric runtime + UnrealEd / Slate for the panel.
 
 using UnrealBuildTool;
 

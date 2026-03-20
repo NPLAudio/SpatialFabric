@@ -9,6 +9,9 @@
 /**
  * FADMOSCAdapter
  *
+ * This class is not a UObject — it is plain C++ (stack/heap) owned by the router.
+ * It holds a raw pointer to USpatialOSCClientComponent; the manager ensures lifetime.
+ *
  * Implements the ADM-OSC v1.0 object metadata standard
  * (immersive-audio-live.github.io/ADM-OSC).
  *

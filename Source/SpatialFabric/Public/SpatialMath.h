@@ -7,6 +7,10 @@
 /**
  * FSpatialMath
  *
+ * Namespace-like struct: only static functions, no instances. Call
+ * FSpatialMath::CartesianToPolar(...) from anywhere. Adapters use it so polar/AED
+ * output stays consistent with one implementation.
+ *
  * Pure static utility functions for spatial coordinate transforms used
  * by SpatialFabric adapters.  All intermediate calculations use double
  * precision; results are returned as float for OSC wire format compatibility.

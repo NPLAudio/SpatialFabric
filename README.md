@@ -354,6 +354,8 @@ drives `ProcessFrame()` so you see live data while placing actors.
 
 ## Architecture
 
+**Learning the C++ side?** See **[Docs/CODEBASE_GUIDE.md](Docs/CODEBASE_GUIDE.md)** for a reading order, glossary, and how data flows each frame (plus file-top comments in the sources).
+
 ### Module Layout
 
 ```

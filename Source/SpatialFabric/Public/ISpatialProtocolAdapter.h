@@ -10,6 +10,11 @@ class USpatialOSCClientComponent;
 /**
  * ISpatialProtocolAdapter
  *
+ * In C++, this *interface* is a class with only *virtual* functions and no shared
+ * implementation — concrete classes like FADMOSCAdapter must implement every "= 0"
+ * method. That lets new protocols (L-ISA, d&b, custom OSC) be added without changing
+ * the manager actor.
+ *
  * Pure abstract interface for all spatial protocol adapters.
  * Each adapter translates an FSpatialFrameSnapshot into protocol-specific
  * network packets (OSC messages) and sends them via the provided
@@ -75,14 +80,19 @@ public:
 	TFunction<void(const FSpatialFabricLogEntry&)> OnLog;
 
 protected:
-	/** Rate-limiting helper: returns true and updates accumulator if enough time has passed. */
+	/**
+	 * Rate-limiting helper: returns true only when SendRateHz allows another send.
+	 * DeltaTime is seconds since last *game tick* (not since last send), so we
+	 * accumulate time until MinInterval = 1/SendRateHz has passed.
+	 */
 	bool ShouldSendThisFrame(float DeltaTime)
 	{
-		if (CachedSendRateHz <= 0.f) { return true; }
+		if (CachedSendRateHz <= 0.f) { return true; } // unlimited rate
 		TimeSinceLastSend += DeltaTime;
 		const float MinInterval = 1.f / CachedSendRateHz;
 		if (TimeSinceLastSend >= MinInterval)
 		{
+			// Carry overflow into next window so average rate stays near SendRateHz
 			TimeSinceLastSend = FMath::Fmod(TimeSinceLastSend, MinInterval);
 			return true;
 		}

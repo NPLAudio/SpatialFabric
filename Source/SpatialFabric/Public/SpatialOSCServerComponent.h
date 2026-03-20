@@ -14,6 +14,10 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnSpatialOSCMessageReceived, const
 /**
  * USpatialOSCServerComponent
  *
+ * OnMessageReceived only forwards the *first float* (or int cast to float) from each
+ * message — enough for simple feedback; extend HandleOSCMessage if you need full
+ * multi-arg parsing.
+ *
  * Wraps the Unreal Engine OSC plugin's UOSCServer to receive incoming UDP
  * packets and expose them as a Blueprint-assignable delegate.
  *

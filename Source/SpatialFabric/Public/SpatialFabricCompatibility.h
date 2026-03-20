@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 
+/** Small helper used where older UE versions differ from TArray::IsEmpty availability. */
 template <typename ElementType>
 FORCEINLINE bool SFArrayIsEmpty(const TArray<ElementType>& Array)
 {

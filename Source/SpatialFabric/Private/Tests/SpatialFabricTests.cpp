@@ -1,5 +1,10 @@
 // Copyright (c) 2026 SpatialFabric Contributors. Licensed under the MIT License.
 
+/**
+ * Automation tests (Session Frontend / Run Tests in editor). Each IMPLEMENT_SIMPLE_AUTOMATION_TEST
+ * is a class with RunTest() returning true when assertions pass. No level required for these.
+ */
+
 #if WITH_DEV_AUTOMATION_TESTS
 
 #include "Misc/AutomationTest.h"

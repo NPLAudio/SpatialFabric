@@ -9,6 +9,9 @@
 /**
  * FSpatialFabricEditorModule
  *
+ * Editor modules load only in Unreal Editor — not in packaged games. This one
+ * registers a Window tab and a tick object so the panel updates without PIE.
+ *
  * Editor-only module for SpatialFabric.
  *
  * Responsibilities:

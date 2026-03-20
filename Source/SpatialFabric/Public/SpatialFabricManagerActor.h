@@ -16,6 +16,10 @@ class ASpatialStageVolume;
 /**
  * ASpatialFabricManagerActor
  *
+ * This is the main *actor* you place in the level (like a light or camera).
+ * It owns subobjects: OSC server, OSC client, registry component, and a non-UObject
+ * router (see TUniquePtr in the .cpp). Tick order is PostPhysics so movement is final.
+ *
  * Central level actor for SpatialFabric.  Place one in the level, assign a
  * ASpatialStageVolume, configure adapter endpoints, then populate
  * ObjectBindings to start routing spatial positions to connected hardware.

@@ -1,5 +1,11 @@
 // Copyright (c) 2026 SpatialFabric Contributors. Licensed under the MIT License.
 
+/**
+ * Builds FSpatialFrameSnapshot: for each enabled binding, resolve the actor,
+ * read transform, normalize through the stage volume (or fallback box), and
+ * append one FSpatialNormalizedState in binding order.
+ */
+
 #include "SpatialObjectRegistry.h"
 #include "SpatialFabricSettings.h"
 #include "SpatialStageVolume.h"
@@ -16,7 +22,7 @@ FSpatialFrameSnapshot USpatialObjectRegistry::BuildSnapshot(
 	ASpatialStageVolume* Stage) const
 {
 	FSpatialFrameSnapshot Snapshot;
-	Snapshot.Timestamp = FPlatformTime::Seconds();
+	Snapshot.Timestamp = FPlatformTime::Seconds(); // wall seconds — useful for log / debugging
 
 	// Populate listener data if a stage volume with a listener is available
 	if (Stage && Stage->HasListener())
@@ -27,6 +33,7 @@ FSpatialFrameSnapshot USpatialObjectRegistry::BuildSnapshot(
 		Snapshot.bHasListener       = true;
 	}
 
+	// Snapshot.Objects order = enabled bindings in array order (router relies on this)
 	for (int32 i = 0; i < Bindings.Num(); ++i)
 	{
 		const FSpatialObjectBinding& Binding = Bindings[i];
@@ -54,8 +61,8 @@ FSpatialFrameSnapshot USpatialObjectRegistry::BuildSnapshot(
 		const FQuat   WorldRot = Actor->GetActorQuat();
 
 		FSpatialNormalizedState State;
-		State.Label      = Binding.Label.IsEmpty() ? Actor->GetActorNameOrLabel() : Binding.Label;
-		State.ObjectID   = Binding.DefaultObjectID;
+		State.Label = Binding.Label.IsEmpty() ? Actor->GetActorNameOrLabel() : Binding.Label;
+		State.ObjectID = Binding.DefaultObjectID; // per-target overrides applied later in router
 		State.GainLinear = Binding.GainLinear;
 		State.Width01    = Binding.Width01;
 		State.bMuted     = Binding.bMuted;
@@ -97,6 +104,8 @@ AActor* USpatialObjectRegistry::ResolveActor(
 	const TSoftObjectPtr<AActor>& SoftPtr,
 	const FString& CachedLabel) const
 {
+	// TSoftObjectPtr can fail after PIE restart; CachedActorLabel lets us find
+	// the same logical actor by scanning the world's actor labels.
 	// Fast path: soft pointer already loaded
 	if (!SoftPtr.IsNull())
 	{

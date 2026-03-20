@@ -2,6 +2,12 @@
 
 #pragma once
 
+/**
+ * Slate UI for Window → Spatial Fabric. The .cpp is large: it defines SRadarView
+ * (custom paint) plus tab builders. Search for "// ──" section markers in the cpp.
+ * For architecture, see Docs/CODEBASE_GUIDE.md.
+ */
+
 #include "CoreMinimal.h"
 #include "Widgets/SCompoundWidget.h"
 #include "Widgets/Views/SListView.h"
@@ -13,6 +19,9 @@ class ASpatialStageVolume;
 
 /**
  * SSpatialFabricPanel
+ *
+ * SCompoundWidget is Unreal's immediate-mode UI (Slate), not UMG. Construct() builds
+ * the widget tree; timers refresh lists and the radar from the manager actor.
  *
  * Dockable Slate editor panel for SpatialFabric.  Four tabs:
  *

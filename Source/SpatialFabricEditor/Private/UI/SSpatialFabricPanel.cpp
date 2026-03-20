@@ -1,5 +1,15 @@
 // Copyright (c) 2026 SpatialFabric Contributors. Licensed under the MIT License.
 
+/**
+ * Spatial Fabric editor panel — file layout:
+ *   1. SRadarView        — SLeafWidget::OnPaint draws stage + dots from snapshot
+ *   2. SSpatialFabricPanel::Construct — root layout + tab switcher + timer
+ *   3. BuildStageTab / BuildObjectsTab / BuildRadarTab / BuildOutputTab
+ *   4. Binding list, log list, format switching, IP/port persistence helpers
+ *
+ * GetManager() resolves ASpatialFabricManagerActor in editor or PIE world.
+ */
+
 #include "UI/SSpatialFabricPanel.h"
 #include "SpatialFabricManagerActor.h"
 #include "SpatialFabricSettings.h"
@@ -34,12 +44,11 @@
 
 #define LOCTEXT_NAMESPACE "SSpatialFabricPanel"
 
-// SSpatialFabricPanel: Spatial Fabric Manager window (Stage/Objects/Radar/Output tabs)
-// Hide stage checkbox below listener buttons.
-
 // ─────────────────────────────────────────────────────────────────────────────
 //  SRadarView — live 2-D top-down position display
 // ─────────────────────────────────────────────────────────────────────────────
+// OnPaint runs when Slate repaints; we read CachedSnapshot set by the panel's refresh
+// timer. NormToScreen maps StageNormalized X/Y to pixel coords.
 
 class SRadarView : public SLeafWidget
 {
@@ -311,7 +320,7 @@ static TArray<FSFFormatDef> GetFormatDefs()
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-//  Construct
+//  Construct — root widget tree + 250ms refresh timer for lists/radar/log
 // ─────────────────────────────────────────────────────────────────────────────
 
 void SSpatialFabricPanel::Construct(const FArguments& InArgs)

@@ -1,5 +1,10 @@
 // Copyright (c) 2026 SpatialFabric Contributors. Licensed under the MIT License.
 
+/**
+ * Thin wrapper around UE's UOSCManager / UOSCClient. Each Send* builds an FOSCMessage,
+ * sets address + args, then calls OSCClient->SendOSCMessage.
+ */
+
 #include "SpatialOSCClientComponent.h"
 #include "SpatialFabricSettings.h"
 #include "OSCManager.h"
@@ -15,6 +20,7 @@ DEFINE_LOG_CATEGORY_STATIC(LogSpatialOSCClient, Log, All);
 
 USpatialOSCClientComponent::USpatialOSCClientComponent()
 {
+	// Sending is driven by adapters / Blueprint calls — no per-frame tick needed
 	PrimaryComponentTick.bCanEverTick = false;
 }
 
@@ -26,8 +32,9 @@ void USpatialOSCClientComponent::EndPlay(const EEndPlayReason::Type EndPlayReaso
 
 void USpatialOSCClientComponent::Connect(const FString& IP, int32 Port)
 {
-	Disconnect();
+	Disconnect(); // Drop old socket before rebinding (adapters retarget IP:port often)
 
+	// Outer = this component so the UOSCClient lifetime ties to the owning actor
 	OSCClient = UOSCManager::CreateOSCClient(IP, Port, GetName(), this);
 
 	if (!OSCClient)
@@ -53,6 +60,7 @@ void USpatialOSCClientComponent::Disconnect()
 {
 	if (OSCClient)
 	{
+		// UOSCClient is GC'd when no strong refs remain
 		OSCClient = nullptr;
 		CurrentIP.Empty();
 		CurrentPort = 0;
@@ -73,9 +81,9 @@ void USpatialOSCClientComponent::SendFloat(const FString& Address, float Value)
 	}
 
 	FOSCMessage Message;
-	Message.SetAddress(UOSCManager::ConvertStringToOSCAddress(Address));
-	UOSCManager::AddFloat(Message, Value);
-	OSCClient->SendOSCMessage(Message);
+	Message.SetAddress(UOSCManager::ConvertStringToOSCAddress(Address)); // e.g. "/adm/obj/1/xyz"
+	UOSCManager::AddFloat(Message, Value);                             // OSC type tag 'f'
+	OSCClient->SendOSCMessage(Message);                                // one UDP datagram
 }
 
 void USpatialOSCClientComponent::SendInt(const FString& Address, int32 Value)
@@ -84,7 +92,7 @@ void USpatialOSCClientComponent::SendInt(const FString& Address, int32 Value)
 
 	FOSCMessage Message;
 	Message.SetAddress(UOSCManager::ConvertStringToOSCAddress(Address));
-	UOSCManager::AddInt32(Message, Value);
+	UOSCManager::AddInt32(Message, Value); // OSC type tag 'i' (e.g. /mute 0|1)
 	OSCClient->SendOSCMessage(Message);
 }
 
@@ -107,7 +115,7 @@ void USpatialOSCClientComponent::SendString(const FString& Address, const FStrin
 
 	FOSCMessage Message;
 	Message.SetAddress(UOSCManager::ConvertStringToOSCAddress(Address));
-	UOSCManager::AddString(Message, Value);
+	UOSCManager::AddString(Message, Value); // OSC type tag 's'
 	OSCClient->SendOSCMessage(Message);
 }
 
@@ -123,6 +131,7 @@ void USpatialOSCClientComponent::SendMultiArg(const FString& Address, const TArr
 
 	FOSCMessage Message;
 	Message.SetAddress(UOSCManager::ConvertStringToOSCAddress(Address));
+	// Single OSC message, multiple float arguments (e.g. xyz or aed triples)
 	for (float V : Values)
 	{
 		UOSCManager::AddFloat(Message, V);
@@ -139,6 +148,7 @@ void USpatialOSCClientComponent::SendMessage(const FString& Address,
 
 	FOSCMessage Message;
 	Message.SetAddress(UOSCManager::ConvertStringToOSCAddress(Address));
+	// Argument order matches OSC type string: all floats, then ints, then strings
 	for (float V : FloatArgs)
 	{
 		UOSCManager::AddFloat(Message, V);

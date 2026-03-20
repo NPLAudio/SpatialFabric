@@ -1,5 +1,11 @@
 // Copyright (c) 2026 SpatialFabric Contributors. Licensed under the MIT License.
 
+/**
+ * Manager actor: BeginPlay wires OSC → router, creates adapters, starts server.
+ * Each Tick: BuildSnapshot → Router::ProcessFrame. Packaged builds can disable
+ * networking via USpatialFabricSettings::bEnableInPackagedBuilds.
+ */
+
 #include "SpatialFabricManagerActor.h"
 #include "SpatialFabricSettings.h"
 #include "SpatialObjectRegistry.h"
@@ -21,9 +27,10 @@ ASpatialFabricManagerActor::ASpatialFabricManagerActor()
 	// character movement, so the listener position is always current.
 	PrimaryActorTick.TickGroup = TG_PostPhysics;
 
-	ServerComponent    = CreateDefaultSubobject<USpatialOSCServerComponent>(TEXT("ServerComponent"));
-	ClientComponent    = CreateDefaultSubobject<USpatialOSCClientComponent>(TEXT("ClientComponent"));
-	RegistryComponent  = CreateDefaultSubobject<USpatialObjectRegistry>(TEXT("RegistryComponent"));
+	ServerComponent   = CreateDefaultSubobject<USpatialOSCServerComponent>(TEXT("ServerComponent"));
+	ClientComponent   = CreateDefaultSubobject<USpatialOSCClientComponent>(TEXT("ClientComponent"));
+	RegistryComponent = CreateDefaultSubobject<USpatialObjectRegistry>(TEXT("RegistryComponent"));
+	// Router is created in BeginPlay (needs valid world / settings path for packaged checks)
 
 	PopulateDefaultAdapterConfigs();
 }
@@ -46,6 +53,7 @@ void ASpatialFabricManagerActor::BeginPlay()
 	const bool bIsPackaged = !GIsEditor;
 	if (bIsPackaged && !Settings->bEnableInPackagedBuilds)
 	{
+		// Skip OSC entirely in shipping unless explicitly opted in (avoids surprise UDP)
 		UE_LOG(LogTemp, Warning,
 			TEXT("SpatialFabric: Networking disabled in packaged build. Enable in Project Settings > Spatial Fabric > Enable In Packaged Builds, or set bEnableInPackagedBuilds=true in DefaultEngine.ini."));
 		return;
@@ -98,6 +106,7 @@ void ASpatialFabricManagerActor::ProcessFrame(float DeltaTime)
 {
 	if (!Router) { return; }
 
+	// Single pipeline step: registry produces geometry; router + adapters produce OSC
 	LastSnapshot =
 		RegistryComponent->BuildSnapshot(ObjectBindings, ResolvedStageVolume);
 
@@ -124,7 +133,7 @@ void ASpatialFabricManagerActor::ConnectClient()
 {
 	if (ClientComponent)
 	{
-		// Connect to the first enabled OSC adapter's endpoint
+		// Default outbound target: ADM-OSC config (other adapters reconnect in ProcessFrame)
 		const uint8 ADMKey = (uint8)ESpatialAdapterType::ADMOSC;
 		if (const FSpatialAdapterConfig* Config = AdapterConfigs.Find(ADMKey))
 		{
@@ -173,7 +182,7 @@ ASpatialFabricManagerActor* ASpatialFabricManagerActor::GetOrSpawnManager(
 
 	for (TActorIterator<ASpatialFabricManagerActor> It(World); It; ++It)
 	{
-		return *It;
+		return *It; // reuse existing manager
 	}
 
 	return World->SpawnActor<ASpatialFabricManagerActor>();
@@ -195,7 +204,7 @@ void ASpatialFabricManagerActor::InitializeAdapters()
 			Adapter->Configure(*Config);
 			Adapter->SetClientComponent(ClientComponent);
 		}
-		// Wire log callback
+		// Each adapter pushes FSpatialFabricLogEntry; manager owns the ring buffer
 		Adapter->OnLog = [this](const FSpatialFabricLogEntry& Entry)
 		{
 			AppendLog(Entry);
@@ -219,11 +228,12 @@ void ASpatialFabricManagerActor::PopulateDefaultAdapterConfigs()
 		FSpatialAdapterConfig C;
 		C.TargetIP   = IP;
 		C.TargetPort = Port;
-		C.SendRateHz = S->DefaultSendRateHz;
+		C.SendRateHz = S->DefaultSendRateHz; // project default; user can override on the actor
 		C.bEnabled   = bEnabled;
 		return C;
 	};
 
+	// uint8 key = enum value so TMap serializes cleanly on the manager actor
 	AdapterConfigs.Add((uint8)ESpatialAdapterType::ADMOSC,
 		MakeConfig(S->DefaultADMOSTargetIP.IsEmpty() ? TEXT("127.0.0.1") : S->DefaultADMOSTargetIP,
 		          S->DefaultADMOSCPort, /*bEnabled=*/true));
@@ -246,6 +256,7 @@ void ASpatialFabricManagerActor::SendCustomOSC(const FString& Address,
 {
 	if (!ClientComponent) { return; }
 
+	// One UDP client is shared: temporarily point it at CustomTarget*, send, then restore
 	FString PrevIP = ClientComponent->GetTargetIP();
 	int32 PrevPort = ClientComponent->GetTargetPort();
 

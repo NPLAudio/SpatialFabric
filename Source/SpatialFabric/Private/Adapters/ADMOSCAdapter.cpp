@@ -1,5 +1,10 @@
 // Copyright (c) 2026 SpatialFabric Contributors. Licensed under the MIT License.
 
+/**
+ * ADM-OSC adapter: maps our StageNormalized (+X front, +Y right, +Z up) to spec
+ * Cartesian (ADM X=right, Y=front, Z=up) in SendCartesian/SendListener.
+ */
+
 #include "Adapters/ADMOSCAdapter.h"
 #include "SpatialOSCClientComponent.h"
 #include "SpatialMath.h"
@@ -40,6 +45,7 @@ void FADMOSCAdapter::ProcessFrame(const FSpatialFrameSnapshot& Snapshot, float D
 
 	if (!ShouldSendThisFrame(DeltaTime)) { return; }
 
+	// Retarget shared client to this adapter's IP:port (see SpatialOSCClientComponent)
 	Client->Connect(Config.TargetIP, Config.TargetPort);
 
 	for (const FSpatialNormalizedState& State : Snapshot.Objects)
@@ -52,6 +58,7 @@ void FADMOSCAdapter::ProcessFrame(const FSpatialFrameSnapshot& Snapshot, float D
 			const bool bWidthChanged = FMath::Abs(State.Width01 - Cache.Width01) > UE_KINDA_SMALL_NUMBER;
 			const bool bMuteChanged = (State.bMuted != Cache.bMuted);
 			const bool bLabelChanged = (State.bADMSendName && State.Label != Cache.Label);
+			// Skip duplicate packets when nothing relevant changed (saves UDP bandwidth)
 			if (!bPosChanged && !bGainChanged && !bWidthChanged && !bMuteChanged && !bLabelChanged && Cache.bEverSent)
 			{
 				continue;

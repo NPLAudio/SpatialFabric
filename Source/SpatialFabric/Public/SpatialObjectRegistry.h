@@ -12,6 +12,9 @@ class ASpatialStageVolume;
 /**
  * USpatialObjectRegistry
  *
+ * A *component* attaches to an actor (here, the manager). This component does not
+ * Tick — the manager calls BuildSnapshot() once per frame from Tick.
+ *
  * Actor component owned by ASpatialFabricManagerActor.
  * Each tick it iterates the manager's FSpatialObjectBinding array, resolves
  * each TargetActor soft pointer, reads its world transform, and packs the

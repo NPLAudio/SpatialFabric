@@ -12,6 +12,10 @@ struct FOSCBundle;
 /**
  * USpatialOSCClientComponent
  *
+ * OSC over UDP is connectionless — "Connect" here means "create a socket aimed at
+ * IP:port". Adapters call Connect before each burst so different adapters can target
+ * different hosts with one component.
+ *
  * Wraps the Unreal Engine OSC plugin's UOSCClient to send outgoing UDP
  * packets.  Provides typed helpers for the message formats used by
  * SpatialFabric adapters (single float, int, string, color, bundle,

@@ -4,6 +4,10 @@
 
 #include "Modules/ModuleManager.h"
 
+/**
+ * Runtime module entry point. IMPLEMENT_MODULE in the .cpp registers this DLL with
+ * the engine; StartupModule/ShutdownModule run when the plugin loads/unloads.
+ */
 class FSpatialFabricModule : public IModuleInterface
 {
 public:

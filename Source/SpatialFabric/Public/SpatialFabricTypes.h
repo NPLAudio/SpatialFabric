@@ -2,6 +2,30 @@
 
 #pragma once
 
+/**
+ * ============================================================================
+ * SpatialFabricTypes — central type definitions for the plugin
+ * ============================================================================
+ *
+ * This header defines the *plain data* (structs/enums) that flow through the
+ * plugin each frame. No game logic lives here — only types the Editor and
+ * Blueprints can see (USTRUCT/UPROPERTY).
+ *
+ * End-to-end flow (one frame):
+ *   1. FSpatialObjectBinding  — "which UE actor is object ID 5, gain, mute, …"
+ *   2. USpatialObjectRegistry — reads actors → FSpatialNormalizedState per binding
+ *   3. FSpatialFrameSnapshot  — all objects + listener + time in one struct
+ *   4. FProtocolRouter        — copies only relevant objects per adapter type
+ *   5. ISpatialProtocolAdapter — ADM-OSC / Custom turns numbers into OSC packets
+ *
+ * Unreal basics:
+ *   UENUM / USTRUCT / UPROPERTY — reflection for Editor & Blueprints.
+ *   GENERATED_BODY()            — required; Unreal Header Tool emits glue code.
+ *
+ * Longer narrative: see Docs/CODEBASE_GUIDE.md in the plugin root.
+ * ============================================================================
+ */
+
 #include "CoreMinimal.h"
 #include "SpatialFabricTypes.generated.h"
 
@@ -22,6 +46,8 @@ enum class ESpatialAdapterType : uint8
 // ─────────────────────────────────────────────────────────────────────────────
 //  Struct: per-frame raw state for one tracked object (pre-normalization)
 // ─────────────────────────────────────────────────────────────────────────────
+// Note: The live pipeline builds FSpatialNormalizedState instead; this struct
+// remains for Blueprint/API symmetry if you add a "raw capture" path later.
 
 USTRUCT(BlueprintType)
 struct SPATIALFABRIC_API FSpatialObjectState

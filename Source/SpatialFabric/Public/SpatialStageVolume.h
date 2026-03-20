@@ -28,6 +28,11 @@ enum class EListenerMode : uint8
 /**
  * ASpatialStageVolume
  *
+ * The box's *half-extent* (UBoxComponent) in Unreal units (cm) defines how far from
+ * center you reach ±1 normalized coordinates. WorldToNormalized divides local offset
+ * by half-extent per axis, then clamps. Listener modes move the actor so "center"
+ * follows the player when configured.
+ *
  * A box-shaped level actor that defines the physical audio coordinate space.
  * All SpatialFabric object positions are normalized relative to this volume:
  * an object at the volume center maps to (0,0,0); an object at the +X face

@@ -1,5 +1,7 @@
 // Copyright (c) 2026 SpatialFabric Contributors. Licensed under the MIT License.
 
+// Registers Window → Spatial Fabric tab; FSpatialFabricEditorTickable drives ProcessFrame in editor.
+
 #include "SpatialFabricEditorModule.h"
 #include "UI/SSpatialFabricPanel.h"
 #include "SpatialFabricManagerActor.h"

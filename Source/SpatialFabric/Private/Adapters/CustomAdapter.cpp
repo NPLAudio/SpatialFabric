@@ -1,5 +1,7 @@
 // Copyright (c) 2026 SpatialFabric Contributors. Licensed under the MIT License.
 
+// Custom OSC: ResolveAddress substitutes placeholders; BuildArgs fills float list.
+
 #include "Adapters/CustomAdapter.h"
 #include "SpatialMath.h"
 #include "SpatialOSCClientComponent.h"
@@ -24,7 +26,7 @@ void FCustomAdapter::ParseArgTemplate()
 	if (Template.IsEmpty()) { return; }
 
 	TArray<FString> Parts;
-	Template.ParseIntoArray(Parts, TEXT(" "));
+	Template.ParseIntoArray(Parts, TEXT(" ")); // "x y z" → three tokens
 	for (const FString& P : Parts)
 	{
 		FString Trimmed = P.TrimStartAndEnd();
@@ -49,6 +51,7 @@ static FString GetAxisNameForAddress(const FString& ArgName)
 /** Map value from input range to output range. */
 static float MapRange(float Value, float InMin, float InMax, float OutMin, float OutMax)
 {
+	// Linear remap: Value at InMin→OutMin, InMax→OutMax, clamped to [OutMin,OutMax] via t∈[0,1]
 	const float t = (InMax > InMin) ? FMath::Clamp((Value - InMin) / (InMax - InMin), 0.f, 1.f) : 0.f;
 	return OutMin + t * (OutMax - OutMin);
 }
@@ -180,7 +183,7 @@ void FCustomAdapter::ProcessFrame(const FSpatialFrameSnapshot& Snapshot, float D
 	if (!Config.bEnabled || !Client) { return; }
 	if (!ShouldSendThisFrame(DeltaTime)) { return; }
 
-	Client->Connect(Config.TargetIP, Config.TargetPort);
+	Client->Connect(Config.TargetIP, Config.TargetPort); // same shared client as ADM, new destination
 
 	for (const FSpatialNormalizedState& State : Snapshot.Objects)
 	{

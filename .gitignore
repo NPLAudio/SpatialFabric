@@ -28,5 +28,6 @@ Saved/
 .DS_Store
 Thumbs.db
 
-# Docs folder (reference material, not source)
-docs/
+# Docs/ — ignore contents except guide (git needs Docs/* not Docs/ for ! exception)
+Docs/*
+!Docs/CODEBASE_GUIDE.md

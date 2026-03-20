@@ -9,6 +9,10 @@
 /**
  * USpatialFabricSettings
  *
+ * UDeveloperSettings adds a Project Settings panel entry. config = SpatialFabric
+ * saves to DefaultSpatialFabric.ini. GetDefault<USpatialFabricSettings>() reads the
+ * singleton defaults from anywhere in code.
+ *
  * Project-wide defaults for SpatialFabric.  Accessible via
  * Project Settings → Plugins → Spatial Fabric.
  *
