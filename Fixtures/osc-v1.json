@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "valid": [
+    {
+      "name": "address_only_stop",
+      "address": "/demo/playback/mono/stop",
+      "tags": ",",
+      "hex": "2f64656d6f2f706c61796261636b2f6d6f6e6f2f73746f70000000002c000000"
+    },
+    {
+      "name": "numeric_play",
+      "address": "/demo/playback/mono/play",
+      "tags": ",f",
+      "hex": "2f64656d6f2f706c61796261636b2f6d6f6e6f2f706c6179000000002c6600003f800000"
+    },
+    {
+      "name": "scene_query",
+      "address": "/spatialfabric/scene/query",
+      "tags": ",siii",
+      "hex": "2f7370617469616c6661627269632f7363656e652f717565727900002c73696969000000666978747572655f30303100000023330000000000000010"
+    },
+    {
+      "name": "adm_front",
+      "address": "/adm/obj/1/xyz",
+      "tags": ",fff",
+      "hex": "2f61646d2f6f626a2f312f78797a00002c66666600000000000000003f80000000000000"
+    },
+    {
+      "name": "unicode_name",
+      "address": "/adm/obj/1/name",
+      "tags": ",s",
+      "hex": "2f61646d2f6f626a2f312f6e616d65002c730000e697a5e69cace8aa9e20f09f8ea70000"
+    }
+  ],
+  "invalid": [
+    {
+      "name": "bad_padding",
+      "hex": "2f7366002c6600013f800000"
+    },
+    {
+      "name": "nan_float",
+      "hex": "2f7366002c6600007fc00000"
+    },
+    {
+      "name": "unknown_tag",
+      "hex": "2f7366002c710000"
+    }
+  ]
+}

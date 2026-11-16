@@ -1,0 +1,90 @@
+{
+  "schema_version": 1,
+  "unit_stage_half_extent_m": 1,
+  "vectors": [
+    {
+      "name": "front",
+      "canonical": [
+        1,
+        0,
+        0
+      ],
+      "unity_m": [
+        0,
+        0,
+        1
+      ],
+      "unreal_cm": [
+        100,
+        0,
+        0
+      ],
+      "adm_xyz": [
+        0,
+        1,
+        0
+      ],
+      "adm_aed": [
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "name": "right",
+      "canonical": [
+        0,
+        1,
+        0
+      ],
+      "unity_m": [
+        1,
+        0,
+        0
+      ],
+      "unreal_cm": [
+        0,
+        100,
+        0
+      ],
+      "adm_xyz": [
+        1,
+        0,
+        0
+      ],
+      "adm_aed": [
+        -90,
+        0,
+        1
+      ]
+    },
+    {
+      "name": "up",
+      "canonical": [
+        0,
+        0,
+        1
+      ],
+      "unity_m": [
+        0,
+        1,
+        0
+      ],
+      "unreal_cm": [
+        0,
+        0,
+        100
+      ],
+      "adm_xyz": [
+        0,
+        0,
+        1
+      ],
+      "adm_aed": [
+        0,
+        90,
+        1
+      ]
+    }
+  ]
+}

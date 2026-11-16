@@ -1,0 +1,168 @@
+{
+  "schema_version": 1,
+  "vectors": [
+    {
+      "name": "packed_xyz",
+      "config": {},
+      "address": "/custom/{id}/xyz",
+      "state": {
+        "id": 7,
+        "front": 0.5,
+        "right": -0.5,
+        "up": 1
+      },
+      "expected": [
+        {
+          "address": "/custom/7/xyz",
+          "args": [
+            0.5,
+            -0.5,
+            1
+          ],
+          "hex": "2f637573746f6d2f372f78797a0000002c666666000000003f000000bf0000003f800000"
+        }
+      ]
+    },
+    {
+      "name": "aed_clamped_ranges",
+      "config": {
+        "coordinates": 1,
+        "positionMin": 0,
+        "positionMax": 1,
+        "argumentTemplate": "a e d gain width id"
+      },
+      "address": "/custom/{id}/aed",
+      "state": {
+        "id": 9,
+        "front": 0,
+        "right": 1,
+        "up": 0,
+        "gain": 1.5,
+        "width": -0.1
+      },
+      "expected": [
+        {
+          "address": "/custom/9/aed",
+          "args": [
+            0.25,
+            0.5,
+            1,
+            1,
+            0,
+            9
+          ],
+          "hex": "2f637573746f6d2f392f6165640000002c666666666666003e8000003f0000003f8000003f8000000000000041100000"
+        }
+      ]
+    },
+    {
+      "name": "discrete_aed_aliases",
+      "config": {
+        "coordinates": 1,
+        "sendMode": 1,
+        "argumentTemplate": "a e d"
+      },
+      "address": "/object/{id}/{axis}",
+      "state": {
+        "id": 2,
+        "front": 1,
+        "right": 0,
+        "up": 0
+      },
+      "expected": [
+        {
+          "address": "/object/2/azimuth",
+          "args": [
+            0
+          ],
+          "hex": "2f6f626a6563742f322f617a696d7574680000002c66000000000000"
+        },
+        {
+          "address": "/object/2/elevation",
+          "args": [
+            0
+          ],
+          "hex": "2f6f626a6563742f322f656c65766174696f6e002c66000000000000"
+        },
+        {
+          "address": "/object/2/distance",
+          "args": [
+            1
+          ],
+          "hex": "2f6f626a6563742f322f64697374616e636500002c6600003f800000"
+        }
+      ]
+    },
+    {
+      "name": "address_fields_and_numeric_format",
+      "config": {
+        "positionMin": 0,
+        "positionMax": 100,
+        "gainMin": 0,
+        "gainMax": 10,
+        "widthMin": 0,
+        "widthMax": 100,
+        "argumentTemplate": "id"
+      },
+      "address": "/{room}/{label}/{id}/{x}/{gain}/{width}",
+      "state": {
+        "id": 11,
+        "label": "Tap",
+        "front": 1,
+        "right": 0,
+        "up": 0,
+        "gain": 0.5,
+        "width": 0,
+        "fields": [
+          {
+            "key": "room",
+            "value": "Hall_A"
+          }
+        ]
+      },
+      "expected": [
+        {
+          "address": "/Hall_A/Tap/11/100.0/5.0/0.0",
+          "args": [
+            11
+          ],
+          "hex": "2f48616c6c5f412f5461702f31312f3130302e302f352e302f302e30000000002c66000041300000"
+        }
+      ]
+    },
+    {
+      "name": "reverse_ranges_case_insensitive_args",
+      "config": {
+        "positionMin": 1,
+        "positionMax": -1,
+        "gainMin": 10,
+        "gainMax": 0,
+        "widthMin": 2,
+        "widthMax": 4,
+        "argumentTemplate": "X y Z gain WIDTH"
+      },
+      "address": "/reverse/{id}",
+      "state": {
+        "id": 3,
+        "front": -1,
+        "right": 1,
+        "up": 0,
+        "gain": 0.25,
+        "width": 0.5
+      },
+      "expected": [
+        {
+          "address": "/reverse/3",
+          "args": [
+            1,
+            -1,
+            0,
+            7.5,
+            3
+          ],
+          "hex": "2f726576657273652f3300002c666666666600003f800000bf8000000000000040f0000040400000"
+        }
+      ]
+    }
+  ]
+}
