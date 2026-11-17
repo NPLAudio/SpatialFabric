@@ -18,6 +18,7 @@ from . import __version__, discovery, edit, model, shapes, store
 from .history import History
 from .plan import PlanView
 from .timeline import TimelineView
+from .viewport3d import PRESETS, Viewport3D
 
 SLIDER_STEPS = 1000
 FILTER = 'SpatialFabric paths (*.sfpath.json *.json)'
@@ -72,6 +73,10 @@ class MainWindow(QMainWindow):
         self.plan.keyframeMoved.connect(self.move_keyframe)
         self.plan.dragBegan.connect(self._plan_pressed)
         self.plan.dragEnded.connect(self._end_drag)
+        self.view3d = Viewport3D()
+        self.view3d.dragBegan.connect(self._plan_pressed)
+        self.view3d.keyframeMoved3.connect(self.move_keyframe3)
+        self.view3d.dragEnded.connect(self._end_drag)
         self.timeline = TimelineView()
         self.timeline.keySelected.connect(self._timeline_selected)
         self.timeline.dragBegan.connect(self._begin_drag)
@@ -90,7 +95,21 @@ class MainWindow(QMainWindow):
         scrub.addWidget(self.time_label)
         center = QWidget()
         column = QVBoxLayout(center)
-        column.addWidget(self.plan, 1)
+        views = QHBoxLayout()
+        views.addWidget(QLabel('3D view'))
+        for name, (yaw, pitch) in PRESETS.items():
+            button = QPushButton(name)
+            button.clicked.connect(lambda _checked=False, y=yaw, pt=pitch: self.view3d.set_view(y, pt))
+            views.addWidget(button)
+        views.addStretch(1)
+        views.addWidget(QLabel('Drag keys; Shift = up/down; right-drag orbit, wheel zoom, middle pan'))
+        column.addLayout(views)
+        spatial = QSplitter()
+        spatial.addWidget(self.view3d)
+        spatial.addWidget(self.plan)
+        spatial.setStretchFactor(0, 3)
+        spatial.setStretchFactor(1, 2)
+        column.addWidget(spatial, 1)
         column.addWidget(self.timeline)
         column.addLayout(scrub)
         column.addWidget(QLabel('Validation'))
@@ -319,6 +338,7 @@ class MainWindow(QMainWindow):
         time = self.current_time()
         self.time_label.setText(f't = {time:.2f} s')
         self.plan.set_document(self.document, not self.issues, self.selected_row(), time, self.selected_key)
+        self.view3d.set_document(self.document, not self.issues, self.selected_row(), time, self.selected_key)
         self.timeline.set_document(self.document, self.duration(), time, self.selected_row(), self.selected_key)
         self._sync_inspector()
         self.undo_action.setEnabled(self.history.can_undo())
@@ -413,6 +433,10 @@ class MainWindow(QMainWindow):
             edit.set_position(document, track_index, key_index, [round(front, 4), round(right, 4), up])
 
         self._drag_edit(move)
+
+    def move_keyframe3(self, track_index, key_index, front, right, up):
+        self._drag_edit(lambda document: edit.set_position(
+            document, track_index, key_index, [round(front, 4), round(right, 4), round(up, 4)]))
 
     def retime_keyframe(self, track_index, key_index, time):
         self._drag_edit(lambda document: edit.set_time(document, track_index, key_index, time))

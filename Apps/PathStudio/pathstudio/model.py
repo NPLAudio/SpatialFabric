@@ -240,6 +240,22 @@ def sample(document, track_id, time):
     return result
 
 
+def curve_points(document, track_id, steps=240):
+    """Sample one pass of a validated track across its keyframe span (for drawing), in canonical f/r/u.
+
+    Loop modes draw a single pass: the final sample stops just before the wrap to the first key."""
+    track = next(t for t in document['tracks'] if t['id'] == track_id)
+    keys = track['keyframes']
+    first, last, speed = float(keys[0]['t']), float(keys[-1]['t']), float(track.get('speed', 1))
+    if last <= first:
+        return [sample(document, track_id, first / speed)['position']]
+    points = []
+    for step in range(steps + 1):
+        tau = min(first + (last - first) * step / steps, last - 1e-9)
+        points.append(sample(document, track_id, tau / speed)['position'])
+    return points
+
+
 def to_engine(position, engine):
     """Convert canonical [front, right, up] to an engine-specific list at the edge."""
     f, r, u = position

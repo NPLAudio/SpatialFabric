@@ -3,9 +3,13 @@
 Desktop editor for authoring object, listener and camera paths for Unreal, Unity and Godot.
 Design: [ADR 0001](../../Docs/PathStudio-ADR-0001.md). Contract: [Path v1](../../Specs/Path-v1.md).
 
-## Status: Phase 3 (keyframe editing, timeline, shapes, undo/redo)
+## Status: Phase 3 (3D editing, timeline, shapes, undo/redo)
 
 - Open, save (atomic, UTF-8, LF), new documents; 16 MiB size cap.
+- **3D viewport** (software perspective, no GPU/OpenGL needed): orbit with right-drag or by dragging
+  empty space, wheel to zoom, middle-drag to pan; presets Perspective/Top/Behind/Side. Drag a keyframe
+  on the horizontal plane at its height, **Shift-drag** to move it up/down. The stage cube, floor grid,
+  drop lines to the floor, waypoints and the playhead are drawn. The 2D plan view stays as a top-down map.
 - Track list, live **validation panel** (exact codes and JSON paths) and a **2D plan view**
   (horizontal = right, vertical = front, stage = blue square) with the sampled curve, waypoints
   and a time scrubber that uses the reference sampler.

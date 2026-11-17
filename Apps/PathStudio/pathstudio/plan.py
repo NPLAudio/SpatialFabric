@@ -131,18 +131,7 @@ class PlanView(QWidget):
         painter.setBrush(Qt.NoBrush)
 
     def _curve(self, track):
-        keys = track['keyframes']
-        first, last, speed = float(keys[0]['t']), float(keys[-1]['t']), float(track.get('speed', 1))
-        if last <= first:
-            position = model.sample(self.document, track['id'], first / speed)['position']
-            return [self.to_screen(position[0], position[1])]
-        points = []
-        for step in range(CURVE_STEPS + 1):
-            tau = first + (last - first) * step / CURVE_STEPS
-            tau = min(tau, last - 1e-9)  # never wrap to the first key at the final sample
-            position = model.sample(self.document, track['id'], tau / speed)['position']
-            points.append(self.to_screen(position[0], position[1]))
-        return points
+        return [self.to_screen(p[0], p[1]) for p in model.curve_points(self.document, track['id'], CURVE_STEPS)]
 
     # --- interaction ---------------------------------------------------------------
     def mousePressEvent(self, event):
