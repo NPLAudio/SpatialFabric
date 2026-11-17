@@ -34,7 +34,9 @@ Design: [ADR 0001](../../Docs/PathStudio-ADR-0001.md). Contract: [Path v1](../..
   new tracks start at the object's reported position. Remove track is also available.
 - No playback commands, no audio, no device access. Without a query the editor opens no sockets.
 
-Not yet: engine-side exporters for context (Unity/Godot/Unreal editor tools), waypoint editing, bezier tangent handles, exporters, live driving. Engines currently have no inbound
+Context exporters: Unity has one (`Tools > SpatialFabric > Export Path Studio Context...`, on Unity main, unreleased); Godot and Unreal do not yet.
+
+Not yet: waypoint editing, bezier tangent handles, exporters, live driving. Engines currently have no inbound
 verb that moves an object, so live driving needs a new contract version (see the ADR).
 
 ## Run

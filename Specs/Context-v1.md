@@ -47,6 +47,7 @@ Unknown fields are ignored. Files are limited to 8 MiB. Validation codes: `bad_s
 
 ## Planned producers
 
-Per-engine editor exporters (Unity editor menu, Godot tool script, Unreal editor utility) that convert selected
-actors/colliders to this format, applying that engine's stage transform. These are not part of version 1 of
-the tooling and need per-engine validation against shared fixtures.
+Per-engine editor exporters convert selected actors/colliders to this format, applying that engine's stage
+transform. **Unity:** `Tools > SpatialFabric > Export Path Studio Context...` ([SpatialFabric-Unity](https://github.com/NPLAudio/SpatialFabric-Unity), on main, not yet in a release): boxes from enabled renderers/colliders as
+a conservative stage-space AABB, the stage listener (with yaw) and spatial objects as points; it uses the authored
+stage frame and ignores virtual-listener follow. **Godot and Unreal:** not yet implemented.
