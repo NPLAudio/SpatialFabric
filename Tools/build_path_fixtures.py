@@ -57,6 +57,9 @@ cases = [
 ]
 waypoint_doc = document([key(0, [0, 0, 0]), {'t': 2, 'waypoint': 'door'}])
 waypoint_doc['waypoints'] = [{'id': 'door', 'name': 'Door', 'position': [0, 2, 0]}]
+labelled = document([key(0, [0, 0, 0]), key(1, [1, 0, 0])])
+labelled['tracks'][0]['target'].update(label='Moving object', object_id=3)
+cases.append(case('target_label_and_object_id_are_informational', labelled, [(0.5, [0.5, 0, 0], None)], 'Optional label/object_id do not affect sampling.'))
 cases.append(case('waypoint_reference_resolves', waypoint_doc, [(1, [0, 1, 0], None), (2, [0, 2, 0], None)], 'Waypoint ids resolve at sampling time.'))
 
 base = document([key(0, [0, 0, 0]), key(1, [1, 0, 0])])
@@ -76,6 +79,9 @@ bad('no_tracks', lambda d: d.update(tracks=[]), ['no_tracks'])
 bad('bad_track_id', lambda d: d['tracks'][0].update(id='bad id'), ['bad_id'])
 bad('duplicate_track_id', lambda d: d['tracks'].append(copy.deepcopy(d['tracks'][0])), ['duplicate_id'])
 bad('bad_target_kind', lambda d: d['tracks'][0]['target'].update(kind='mixer'), ['bad_target'])
+bad('bad_target_label', lambda d: d['tracks'][0]['target'].update(label=5), ['bad_target'])
+bad('zero_object_id', lambda d: d['tracks'][0]['target'].update(object_id=0), ['bad_target'])
+bad('float_object_id', lambda d: d['tracks'][0]['target'].update(object_id=1.5), ['bad_target'])
 bad('empty_target_key', lambda d: d['tracks'][0]['target'].update(key=''), ['bad_target'])
 bad('bad_loop', lambda d: d['tracks'][0].update(loop='forever'), ['bad_loop'])
 bad('zero_speed', lambda d: d['tracks'][0].update(speed=0), ['bad_speed'])

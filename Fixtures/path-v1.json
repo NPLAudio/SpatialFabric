@@ -847,6 +847,55 @@
       ]
     },
     {
+      "name": "target_label_and_object_id_are_informational",
+      "note": "Optional label/object_id do not affect sampling.",
+      "document": {
+        "schema": "org.nplaudio.spatialfabric.path",
+        "schema_version": 1,
+        "space": "canonical",
+        "tracks": [
+          {
+            "id": "t",
+            "target": {
+              "kind": "object",
+              "key": "fixture/object",
+              "label": "Moving object",
+              "object_id": 3
+            },
+            "keyframes": [
+              {
+                "t": 0,
+                "position": [
+                  0,
+                  0,
+                  0
+                ]
+              },
+              {
+                "t": 1,
+                "position": [
+                  1,
+                  0,
+                  0
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "samples": [
+        {
+          "track": "t",
+          "time": 0.5,
+          "position": [
+            0.5,
+            0,
+            0
+          ]
+        }
+      ]
+    },
+    {
       "name": "waypoint_reference_resolves",
       "note": "Waypoint ids resolve at sampling time.",
       "document": {
@@ -1150,6 +1199,123 @@
             "target": {
               "kind": "mixer",
               "key": "fixture/object"
+            },
+            "keyframes": [
+              {
+                "t": 0,
+                "position": [
+                  0,
+                  0,
+                  0
+                ]
+              },
+              {
+                "t": 1,
+                "position": [
+                  1,
+                  0,
+                  0
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "codes": [
+        "bad_target"
+      ]
+    },
+    {
+      "name": "bad_target_label",
+      "document": {
+        "schema": "org.nplaudio.spatialfabric.path",
+        "schema_version": 1,
+        "space": "canonical",
+        "tracks": [
+          {
+            "id": "t",
+            "target": {
+              "kind": "object",
+              "key": "fixture/object",
+              "label": 5
+            },
+            "keyframes": [
+              {
+                "t": 0,
+                "position": [
+                  0,
+                  0,
+                  0
+                ]
+              },
+              {
+                "t": 1,
+                "position": [
+                  1,
+                  0,
+                  0
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "codes": [
+        "bad_target"
+      ]
+    },
+    {
+      "name": "zero_object_id",
+      "document": {
+        "schema": "org.nplaudio.spatialfabric.path",
+        "schema_version": 1,
+        "space": "canonical",
+        "tracks": [
+          {
+            "id": "t",
+            "target": {
+              "kind": "object",
+              "key": "fixture/object",
+              "object_id": 0
+            },
+            "keyframes": [
+              {
+                "t": 0,
+                "position": [
+                  0,
+                  0,
+                  0
+                ]
+              },
+              {
+                "t": 1,
+                "position": [
+                  1,
+                  0,
+                  0
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "codes": [
+        "bad_target"
+      ]
+    },
+    {
+      "name": "float_object_id",
+      "document": {
+        "schema": "org.nplaudio.spatialfabric.path",
+        "schema_version": 1,
+        "space": "canonical",
+        "tracks": [
+          {
+            "id": "t",
+            "target": {
+              "kind": "object",
+              "key": "fixture/object",
+              "object_id": 1.5
             },
             "keyframes": [
               {

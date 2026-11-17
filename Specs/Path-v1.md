@@ -46,7 +46,9 @@ centimeters, ADM `[right, front, up]`. Never store engine units in a path docume
 | `waypoints[]` | optional named positions; `id` is 1–64 `[A-Za-z0-9_-]`, unique |
 | `tracks[]` | 1–256; `id` unique, same charset |
 | `target.kind` | `object` (audio source/binding), `listener`, or `camera` |
-| `target.key` | the stable key returned by scene discovery (1–256 chars); not engine-resolved here |
+| `target.key` | the key returned by scene discovery (1–256 chars). Keys are per-snapshot, not permanent UUIDs; see `label`/`object_id` |
+| `target.label` | optional human label (string ≤256) captured at binding time, informational |
+| `target.object_id` | optional integer ≥1: the spatial object/ADM id the binding used (`default_object_id`); exporters prefer it over `key`, which can change when scenes are edited |
 | `loop` | `none` (default), `loop`, or `ping_pong` |
 | `speed` | finite number > 0 and ≤ 64; default 1 |
 | `keyframes[]` | 1–10000; `t` finite seconds ≥ 0, **strictly increasing** |

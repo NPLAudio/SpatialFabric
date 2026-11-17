@@ -35,7 +35,9 @@
             "required": ["kind", "key"],
             "properties": {
               "kind": {"enum": ["object", "listener", "camera"]},
-              "key": {"type": "string", "minLength": 1, "maxLength": 256}
+              "key": {"type": "string", "minLength": 1, "maxLength": 256},
+              "label": {"type": "string", "maxLength": 256},
+              "object_id": {"type": "integer", "minimum": 1}
             }
           },
           "loop": {"enum": ["none", "loop", "ping_pong"], "default": "none"},

@@ -15,8 +15,12 @@ discovery. The OSC Controller proves a standalone app works alongside the engine
    The reference model and sampler stay standard-library Python with no GUI import, so
    they run headless in tests, exporters and CI. Tk is rejected for the editor: no usable
    3D or timeline widgets. The controller keeps Tk.
-3. **Live streaming first, baked export second.** Live streaming reuses the existing
-   spatial input and needs no engine changes. Exporters (Unity clip/ScriptableObject,
+3. **Live streaming and baked export.** Correction recorded after Phase 2 research: the
+   engines currently have no inbound verb that moves an object (8100 is the spatial
+   *output* receiver/discovery port; spatial messages are engine output). Live streaming
+   therefore needs a new, versioned contract verb plus engine support in all three
+   engines. **Baked export needs no contract change and is promoted ahead of live
+   streaming.** Exporters (Unity clip/ScriptableObject,
    Godot `Curve3D`/`Animation`, Unreal DataAsset/spline) follow and must reproduce the
    golden samples. Engine round-trip plugins come last.
 4. **Scope covers object, listener and camera tracks plus named waypoints.** Orientation

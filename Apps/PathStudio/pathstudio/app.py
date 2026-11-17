@@ -7,15 +7,33 @@ import sys
 from pathlib import Path
 
 from PySide6.QtGui import QAction, QKeySequence
-from PySide6.QtCore import Qt
-from PySide6.QtWidgets import (QApplication, QFileDialog, QHBoxLayout, QLabel, QListWidget, QMainWindow,
-                               QMessageBox, QSlider, QSplitter, QVBoxLayout, QWidget)
+from PySide6.QtCore import Qt, QThread, Signal
+from PySide6.QtWidgets import (QApplication, QFileDialog, QHBoxLayout, QLabel, QLineEdit, QListWidget, QMainWindow,
+                               QMessageBox, QPushButton, QSlider, QSpinBox, QSplitter, QVBoxLayout, QWidget)
 
-from . import __version__, model, store
+from . import __version__, discovery, model, store
 from .plan import PlanView
 
 SLIDER_STEPS = 1000
 FILTER = 'SpatialFabric paths (*.sfpath.json *.json)'
+
+
+class QueryWorker(QThread):
+    """One read-only scene query off the GUI thread; emits exactly one of the two outcomes."""
+    succeeded = Signal(list)
+    failed = Signal(str)
+
+    def __init__(self, host, port, parent=None):
+        super().__init__(parent)
+        self.host, self.port = host, port
+
+    def run(self):
+        try:
+            _scene, targets = discovery.fetch_targets(self.host, self.port)
+        except (ValueError, OSError, RuntimeError) as error:
+            self.failed.emit(str(error))
+        else:
+            self.succeeded.emit(targets)
 
 
 class MainWindow(QMainWindow):
@@ -52,6 +70,8 @@ class MainWindow(QMainWindow):
         splitter.addWidget(center)
         splitter.setStretchFactor(1, 1)
         self.setCentralWidget(splitter)
+        self.targets = []
+        self.worker = None
 
         file_menu = self.menuBar().addMenu('&File')
         for text, handler, shortcut in (('&New', self.new, QKeySequence.New), ('&Open...', self.open, QKeySequence.Open),
@@ -61,8 +81,97 @@ class MainWindow(QMainWindow):
             action.setShortcut(shortcut)
             action.triggered.connect(handler)
             file_menu.addAction(action)
+        self._build_scene_panel(splitter)
         self.statusBar().showMessage('Offline editor: nothing is sent and no audio is started.')
         self._reload()
+
+    # --- scene discovery and binding ------------------------------------------------
+    def _build_scene_panel(self, splitter):
+        panel = QWidget()
+        column = QVBoxLayout(panel)
+        column.addWidget(QLabel('Scene (read-only discovery)'))
+        row = QHBoxLayout()
+        self.host_edit = QLineEdit('127.0.0.1')
+        self.port_spin = QSpinBox()
+        self.port_spin.setRange(1, 65535)
+        self.port_spin.setValue(8100)
+        row.addWidget(self.host_edit, 1)
+        row.addWidget(self.port_spin)
+        column.addLayout(row)
+        self.query_button = QPushButton('Query scene')
+        self.query_button.clicked.connect(self.query_scene)
+        column.addWidget(self.query_button)
+        self.scene_status = QLabel('Not queried. Start the engine OSC input first.')
+        self.scene_status.setWordWrap(True)
+        column.addWidget(self.scene_status)
+        self.target_list = QListWidget()
+        column.addWidget(self.target_list, 1)
+        for text, handler in (('Bind to selected track', self.bind_selected), ('New track for target', self.new_track_for_target),
+                              ('Remove selected track', self.remove_track)):
+            button = QPushButton(text)
+            button.clicked.connect(handler)
+            column.addWidget(button)
+        splitter.addWidget(panel)
+
+    def query_scene(self):
+        if self.worker is not None and self.worker.isRunning():
+            return
+        self.query_button.setEnabled(False)
+        self.scene_status.setText('Querying (read-only)...')
+        self.worker = QueryWorker(self.host_edit.text().strip(), self.port_spin.value(), self)
+        self.worker.succeeded.connect(self.apply_targets)
+        self.worker.failed.connect(self._query_failed)
+        self.worker.finished.connect(lambda: self.query_button.setEnabled(True))
+        self.worker.start()
+
+    def _query_failed(self, message):
+        self.scene_status.setText('Query failed: ' + message)
+
+    def apply_targets(self, targets):
+        self.targets = list(targets)
+        self.target_list.clear()
+        for target in self.targets:
+            ident = f' #{target.object_id}' if target.object_id else ''
+            self.target_list.addItem(f'{target.kind}: {target.label}{ident}')
+        self.scene_status.setText(f'{len(self.targets)} bindable target(s). Keys are per-snapshot; the object id is kept for export.')
+
+    def _selected_target(self):
+        row = self.target_list.currentRow()
+        return self.targets[row] if 0 <= row < len(self.targets) else None
+
+    def bind_selected(self):
+        target, tracks = self._selected_target(), self.document.get('tracks')
+        if target is None or not isinstance(tracks, list) or not tracks or not isinstance(tracks[self.selected_row()], dict):
+            return False
+        tracks[self.selected_row()]['target'] = target.path_target()
+        self.dirty = True
+        self._reload()
+        return True
+
+    def new_track_for_target(self):
+        target = self._selected_target()
+        if target is None or not isinstance(self.document.get('tracks'), list):
+            return False
+        position = [round(v, 4) for v in target.position] if target.position else [0.0, 0.0, 0.0]
+        existing = {t.get('id') for t in self.document['tracks'] if isinstance(t, dict)}
+        number = 1
+        while f'track{number}' in existing:
+            number += 1
+        self.document['tracks'].append({'id': f'track{number}', 'target': target.path_target(), 'loop': 'none', 'speed': 1,
+                                        'keyframes': [{'t': 0, 'position': list(position)}, {'t': 4, 'position': list(position)}]})
+        self.dirty = True
+        self._reload()
+        self.tracks.setCurrentRow(len(self.document['tracks']) - 1)
+        return True
+
+    def remove_track(self):
+        tracks, row = self.document.get('tracks'), self.tracks.currentRow()
+        if not isinstance(tracks, list) or not 0 <= row < len(tracks):
+            return False
+        del tracks[row]
+        self.dirty = True
+        self._reload()
+        return True
 
     # --- document state ------------------------------------------------------------
     def duration(self):
@@ -177,7 +286,12 @@ class MainWindow(QMainWindow):
         return True
 
     def closeEvent(self, event):
-        event.accept() if self.confirm_discard() else event.ignore()
+        if not self.confirm_discard():
+            event.ignore()
+            return
+        if self.worker is not None:
+            self.worker.wait(8000)  # a query is bounded by its own timeouts
+        event.accept()
 
 
 def main(argv=None):

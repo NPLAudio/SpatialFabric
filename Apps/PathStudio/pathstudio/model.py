@@ -72,6 +72,13 @@ def validate(document):
     return sorted(set(errors))
 
 
+def _optional_target_fields_ok(target):
+    label, object_id = target.get('label'), target.get('object_id')
+    if 'label' in target and (not isinstance(label, str) or len(label) > 256):
+        return False
+    return 'object_id' not in target or (type(object_id) is int and object_id >= 1)
+
+
 def _validate_track(track, where, waypoints, seen, add):
     if not isinstance(track, dict):
         add('bad_target', where)
@@ -86,6 +93,8 @@ def _validate_track(track, where, waypoints, seen, add):
     target = track.get('target')
     key = target.get('key') if isinstance(target, dict) else None
     if not isinstance(target, dict) or target.get('kind') not in KINDS or not isinstance(key, str) or not 1 <= len(key) <= 256:
+        add('bad_target', where + '.target')
+    elif not _optional_target_fields_ok(target):
         add('bad_target', where + '.target')
     if track.get('loop', 'none') not in LOOPS:
         add('bad_loop', where + '.loop')
