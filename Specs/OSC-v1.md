@@ -52,6 +52,6 @@ Read-only means no starting audio/receivers, loading assets, changing routes or
 synthesizing persistent identities. Bound/requested settings and last observed state
 must remain distinct. World scope is the queried listener's loaded scene/world.
 
-Default Unreal inputs 8100/9000; Unity may use different configured ports to run side
+Default inputs for EVERY engine (Unreal, Unity, Godot) are 8100/9000, with state out 9001, ADM out 50018 and Custom example out 9002; ports are configurable to run two engines side
 by side. Addresses, types, units and response schema remain the same. OSC is not
 an authenticated or Internet-safe service.
