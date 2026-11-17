@@ -1,0 +1,99 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SpatialFabric path document, version 1",
+  "type": "object",
+  "required": ["schema", "schema_version", "space", "tracks"],
+  "properties": {
+    "schema": {"const": "org.nplaudio.spatialfabric.path"},
+    "schema_version": {"const": 1},
+    "name": {"type": "string", "maxLength": 256},
+    "space": {"const": "canonical"},
+    "waypoints": {
+      "type": "array",
+      "maxItems": 4096,
+      "items": {
+        "type": "object",
+        "required": ["id", "position"],
+        "properties": {
+          "id": {"$ref": "#/$defs/id"},
+          "name": {"type": "string", "maxLength": 256},
+          "position": {"$ref": "#/$defs/vector"}
+        }
+      }
+    },
+    "tracks": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 256,
+      "items": {
+        "type": "object",
+        "required": ["id", "target", "keyframes"],
+        "properties": {
+          "id": {"$ref": "#/$defs/id"},
+          "target": {
+            "type": "object",
+            "required": ["kind", "key"],
+            "properties": {
+              "kind": {"enum": ["object", "listener", "camera"]},
+              "key": {"type": "string", "minLength": 1, "maxLength": 256}
+            }
+          },
+          "loop": {"enum": ["none", "loop", "ping_pong"], "default": "none"},
+          "speed": {"type": "number", "exclusiveMinimum": 0, "maximum": 64, "default": 1},
+          "keyframes": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 10000,
+            "items": {
+              "type": "object",
+              "required": ["t"],
+              "properties": {
+                "t": {"type": "number", "minimum": 0},
+                "position": {"$ref": "#/$defs/vector"},
+                "waypoint": {"$ref": "#/$defs/id"},
+                "interp": {"enum": ["linear", "hold", "catmull_rom", "bezier"], "default": "linear"},
+                "ease": {"enum": ["linear", "in", "out", "in_out"], "default": "linear"},
+                "tangent_in": {"$ref": "#/$defs/tangent"},
+                "tangent_out": {"$ref": "#/$defs/tangent"}
+              },
+              "oneOf": [{"required": ["position"]}, {"required": ["waypoint"]}]
+            }
+          },
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "gain": {"$ref": "#/$defs/curve"},
+              "spread": {"$ref": "#/$defs/curve"}
+            }
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "id": {"type": "string", "pattern": "^[A-Za-z0-9_-]{1,64}$"},
+    "vector": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "items": {"type": "number", "minimum": -16, "maximum": 16}
+    },
+    "tangent": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "items": {"type": "number", "minimum": -32, "maximum": 32}
+    },
+    "curve": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 10000,
+      "items": {
+        "type": "object",
+        "required": ["t", "value"],
+        "properties": {"t": {"type": "number", "minimum": 0}, "value": {"type": "number"}}
+      }
+    }
+  },
+  "x-sampling": "Specs/Path-v1.md defines interpolation, loop modes and tolerance; strict keyframe ordering and parameter ranges are enforced by validators."
+}

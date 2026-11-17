@@ -1,0 +1,1815 @@
+{
+  "schema_version": 1,
+  "tolerance": 1e-09,
+  "spec": "Specs/Path-v1.md",
+  "cases": [
+    {
+      "name": "linear_midpoint",
+      "note": "Linear interpolation; clamped before the first and after the last keyframe.",
+      "document": {
+        "schema": "org.nplaudio.spatialfabric.path",
+        "schema_version": 1,
+        "space": "canonical",
+        "tracks": [
+          {
+            "id": "t",
+            "target": {
+              "kind": "object",
+              "key": "fixture/object"
+            },
+            "keyframes": [
+              {
+                "t": 0,
+                "position": [
+                  0,
+                  0,
+                  0
+                ]
+              },
+              {
+                "t": 2,
+                "position": [
+                  2,
+                  4,
+                  0
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "samples": [
+        {
+          "track": "t",
+          "time": 0,
+          "position": [
+            0,
+            0,
+            0
+          ]
+        },
+        {
+          "track": "t",
+          "time": 0.5,
+          "position": [
+            0.5,
+            1,
+            0
+          ]
+        },
+        {
+          "track": "t",
+          "time": 1,
+          "position": [
+            1,
+            2,
+            0
+          ]
+        },
+        {
+          "track": "t",
+          "time": 2,
+          "position": [
+            2,
+            4,
+            0
+          ]
+        },
+        {
+          "track": "t",
+          "time": 9,
+          "position": [
+            2,
+            4,
+            0
+          ]
+        },
+        {
+          "track": "t",
+          "time": -1,
+          "position": [
+            0,
+            0,
+            0
+          ]
+        }
+      ]
+    },
+    {
+      "name": "hold_steps",
+      "note": "Hold keeps the previous position until the next key time.",
+      "document": {
+        "schema": "org.nplaudio.spatialfabric.path",
+        "schema_version": 1,
+        "space": "canonical",
+        "tracks": [
+          {
+            "id": "t",
+            "target": {
+              "kind": "object",
+              "key": "fixture/object"
+            },
+            "keyframes": [
+              {
+                "t": 0,
+                "position": [
+                  0,
+                  0,
+                  0
+                ],
+                "interp": "hold"
+              },
+              {
+                "t": 1,
+                "position": [
+                  1,
+                  0,
+                  0
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "samples": [
+        {
+          "track": "t",
+          "time": 0.99,
+          "position": [
+            0,
+            0,
+            0
+          ]
+        },
+        {
+          "track": "t",
+          "time": 1,
+          "position": [
+            1,
+            0,
+            0
+          ]
+        }
+      ]
+    },
+    {
+      "name": "ease_in_out_quarter",
+      "note": "u=0.25 -> u^2(3-2u)=0.15625, times 8.",
+      "document": {
+        "schema": "org.nplaudio.spatialfabric.path",
+        "schema_version": 1,
+        "space": "canonical",
+        "tracks": [
+          {
+            "id": "t",
+            "target": {
+              "kind": "object",
+              "key": "fixture/object"
+            },
+            "keyframes": [
+              {
+                "t": 0,
+                "position": [
+                  0,
+                  0,
+                  0
+                ],
+                "ease": "in_out"
+              },
+              {
+                "t": 4,
+                "position": [
+                  8,
+                  0,
+                  0
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "samples": [
+        {
+          "track": "t",
+          "time": 1,
+          "position": [
+            1.25,
+            0,
+            0
+          ]
+        },
+        {
+          "track": "t",
+          "time": 2,
+          "position": [
+            4,
+            0,
+            0
+          ]
+        }
+      ]
+    },
+    {
+      "name": "ease_in_and_out_half",
+      "note": "In at u=0.5 -> 0.25 (x4=1). The second segment has equal ends.",
+      "document": {
+        "schema": "org.nplaudio.spatialfabric.path",
+        "schema_version": 1,
+        "space": "canonical",
+        "tracks": [
+          {
+            "id": "t",
+            "target": {
+              "kind": "object",
+              "key": "fixture/object"
+            },
+            "keyframes": [
+              {
+                "t": 0,
+                "position": [
+                  0,
+                  0,
+                  0
+                ],
+                "ease": "in"
+              },
+              {
+                "t": 2,
+                "position": [
+                  4,
+                  0,
+                  0
+                ],
+                "ease": "out"
+              },
+              {
+                "t": 4,
+                "position": [
+                  4,
+                  0,
+                  0
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "samples": [
+        {
+          "track": "t",
+          "time": 1,
+          "position": [
+            1,
+            0,
+            0
+          ]
+        },
+        {
+          "track": "t",
+          "time": 3,
+          "position": [
+            4,
+            0,
+            0
+          ]
+        }
+      ]
+    },
+    {
+      "name": "loop_wraps_without_closing_segment",
+      "note": "At exactly the last key time the result is the first keyframe.",
+      "document": {
+        "schema": "org.nplaudio.spatialfabric.path",
+        "schema_version": 1,
+        "space": "canonical",
+        "tracks": [
+          {
+            "id": "t",
+            "target": {
+              "kind": "object",
+              "key": "fixture/object"
+            },
+            "keyframes": [
+              {
+                "t": 0,
+                "position": [
+                  0,
+                  0,
+                  0
+                ]
+              },
+              {
+                "t": 2,
+                "position": [
+                  2,
+                  0,
+                  0
+                ]
+              }
+            ],
+            "loop": "loop"
+          }
+        ]
+      },
+      "samples": [
+        {
+          "track": "t",
+          "time": 1,
+          "position": [
+            1,
+            0,
+            0
+          ]
+        },
+        {
+          "track": "t",
+          "time": 2,
+          "position": [
+            0,
+            0,
+            0
+          ]
+        },
+        {
+          "track": "t",
+          "time": 3,
+          "position": [
+            1,
+            0,
+            0
+          ]
+        },
+        {
+          "track": "t",
+          "time": 4.5,
+          "position": [
+            0.5,
+            0,
+            0
+          ]
+        }
+      ]
+    },
+    {
+      "name": "ping_pong_reflects",
+      "note": "Period is twice the span.",
+      "document": {
+        "schema": "org.nplaudio.spatialfabric.path",
+        "schema_version": 1,
+        "space": "canonical",
+        "tracks": [
+          {
+            "id": "t",
+            "target": {
+              "kind": "object",
+              "key": "fixture/object"
+            },
+            "keyframes": [
+              {
+                "t": 0,
+                "position": [
+                  0,
+                  0,
+                  0
+                ]
+              },
+              {
+                "t": 2,
+                "position": [
+                  2,
+                  0,
+                  0
+                ]
+              }
+            ],
+            "loop": "ping_pong"
+          }
+        ]
+      },
+      "samples": [
+        {
+          "track": "t",
+          "time": 1,
+          "position": [
+            1,
+            0,
+            0
+          ]
+        },
+        {
+          "track": "t",
+          "time": 2,
+          "position": [
+            2,
+            0,
+            0
+          ]
+        },
+        {
+          "track": "t",
+          "time": 2.5,
+          "position": [
+            1.5,
+            0,
+            0
+          ]
+        },
+        {
+          "track": "t",
+          "time": 4,
+          "position": [
+            0,
+            0,
+            0
+          ]
+        },
+        {
+          "track": "t",
+          "time": 5,
+          "position": [
+            1,
+            0,
+            0
+          ]
+        }
+      ]
+    },
+    {
+      "name": "speed_scales_time",
+      "note": "Effective time is time * speed.",
+      "document": {
+        "schema": "org.nplaudio.spatialfabric.path",
+        "schema_version": 1,
+        "space": "canonical",
+        "tracks": [
+          {
+            "id": "t",
+            "target": {
+              "kind": "object",
+              "key": "fixture/object"
+            },
+            "keyframes": [
+              {
+                "t": 0,
+                "position": [
+                  0,
+                  0,
+                  0
+                ]
+              },
+              {
+                "t": 2,
+                "position": [
+                  2,
+                  0,
+                  0
+                ]
+              }
+            ],
+            "speed": 2
+          }
+        ]
+      },
+      "samples": [
+        {
+          "track": "t",
+          "time": 0.5,
+          "position": [
+            1,
+            0,
+            0
+          ]
+        },
+        {
+          "track": "t",
+          "time": 1,
+          "position": [
+            2,
+            0,
+            0
+          ]
+        },
+        {
+          "track": "t",
+          "time": 3,
+          "position": [
+            2,
+            0,
+            0
+          ]
+        }
+      ]
+    },
+    {
+      "name": "catmull_rom_through_and_between",
+      "note": "Endpoint neighbors are clamped; x values hand-computed with the uniform Catmull-Rom basis.",
+      "document": {
+        "schema": "org.nplaudio.spatialfabric.path",
+        "schema_version": 1,
+        "space": "canonical",
+        "tracks": [
+          {
+            "id": "t",
+            "target": {
+              "kind": "object",
+              "key": "fixture/object"
+            },
+            "keyframes": [
+              {
+                "t": 0,
+                "position": [
+                  0,
+                  0,
+                  0
+                ],
+                "interp": "catmull_rom"
+              },
+              {
+                "t": 1,
+                "position": [
+                  1,
+                  0,
+                  0
+                ],
+                "interp": "catmull_rom"
+              },
+              {
+                "t": 2,
+                "position": [
+                  1,
+                  0,
+                  0
+                ],
+                "interp": "catmull_rom"
+              },
+              {
+                "t": 3,
+                "position": [
+                  0,
+                  0,
+                  0
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "samples": [
+        {
+          "track": "t",
+          "time": 0,
+          "position": [
+            0,
+            0,
+            0
+          ]
+        },
+        {
+          "track": "t",
+          "time": 0.5,
+          "position": [
+            0.5,
+            0,
+            0
+          ]
+        },
+        {
+          "track": "t",
+          "time": 1,
+          "position": [
+            1,
+            0,
+            0
+          ]
+        },
+        {
+          "track": "t",
+          "time": 1.5,
+          "position": [
+            1.125,
+            0,
+            0
+          ]
+        },
+        {
+          "track": "t",
+          "time": 2,
+          "position": [
+            1,
+            0,
+            0
+          ]
+        }
+      ]
+    },
+    {
+      "name": "catmull_rom_interior_reproduces_line",
+      "note": "Interior segments of evenly spaced collinear data stay straight; the clamped first segment does not (hand value 0.4375).",
+      "document": {
+        "schema": "org.nplaudio.spatialfabric.path",
+        "schema_version": 1,
+        "space": "canonical",
+        "tracks": [
+          {
+            "id": "t",
+            "target": {
+              "kind": "object",
+              "key": "fixture/object"
+            },
+            "keyframes": [
+              {
+                "t": 0,
+                "position": [
+                  0,
+                  0,
+                  0
+                ],
+                "interp": "catmull_rom"
+              },
+              {
+                "t": 1,
+                "position": [
+                  1,
+                  0,
+                  0
+                ],
+                "interp": "catmull_rom"
+              },
+              {
+                "t": 2,
+                "position": [
+                  2,
+                  0,
+                  0
+                ],
+                "interp": "catmull_rom"
+              },
+              {
+                "t": 3,
+                "position": [
+                  3,
+                  0,
+                  0
+                ],
+                "interp": "catmull_rom"
+              },
+              {
+                "t": 4,
+                "position": [
+                  4,
+                  0,
+                  0
+                ],
+                "interp": "catmull_rom"
+              }
+            ]
+          }
+        ]
+      },
+      "samples": [
+        {
+          "track": "t",
+          "time": 1.5,
+          "position": [
+            1.5,
+            0,
+            0
+          ]
+        },
+        {
+          "track": "t",
+          "time": 2.5,
+          "position": [
+            2.5,
+            0,
+            0
+          ]
+        },
+        {
+          "track": "t",
+          "time": 0.5,
+          "position": [
+            0.4375,
+            0,
+            0
+          ]
+        }
+      ]
+    },
+    {
+      "name": "bezier_midpoint",
+      "note": "(P0+3C1+3C2+P1)/8 with C1=[0,4,0], C2=[4,4,0].",
+      "document": {
+        "schema": "org.nplaudio.spatialfabric.path",
+        "schema_version": 1,
+        "space": "canonical",
+        "tracks": [
+          {
+            "id": "t",
+            "target": {
+              "kind": "object",
+              "key": "fixture/object"
+            },
+            "keyframes": [
+              {
+                "t": 0,
+                "position": [
+                  0,
+                  0,
+                  0
+                ],
+                "interp": "bezier",
+                "tangent_out": [
+                  0,
+                  4,
+                  0
+                ]
+              },
+              {
+                "t": 1,
+                "position": [
+                  4,
+                  0,
+                  0
+                ],
+                "tangent_in": [
+                  0,
+                  4,
+                  0
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "samples": [
+        {
+          "track": "t",
+          "time": 0,
+          "position": [
+            0,
+            0,
+            0
+          ]
+        },
+        {
+          "track": "t",
+          "time": 0.5,
+          "position": [
+            2,
+            3,
+            0
+          ]
+        },
+        {
+          "track": "t",
+          "time": 1,
+          "position": [
+            4,
+            0,
+            0
+          ]
+        }
+      ]
+    },
+    {
+      "name": "gain_curve_follows_time_map",
+      "note": "Parameters interpolate linearly with the same time map.",
+      "document": {
+        "schema": "org.nplaudio.spatialfabric.path",
+        "schema_version": 1,
+        "space": "canonical",
+        "tracks": [
+          {
+            "id": "t",
+            "target": {
+              "kind": "object",
+              "key": "fixture/object"
+            },
+            "keyframes": [
+              {
+                "t": 0,
+                "position": [
+                  0,
+                  0,
+                  0
+                ]
+              },
+              {
+                "t": 2,
+                "position": [
+                  2,
+                  0,
+                  0
+                ]
+              }
+            ],
+            "parameters": {
+              "gain": [
+                {
+                  "t": 0,
+                  "value": 0
+                },
+                {
+                  "t": 2,
+                  "value": 1
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "samples": [
+        {
+          "track": "t",
+          "time": 1,
+          "position": [
+            1,
+            0,
+            0
+          ],
+          "parameters": {
+            "gain": 0.5
+          }
+        },
+        {
+          "track": "t",
+          "time": 3,
+          "position": [
+            2,
+            0,
+            0
+          ],
+          "parameters": {
+            "gain": 1
+          }
+        }
+      ]
+    },
+    {
+      "name": "waypoint_reference_resolves",
+      "note": "Waypoint ids resolve at sampling time.",
+      "document": {
+        "schema": "org.nplaudio.spatialfabric.path",
+        "schema_version": 1,
+        "space": "canonical",
+        "tracks": [
+          {
+            "id": "t",
+            "target": {
+              "kind": "object",
+              "key": "fixture/object"
+            },
+            "keyframes": [
+              {
+                "t": 0,
+                "position": [
+                  0,
+                  0,
+                  0
+                ]
+              },
+              {
+                "t": 2,
+                "waypoint": "door"
+              }
+            ]
+          }
+        ],
+        "waypoints": [
+          {
+            "id": "door",
+            "name": "Door",
+            "position": [
+              0,
+              2,
+              0
+            ]
+          }
+        ]
+      },
+      "samples": [
+        {
+          "track": "t",
+          "time": 1,
+          "position": [
+            0,
+            1,
+            0
+          ]
+        },
+        {
+          "track": "t",
+          "time": 2,
+          "position": [
+            0,
+            2,
+            0
+          ]
+        }
+      ]
+    }
+  ],
+  "invalid": [
+    {
+      "name": "wrong_schema",
+      "document": {
+        "schema": "x",
+        "schema_version": 1,
+        "space": "canonical",
+        "tracks": [
+          {
+            "id": "t",
+            "target": {
+              "kind": "object",
+              "key": "fixture/object"
+            },
+            "keyframes": [
+              {
+                "t": 0,
+                "position": [
+                  0,
+                  0,
+                  0
+                ]
+              },
+              {
+                "t": 1,
+                "position": [
+                  1,
+                  0,
+                  0
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "codes": [
+        "bad_schema"
+      ]
+    },
+    {
+      "name": "wrong_version",
+      "document": {
+        "schema": "org.nplaudio.spatialfabric.path",
+        "schema_version": 2,
+        "space": "canonical",
+        "tracks": [
+          {
+            "id": "t",
+            "target": {
+              "kind": "object",
+              "key": "fixture/object"
+            },
+            "keyframes": [
+              {
+                "t": 0,
+                "position": [
+                  0,
+                  0,
+                  0
+                ]
+              },
+              {
+                "t": 1,
+                "position": [
+                  1,
+                  0,
+                  0
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "codes": [
+        "bad_version"
+      ]
+    },
+    {
+      "name": "wrong_space",
+      "document": {
+        "schema": "org.nplaudio.spatialfabric.path",
+        "schema_version": 1,
+        "space": "unity",
+        "tracks": [
+          {
+            "id": "t",
+            "target": {
+              "kind": "object",
+              "key": "fixture/object"
+            },
+            "keyframes": [
+              {
+                "t": 0,
+                "position": [
+                  0,
+                  0,
+                  0
+                ]
+              },
+              {
+                "t": 1,
+                "position": [
+                  1,
+                  0,
+                  0
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "codes": [
+        "bad_space"
+      ]
+    },
+    {
+      "name": "no_tracks",
+      "document": {
+        "schema": "org.nplaudio.spatialfabric.path",
+        "schema_version": 1,
+        "space": "canonical",
+        "tracks": []
+      },
+      "codes": [
+        "no_tracks"
+      ]
+    },
+    {
+      "name": "bad_track_id",
+      "document": {
+        "schema": "org.nplaudio.spatialfabric.path",
+        "schema_version": 1,
+        "space": "canonical",
+        "tracks": [
+          {
+            "id": "bad id",
+            "target": {
+              "kind": "object",
+              "key": "fixture/object"
+            },
+            "keyframes": [
+              {
+                "t": 0,
+                "position": [
+                  0,
+                  0,
+                  0
+                ]
+              },
+              {
+                "t": 1,
+                "position": [
+                  1,
+                  0,
+                  0
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "codes": [
+        "bad_id"
+      ]
+    },
+    {
+      "name": "duplicate_track_id",
+      "document": {
+        "schema": "org.nplaudio.spatialfabric.path",
+        "schema_version": 1,
+        "space": "canonical",
+        "tracks": [
+          {
+            "id": "t",
+            "target": {
+              "kind": "object",
+              "key": "fixture/object"
+            },
+            "keyframes": [
+              {
+                "t": 0,
+                "position": [
+                  0,
+                  0,
+                  0
+                ]
+              },
+              {
+                "t": 1,
+                "position": [
+                  1,
+                  0,
+                  0
+                ]
+              }
+            ]
+          },
+          {
+            "id": "t",
+            "target": {
+              "kind": "object",
+              "key": "fixture/object"
+            },
+            "keyframes": [
+              {
+                "t": 0,
+                "position": [
+                  0,
+                  0,
+                  0
+                ]
+              },
+              {
+                "t": 1,
+                "position": [
+                  1,
+                  0,
+                  0
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "codes": [
+        "duplicate_id"
+      ]
+    },
+    {
+      "name": "bad_target_kind",
+      "document": {
+        "schema": "org.nplaudio.spatialfabric.path",
+        "schema_version": 1,
+        "space": "canonical",
+        "tracks": [
+          {
+            "id": "t",
+            "target": {
+              "kind": "mixer",
+              "key": "fixture/object"
+            },
+            "keyframes": [
+              {
+                "t": 0,
+                "position": [
+                  0,
+                  0,
+                  0
+                ]
+              },
+              {
+                "t": 1,
+                "position": [
+                  1,
+                  0,
+                  0
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "codes": [
+        "bad_target"
+      ]
+    },
+    {
+      "name": "empty_target_key",
+      "document": {
+        "schema": "org.nplaudio.spatialfabric.path",
+        "schema_version": 1,
+        "space": "canonical",
+        "tracks": [
+          {
+            "id": "t",
+            "target": {
+              "kind": "object",
+              "key": ""
+            },
+            "keyframes": [
+              {
+                "t": 0,
+                "position": [
+                  0,
+                  0,
+                  0
+                ]
+              },
+              {
+                "t": 1,
+                "position": [
+                  1,
+                  0,
+                  0
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "codes": [
+        "bad_target"
+      ]
+    },
+    {
+      "name": "bad_loop",
+      "document": {
+        "schema": "org.nplaudio.spatialfabric.path",
+        "schema_version": 1,
+        "space": "canonical",
+        "tracks": [
+          {
+            "id": "t",
+            "target": {
+              "kind": "object",
+              "key": "fixture/object"
+            },
+            "keyframes": [
+              {
+                "t": 0,
+                "position": [
+                  0,
+                  0,
+                  0
+                ]
+              },
+              {
+                "t": 1,
+                "position": [
+                  1,
+                  0,
+                  0
+                ]
+              }
+            ],
+            "loop": "forever"
+          }
+        ]
+      },
+      "codes": [
+        "bad_loop"
+      ]
+    },
+    {
+      "name": "zero_speed",
+      "document": {
+        "schema": "org.nplaudio.spatialfabric.path",
+        "schema_version": 1,
+        "space": "canonical",
+        "tracks": [
+          {
+            "id": "t",
+            "target": {
+              "kind": "object",
+              "key": "fixture/object"
+            },
+            "keyframes": [
+              {
+                "t": 0,
+                "position": [
+                  0,
+                  0,
+                  0
+                ]
+              },
+              {
+                "t": 1,
+                "position": [
+                  1,
+                  0,
+                  0
+                ]
+              }
+            ],
+            "speed": 0
+          }
+        ]
+      },
+      "codes": [
+        "bad_speed"
+      ]
+    },
+    {
+      "name": "no_keyframes",
+      "document": {
+        "schema": "org.nplaudio.spatialfabric.path",
+        "schema_version": 1,
+        "space": "canonical",
+        "tracks": [
+          {
+            "id": "t",
+            "target": {
+              "kind": "object",
+              "key": "fixture/object"
+            },
+            "keyframes": []
+          }
+        ]
+      },
+      "codes": [
+        "no_keyframes"
+      ]
+    },
+    {
+      "name": "times_equal",
+      "document": {
+        "schema": "org.nplaudio.spatialfabric.path",
+        "schema_version": 1,
+        "space": "canonical",
+        "tracks": [
+          {
+            "id": "t",
+            "target": {
+              "kind": "object",
+              "key": "fixture/object"
+            },
+            "keyframes": [
+              {
+                "t": 0,
+                "position": [
+                  0,
+                  0,
+                  0
+                ]
+              },
+              {
+                "t": 0,
+                "position": [
+                  1,
+                  0,
+                  0
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "codes": [
+        "times_not_increasing"
+      ]
+    },
+    {
+      "name": "negative_time",
+      "document": {
+        "schema": "org.nplaudio.spatialfabric.path",
+        "schema_version": 1,
+        "space": "canonical",
+        "tracks": [
+          {
+            "id": "t",
+            "target": {
+              "kind": "object",
+              "key": "fixture/object"
+            },
+            "keyframes": [
+              {
+                "t": -1,
+                "position": [
+                  0,
+                  0,
+                  0
+                ]
+              },
+              {
+                "t": 1,
+                "position": [
+                  1,
+                  0,
+                  0
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "codes": [
+        "bad_time"
+      ]
+    },
+    {
+      "name": "position_wrong_length",
+      "document": {
+        "schema": "org.nplaudio.spatialfabric.path",
+        "schema_version": 1,
+        "space": "canonical",
+        "tracks": [
+          {
+            "id": "t",
+            "target": {
+              "kind": "object",
+              "key": "fixture/object"
+            },
+            "keyframes": [
+              {
+                "t": 0,
+                "position": [
+                  0,
+                  0
+                ]
+              },
+              {
+                "t": 1,
+                "position": [
+                  1,
+                  0,
+                  0
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "codes": [
+        "bad_position"
+      ]
+    },
+    {
+      "name": "position_out_of_range",
+      "document": {
+        "schema": "org.nplaudio.spatialfabric.path",
+        "schema_version": 1,
+        "space": "canonical",
+        "tracks": [
+          {
+            "id": "t",
+            "target": {
+              "kind": "object",
+              "key": "fixture/object"
+            },
+            "keyframes": [
+              {
+                "t": 0,
+                "position": [
+                  17,
+                  0,
+                  0
+                ]
+              },
+              {
+                "t": 1,
+                "position": [
+                  1,
+                  0,
+                  0
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "codes": [
+        "out_of_range"
+      ]
+    },
+    {
+      "name": "position_and_waypoint",
+      "document": {
+        "schema": "org.nplaudio.spatialfabric.path",
+        "schema_version": 1,
+        "space": "canonical",
+        "tracks": [
+          {
+            "id": "t",
+            "target": {
+              "kind": "object",
+              "key": "fixture/object"
+            },
+            "keyframes": [
+              {
+                "t": 0,
+                "position": [
+                  0,
+                  0,
+                  0
+                ],
+                "waypoint": "a"
+              },
+              {
+                "t": 1,
+                "position": [
+                  1,
+                  0,
+                  0
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "codes": [
+        "position_conflict"
+      ]
+    },
+    {
+      "name": "missing_position",
+      "document": {
+        "schema": "org.nplaudio.spatialfabric.path",
+        "schema_version": 1,
+        "space": "canonical",
+        "tracks": [
+          {
+            "id": "t",
+            "target": {
+              "kind": "object",
+              "key": "fixture/object"
+            },
+            "keyframes": [
+              {
+                "t": 0
+              },
+              {
+                "t": 1,
+                "position": [
+                  1,
+                  0,
+                  0
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "codes": [
+        "position_conflict"
+      ]
+    },
+    {
+      "name": "unknown_waypoint",
+      "document": {
+        "schema": "org.nplaudio.spatialfabric.path",
+        "schema_version": 1,
+        "space": "canonical",
+        "tracks": [
+          {
+            "id": "t",
+            "target": {
+              "kind": "object",
+              "key": "fixture/object"
+            },
+            "keyframes": [
+              {
+                "t": 0,
+                "waypoint": "nowhere"
+              },
+              {
+                "t": 1,
+                "position": [
+                  1,
+                  0,
+                  0
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "codes": [
+        "unknown_waypoint"
+      ]
+    },
+    {
+      "name": "bad_interp",
+      "document": {
+        "schema": "org.nplaudio.spatialfabric.path",
+        "schema_version": 1,
+        "space": "canonical",
+        "tracks": [
+          {
+            "id": "t",
+            "target": {
+              "kind": "object",
+              "key": "fixture/object"
+            },
+            "keyframes": [
+              {
+                "t": 0,
+                "position": [
+                  0,
+                  0,
+                  0
+                ],
+                "interp": "spline"
+              },
+              {
+                "t": 1,
+                "position": [
+                  1,
+                  0,
+                  0
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "codes": [
+        "bad_interp"
+      ]
+    },
+    {
+      "name": "bad_ease",
+      "document": {
+        "schema": "org.nplaudio.spatialfabric.path",
+        "schema_version": 1,
+        "space": "canonical",
+        "tracks": [
+          {
+            "id": "t",
+            "target": {
+              "kind": "object",
+              "key": "fixture/object"
+            },
+            "keyframes": [
+              {
+                "t": 0,
+                "position": [
+                  0,
+                  0,
+                  0
+                ],
+                "ease": "bounce"
+              },
+              {
+                "t": 1,
+                "position": [
+                  1,
+                  0,
+                  0
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "codes": [
+        "bad_ease"
+      ]
+    },
+    {
+      "name": "bad_tangent",
+      "document": {
+        "schema": "org.nplaudio.spatialfabric.path",
+        "schema_version": 1,
+        "space": "canonical",
+        "tracks": [
+          {
+            "id": "t",
+            "target": {
+              "kind": "object",
+              "key": "fixture/object"
+            },
+            "keyframes": [
+              {
+                "t": 0,
+                "position": [
+                  0,
+                  0,
+                  0
+                ],
+                "tangent_out": [
+                  100,
+                  0,
+                  0
+                ]
+              },
+              {
+                "t": 1,
+                "position": [
+                  1,
+                  0,
+                  0
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "codes": [
+        "bad_tangent"
+      ]
+    },
+    {
+      "name": "gain_out_of_range",
+      "document": {
+        "schema": "org.nplaudio.spatialfabric.path",
+        "schema_version": 1,
+        "space": "canonical",
+        "tracks": [
+          {
+            "id": "t",
+            "target": {
+              "kind": "object",
+              "key": "fixture/object"
+            },
+            "keyframes": [
+              {
+                "t": 0,
+                "position": [
+                  0,
+                  0,
+                  0
+                ]
+              },
+              {
+                "t": 1,
+                "position": [
+                  1,
+                  0,
+                  0
+                ]
+              }
+            ],
+            "parameters": {
+              "gain": [
+                {
+                  "t": 0,
+                  "value": 5
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "codes": [
+        "bad_parameter"
+      ]
+    },
+    {
+      "name": "parameter_times_not_increasing",
+      "document": {
+        "schema": "org.nplaudio.spatialfabric.path",
+        "schema_version": 1,
+        "space": "canonical",
+        "tracks": [
+          {
+            "id": "t",
+            "target": {
+              "kind": "object",
+              "key": "fixture/object"
+            },
+            "keyframes": [
+              {
+                "t": 0,
+                "position": [
+                  0,
+                  0,
+                  0
+                ]
+              },
+              {
+                "t": 1,
+                "position": [
+                  1,
+                  0,
+                  0
+                ]
+              }
+            ],
+            "parameters": {
+              "spread": [
+                {
+                  "t": 1,
+                  "value": 0
+                },
+                {
+                  "t": 1,
+                  "value": 1
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "codes": [
+        "bad_parameter"
+      ]
+    }
+  ],
+  "engine_conversions": [
+    {
+      "canonical": [
+        1,
+        2,
+        3
+      ],
+      "unity_m": [
+        2,
+        3,
+        1
+      ],
+      "unreal_cm": [
+        100,
+        200,
+        300
+      ],
+      "adm_xyz": [
+        2,
+        1,
+        3
+      ]
+    }
+  ]
+}

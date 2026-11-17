@@ -25,6 +25,7 @@ for Unreal content because that name now points here, not to the renamed engine 
 - **[OSC v1](Specs/OSC-v1.md)** — command and transport contract, `/ack`, `/status`
   and observed `/state` feedback. UDP acknowledgement is best effort, not delivery proof.
 - **[Scene query clients](Examples/OSCSceneQuery/README.md)** — Python, Node, Max and Node-RED discovery examples.
+- **[Path Studio (design)](Apps/PathStudio/README.md)** — planned path editor; [Path v1](Specs/Path-v1.md) contract, [schema](Schemas/path-v1.schema.json) and hand-computed [fixtures](Fixtures/path-v1.json).
 - **[Scene schema v1](Schemas/scene-v1.schema.json)** — engine-neutral cue discovery.
   Unknown fields/kinds are forward-compatible; version changes must be explicit.
 - **[Golden fixtures](Fixtures/)** — OSC/acknowledgement packets, command decisions,
@@ -45,6 +46,8 @@ automatically. Use trusted networks and maintain an independent hardware mute.
 ```sh
 python -m unittest discover -s Tools -p 'test_*.py'
 cd Apps/OSCController
+python -m unittest discover -s tests -v
+cd ../PathStudio
 python -m unittest discover -s tests -v
 ```
 
