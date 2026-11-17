@@ -253,8 +253,8 @@ distinct cue bases must be reduced deliberately instead of being silently trunca
 
 Remote discovery is disabled by default in Unreal; explicit trusted-network opt-in
 is required. The response describes configuration/software state, not device
-presence or physical audio. See [command/schema](../../Docs/SceneQuery.md) and
-[runnable Max/Node-RED/Python/Node examples](../../Examples/OSCSceneQuery/README.md).
+presence or physical audio. See [command/schema](https://github.com/NPLAudio/SpatialFabric-Unreal/blob/main/Docs/SceneQuery.md) and
+[runnable Max/Node-RED/Python/Node examples](https://github.com/NPLAudio/SpatialFabric-Unreal/tree/main/Examples/OSCSceneQuery).
 
 ## Unreal losing frame rate when the controller has focus
 
