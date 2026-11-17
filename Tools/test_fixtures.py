@@ -4,7 +4,7 @@ ROOT=Path(__file__).resolve().parents[1]
 class ContractFixtures(unittest.TestCase):
     def test_related_repository_links(self):
         text=(ROOT/'README.md').read_text()
-        for name in ('SpatialFabric','SpatialFabric-Unity','SpatialFabric-Interop','AudioLoom'):
+        for name in ('SpatialFabric','SpatialFabric-Unreal','SpatialFabric-Unity','SpatialFabric-Godot'):
             self.assertIn('https://github.com/NPLAudio/'+name,text)
     def test_schema_keeps_v1_identity(self):
         d=json.loads((ROOT/'Schemas/scene-v1.schema.json').read_text());self.assertEqual(d['properties']['schema']['const'],'org.nplaudio.spatialfabric.scene');self.assertEqual(d['properties']['schema_version']['const'],1)
