@@ -1,5 +1,5 @@
-"""Path Studio main window: files, tracks, keyframe inspector, shapes, 2D plan, timeline, undo/redo and
-read-only scene discovery.
+"""Path Studio main window: files, tracks, keyframe inspector, shapes, four viewports (perspective, top, front,
+side), timeline, undo/redo, read-only scene discovery and reference context.
 
 Offline editor: it opens a socket only when the operator presses "Query scene" (read-only), and it never
 starts audio or enumerates devices.
@@ -12,13 +12,12 @@ from PySide6.QtGui import QAction, QKeySequence
 from PySide6.QtCore import Qt, QThread, Signal
 from PySide6.QtWidgets import (QApplication, QComboBox, QDoubleSpinBox, QFileDialog, QFormLayout, QGroupBox,
                                QHBoxLayout, QLabel, QLineEdit, QListWidget, QMainWindow, QMessageBox, QPushButton,
-                               QSlider, QSpinBox, QSplitter, QVBoxLayout, QWidget)
+                               QGridLayout, QSlider, QSpinBox, QSplitter, QVBoxLayout, QWidget)
 
-from . import __version__, discovery, edit, model, shapes, store
+from . import __version__, context, discovery, edit, model, shapes, store
 from .history import History
-from .plan import PlanView
 from .timeline import TimelineView
-from .viewport3d import PRESETS, Viewport3D
+from .viewport3d import MODES, PRESETS, Viewport3D
 
 SLIDER_STEPS = 1000
 FILTER = 'SpatialFabric paths (*.sfpath.json *.json)'
@@ -26,7 +25,7 @@ FILTER = 'SpatialFabric paths (*.sfpath.json *.json)'
 
 class QueryWorker(QThread):
     """One read-only scene query off the GUI thread; emits exactly one of the two outcomes."""
-    succeeded = Signal(list)
+    succeeded = Signal(list, dict)
     failed = Signal(str)
 
     def __init__(self, host, port, parent=None):
@@ -35,11 +34,11 @@ class QueryWorker(QThread):
 
     def run(self):
         try:
-            _scene, targets = discovery.fetch_targets(self.host, self.port)
+            scene, targets = discovery.fetch_targets(self.host, self.port)
         except (ValueError, OSError, RuntimeError) as error:
             self.failed.emit(str(error))
         else:
-            self.succeeded.emit(targets)
+            self.succeeded.emit(targets, scene)
 
 
 def _spin(low, high, decimals, step, value=0.0):
@@ -69,14 +68,14 @@ class MainWindow(QMainWindow):
 
         self.tracks = QListWidget()
         self.tracks.currentRowChanged.connect(self._select_track)
-        self.plan = PlanView()
-        self.plan.keyframeMoved.connect(self.move_keyframe)
-        self.plan.dragBegan.connect(self._plan_pressed)
-        self.plan.dragEnded.connect(self._end_drag)
-        self.view3d = Viewport3D()
-        self.view3d.dragBegan.connect(self._plan_pressed)
-        self.view3d.keyframeMoved3.connect(self.move_keyframe3)
-        self.view3d.dragEnded.connect(self._end_drag)
+        self.views = {mode: Viewport3D(mode) for mode in MODES}
+        for view in self.views.values():
+            view.dragBegan.connect(self._plan_pressed)
+            view.keyframeMoved3.connect(self.move_keyframe3)
+            view.dragEnded.connect(self._end_drag)
+        self.view3d = self.views['perspective']
+        self.view_top, self.view_front, self.view_side = self.views['top'], self.views['front'], self.views['side']
+        self.context_objects = []
         self.timeline = TimelineView()
         self.timeline.keySelected.connect(self._timeline_selected)
         self.timeline.dragBegan.connect(self._begin_drag)
@@ -95,21 +94,26 @@ class MainWindow(QMainWindow):
         scrub.addWidget(self.time_label)
         center = QWidget()
         column = QVBoxLayout(center)
-        views = QHBoxLayout()
-        views.addWidget(QLabel('3D view'))
+        bar = QHBoxLayout()
+        bar.addWidget(QLabel('Layout'))
+        self.layout_combo = QComboBox()
+        self.layout_combo.addItems(['Quad', 'Perspective', 'Top', 'Front', 'Side'])
+        self.layout_combo.currentTextChanged.connect(self.set_layout)
+        bar.addWidget(self.layout_combo)
+        bar.addWidget(QLabel('Perspective'))
         for name, (yaw, pitch) in PRESETS.items():
             button = QPushButton(name)
             button.clicked.connect(lambda _checked=False, y=yaw, pt=pitch: self.view3d.set_view(y, pt))
-            views.addWidget(button)
-        views.addStretch(1)
-        views.addWidget(QLabel('Drag keys; Shift = up/down; right-drag orbit, wheel zoom, middle pan'))
-        column.addLayout(views)
-        spatial = QSplitter()
-        spatial.addWidget(self.view3d)
-        spatial.addWidget(self.plan)
-        spatial.setStretchFactor(0, 3)
-        spatial.setStretchFactor(1, 2)
-        column.addWidget(spatial, 1)
+            bar.addWidget(button)
+        bar.addStretch(1)
+        bar.addWidget(QLabel('Drag keys (Shift = up/down in perspective); right/empty drag orbits or pans; wheel zooms'))
+        column.addLayout(bar)
+        self.view_grid = QGridLayout()
+        for view, (row, col) in ((self.view3d, (0, 0)), (self.view_top, (0, 1)), (self.view_front, (1, 0)), (self.view_side, (1, 1))):
+            self.view_grid.addWidget(view, row, col)
+        grid_holder = QWidget()
+        grid_holder.setLayout(self.view_grid)
+        column.addWidget(grid_holder, 1)
         column.addWidget(self.timeline)
         column.addLayout(scrub)
         column.addWidget(QLabel('Validation'))
@@ -220,7 +224,73 @@ class MainWindow(QMainWindow):
             button = QPushButton(text)
             button.clicked.connect(handler)
             column.addWidget(button)
+        column.addWidget(QLabel('Context (read-only reference)'))
+        self.context_list = QListWidget()
+        self.context_list.currentRowChanged.connect(lambda _row: self._refresh_context(keep_selection=True))
+        column.addWidget(self.context_list, 1)
+        for text, handler in (('Import context file...', self.import_context), ('Clear context', self.clear_context),
+                              ('Focus selected', self.focus_context), ('Snap selected key to it', self.snap_key_to_context)):
+            button = QPushButton(text)
+            button.clicked.connect(handler)
+            column.addWidget(button)
         splitter.addWidget(panel)
+
+    # --- context --------------------------------------------------------------------
+    def _refresh_context(self, keep_selection=False):
+        row = self.context_list.currentRow() if keep_selection else -1
+        self.context_list.blockSignals(True)
+        self.context_list.clear()
+        for obj in self.context_objects:
+            self.context_list.addItem(f"{obj['kind']}: {obj['label']}" + (' (scene)' if obj['source'] == 'scene' else ''))
+        if 0 <= row < self.context_list.count():
+            self.context_list.setCurrentRow(row)
+        self.context_list.blockSignals(False)
+        selected = self.context_list.currentRow() if self.context_list.currentRow() >= 0 else None
+        for view in self.views.values():
+            view.set_context(self.context_objects, selected)
+
+    def _selected_context(self):
+        row = self.context_list.currentRow()
+        return self.context_objects[row] if 0 <= row < len(self.context_objects) else None
+
+    def import_context(self, path=None):
+        if not isinstance(path, (str, Path)):
+            path, _ = QFileDialog.getOpenFileName(self, 'Import context file', '', 'SpatialFabric context (*.sfctx.json *.json)')
+        if not path:
+            return False
+        try:
+            objects = context.load_context(path)
+        except (OSError, ValueError) as error:
+            QMessageBox.warning(self, 'Cannot import context', str(error))
+            return False
+        self.context_objects = [o for o in self.context_objects if o['source'] != 'file'] + objects
+        self._refresh_context()
+        self._say(f'Imported {len(objects)} context object(s) (read-only; not saved into the path).')
+        return True
+
+    def clear_context(self):
+        self.context_objects = []
+        self._refresh_context()
+
+    def focus_context(self):
+        obj = self._selected_context()
+        if obj is None:
+            return False
+        for view in self.views.values():
+            view.focus_on(*obj['position'])
+        return True
+
+    def snap_key_to_context(self):
+        obj, row, key = self._selected_context(), self.selected_row(), self.selected_key
+        if obj is None or key is None:
+            self._say('Select a keyframe and a context object first.')
+            return False
+        return self._edit(lambda document: edit.set_position(document, row, key, obj['position']))
+
+    def set_layout(self, name):
+        visible = {'Quad': MODES, 'Perspective': ('perspective',), 'Top': ('top',), 'Front': ('front',), 'Side': ('side',)}.get(name, MODES)
+        for mode, view in self.views.items():
+            view.setVisible(mode in visible)
 
     # --- scene discovery and binding ------------------------------------------------
     def query_scene(self):
@@ -237,13 +307,19 @@ class MainWindow(QMainWindow):
     def _query_failed(self, message):
         self.scene_status.setText('Query failed: ' + message)
 
-    def apply_targets(self, targets):
+    def apply_targets(self, targets, scene=None):
         self.targets = list(targets)
         self.target_list.clear()
         for target in self.targets:
             ident = f' #{target.object_id}' if target.object_id else ''
             self.target_list.addItem(f'{target.kind}: {target.label}{ident}')
-        self.scene_status.setText(f'{len(self.targets)} bindable target(s). Keys are per-snapshot; the object id is kept for export.')
+        note = ''
+        if isinstance(scene, dict):
+            placed, unplaced = context.objects_from_scene(scene)
+            self.context_objects = [o for o in self.context_objects if o['source'] != 'scene'] + placed
+            self._refresh_context()
+            note = f' {len(placed)} placed in the views' + (f'; {unplaced} engine-world record(s) not placed (no exact stage position).' if unplaced else '.')
+        self.scene_status.setText(f'{len(self.targets)} bindable target(s). Keys are per-snapshot; the object id is kept for export.' + note)
 
     def _selected_target(self):
         row = self.target_list.currentRow()
@@ -337,8 +413,8 @@ class MainWindow(QMainWindow):
     def _refresh_plan(self, *_ignored):
         time = self.current_time()
         self.time_label.setText(f't = {time:.2f} s')
-        self.plan.set_document(self.document, not self.issues, self.selected_row(), time, self.selected_key)
-        self.view3d.set_document(self.document, not self.issues, self.selected_row(), time, self.selected_key)
+        for view in self.views.values():
+            view.set_document(self.document, not self.issues, self.selected_row(), time, self.selected_key)
         self.timeline.set_document(self.document, self.duration(), time, self.selected_row(), self.selected_key)
         self._sync_inspector()
         self.undo_action.setEnabled(self.history.can_undo())

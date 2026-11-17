@@ -1,0 +1,110 @@
+{
+  "schema": "org.nplaudio.spatialfabric.context",
+  "schema_version": 1,
+  "space": "canonical",
+  "name": "Example room",
+  "objects": [
+    {
+      "id": "front-wall",
+      "kind": "box",
+      "label": "Front wall",
+      "position": [
+        1.15,
+        0,
+        0.5
+      ],
+      "half_extents": [
+        0.05,
+        1.2,
+        0.6
+      ]
+    },
+    {
+      "id": "back-wall",
+      "kind": "box",
+      "label": "Back wall",
+      "position": [
+        -1.15,
+        0,
+        0.5
+      ],
+      "half_extents": [
+        0.05,
+        1.2,
+        0.6
+      ]
+    },
+    {
+      "id": "pillar-left",
+      "kind": "box",
+      "label": "Pillar L",
+      "position": [
+        0.3,
+        -0.7,
+        0.5
+      ],
+      "half_extents": [
+        0.1,
+        0.1,
+        0.6
+      ]
+    },
+    {
+      "id": "pillar-right",
+      "kind": "box",
+      "label": "Pillar R",
+      "position": [
+        0.3,
+        0.7,
+        0.5
+      ],
+      "half_extents": [
+        0.1,
+        0.1,
+        0.6
+      ]
+    },
+    {
+      "id": "fountain",
+      "kind": "sphere",
+      "label": "Fountain",
+      "position": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "radius": 0.25
+    },
+    {
+      "id": "speaker-fl",
+      "kind": "point",
+      "label": "Speaker FL",
+      "position": [
+        1.0,
+        -1.0,
+        0.8
+      ]
+    },
+    {
+      "id": "speaker-fr",
+      "kind": "point",
+      "label": "Speaker FR",
+      "position": [
+        1.0,
+        1.0,
+        0.8
+      ]
+    },
+    {
+      "id": "listener",
+      "kind": "listener",
+      "label": "Listener",
+      "position": [
+        -0.6,
+        0.0,
+        0.15
+      ],
+      "yaw_degrees": 0
+    }
+  ]
+}

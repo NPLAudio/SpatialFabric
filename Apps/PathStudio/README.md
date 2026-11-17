@@ -6,10 +6,18 @@ Design: [ADR 0001](../../Docs/PathStudio-ADR-0001.md). Contract: [Path v1](../..
 ## Status: Phase 3 (3D editing, timeline, shapes, undo/redo)
 
 - Open, save (atomic, UTF-8, LF), new documents; 16 MiB size cap.
-- **3D viewport** (software perspective, no GPU/OpenGL needed): orbit with right-drag or by dragging
-  empty space, wheel to zoom, middle-drag to pan; presets Perspective/Top/Behind/Side. Drag a keyframe
-  on the horizontal plane at its height, **Shift-drag** to move it up/down. The stage cube, floor grid,
-  drop lines to the floor, waypoints and the playhead are drawn. The 2D plan view stays as a top-down map.
+- **Four viewports** (software drawing, no GPU/OpenGL needed): Perspective plus orthographic **Top**,
+  **Front** (from behind) and **Side**. Layout selector shows all four or one. In Perspective, orbit with
+  right-drag or by dragging empty space; orthographic views pan instead; the wheel zooms; middle-drag pans.
+  Drag a keyframe in any view: Perspective moves it on the horizontal plane at its height (**Shift-drag**
+  for up/down); orthographic views move it in their plane and keep the third coordinate.
+  Stage cube, grid, drop lines to the floor, waypoints and the playhead are drawn in each.
+- **Context** (read-only reference, never saved into the path): *Import context file* draws boxes, spheres,
+  points and a listener from a `.sfctx.json` ([Context v1](../../Specs/Context-v1.md); try
+  `examples/room.sfctx.json`). *Query scene* also marks the engine's spatial bindings at their exact stage
+  positions. Engine-world-only records (listener, stage, cue actors) are counted but not placed, because
+  their coordinates are not stage-normalized. *Focus selected* centres the views; *Snap selected key to it*
+  moves the selected keyframe onto a context object (undoable).
 - Track list, live **validation panel** (exact codes and JSON paths) and a **2D plan view**
   (horizontal = right, vertical = front, stage = blue square) with the sampled curve, waypoints
   and a time scrubber that uses the reference sampler.
@@ -26,7 +34,7 @@ Design: [ADR 0001](../../Docs/PathStudio-ADR-0001.md). Contract: [Path v1](../..
   new tracks start at the object's reported position. Remove track is also available.
 - No playback commands, no audio, no device access. Without a query the editor opens no sockets.
 
-Not yet: waypoint editing, bezier tangent handles, exporters, live driving. Engines currently have no inbound
+Not yet: engine-side exporters for context (Unity/Godot/Unreal editor tools), waypoint editing, bezier tangent handles, exporters, live driving. Engines currently have no inbound
 verb that moves an object, so live driving needs a new contract version (see the ADR).
 
 ## Run

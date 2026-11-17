@@ -34,33 +34,36 @@ class GuiTests(unittest.TestCase):
         self.assertIn('No problems', self.window.problems.item(0).text())
         self.assertNotIn('socket', sys.modules['pathstudio.app'].__dict__)
 
-    def test_plan_geometry_roundtrips_canonical_axes(self):
-        plan = self.window.plan
-        point = plan.to_screen(1.0, 0.5)  # front up, right to the right
-        self.assertLess(point.y(), plan.height() / 2)
-        self.assertGreater(point.x(), plan.width() / 2)
-        front, right = plan.to_world(point)
+    def test_top_view_geometry_roundtrips_canonical_axes(self):
+        view = self.window.view_top
+        view.resize(600, 600)
+        point, _depth = view.project(1.0, 0.5, 0.0)  # front is screen up, right is screen right
+        self.assertLess(point.y(), view.height() / 2)
+        self.assertGreater(point.x(), view.width() / 2)
+        right, front = view.ortho_hit(point)
         self.assertAlmostEqual(1.0, front)
         self.assertAlmostEqual(0.5, right)
 
     def test_dragging_keyframe_updates_document_validity_and_dirty(self):
-        plan = self.window.plan
-        self.assertIsNone(plan.hit_keyframe(plan.to_screen(0.5, 0.5)))
-        self.assertEqual(1, plan.hit_keyframe(plan.to_screen(1.0, 0.0) + QPointF(3, 3)))  # second key is front 1, right 0
-        self.assertEqual(0, plan.hit_keyframe(plan.to_screen(0.0, 0.0)))
-        plan.keyframeMoved.emit(0, 1, 99.0, -99.0)  # the view clamps; an out-of-range request is refused, not applied
+        view = self.window.view_top
+        view.resize(600, 600)
+        self.assertIsNone(view.hit_keyframe(view.project(0.5, 0.5, 0.0)[0]))
+        self.assertEqual(1, view.hit_keyframe(view.project(1.0, 0.0, 0.0)[0] + QPointF(3, 3)))  # second key is front 1, right 0
+        self.assertEqual(0, view.hit_keyframe(view.project(0.0, 0.0, 0.0)[0]))
+        view.keyframeMoved3.emit(0, 1, 99.0, -99.0, 0.0)  # the view clamps; an out-of-range request is refused, not applied
         self.assertEqual([1, 0, 0], self.window.document['tracks'][0]['keyframes'][1]['position'])
         self.assertFalse(self.window.dirty)
         self.assertFalse(self.window.history.can_undo())
-        plan.keyframeMoved.emit(0, 1, 0.5, 0.25)
-        self.assertEqual([0.5, 0.25, 0], self.window.document['tracks'][0]['keyframes'][1]['position'])
+        view.keyframeMoved3.emit(0, 1, 0.5, 0.25, 0.0)
+        self.assertEqual([0.5, 0.25, 0.0], self.window.document['tracks'][0]['keyframes'][1]['position'])
         self.assertEqual([], self.window.issues)
         self.assertTrue(self.window.dirty)
 
     def test_scrubber_samples_with_model(self):
         self.window.slider.setValue(500)
         self.assertEqual('t = 2.00 s', self.window.time_label.text())
-        self.window.plan.grab()  # painting a valid document must not raise
+        for view in self.window.views.values():
+            view.grab()  # painting a valid document must not raise
 
     def test_save_open_roundtrip_and_discard_guard(self):
         with tempfile.TemporaryDirectory() as temp:
@@ -78,7 +81,8 @@ class GuiTests(unittest.TestCase):
         for document in ({}, {'tracks': 3}, {'tracks': [None, {'keyframes': 'x'}]}, {'waypoints': 'x', 'tracks': [{'target': 7, 'keyframes': [{'position': 'q'}]}]}):
             self.window.document = document
             self.window._reload()
-            self.window.plan.grab()
+            for view in self.window.views.values():
+                view.grab()
             self.assertTrue(self.window.issues)
 
     def test_invalid_file_is_reported_not_loaded(self):
@@ -158,10 +162,10 @@ class GuiTests(unittest.TestCase):
     def test_a_whole_drag_is_one_undo_step(self):
         window = self.window
         original = copy_of(window.document)
-        window.plan.dragBegan.emit(1)
+        window.view_top.dragBegan.emit(1)
         for step in range(1, 6):
-            window.plan.keyframeMoved.emit(0, 1, 0.1 * step, 0.2 * step)
-        window.plan.dragEnded.emit()
+            window.view_top.keyframeMoved3.emit(0, 1, 0.1 * step, 0.2 * step, 0.0)
+        window.view_top.dragEnded.emit()
         self.assertEqual(1, len(window.history.undo_stack))
         window.undo()
         self.assertEqual(original, window.document)

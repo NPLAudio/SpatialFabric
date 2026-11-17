@@ -1,10 +1,13 @@
-"""Interactive 3D viewport (software perspective via QPainter, no OpenGL needed).
+"""Interactive viewports: perspective plus orthographic Top / Front / Side (software drawing via QPainter).
 
 World axes follow the canonical contract: front, right, up. Internally x=right, y=front, z=up.
-Camera orbits a target; default sits behind the stage looking toward +front (right is screen right).
+The perspective camera orbits a target and defaults to sitting behind the stage looking toward +front.
+Orthographic views: Top shows right (horizontal) / front (vertical); Front shows the stage from behind with
+right / up; Side shows front (horizontal) / up (vertical).
 
-Mouse: left on a keyframe selects/moves it on the horizontal plane at its height (hold Shift to move it
-up/down); left on empty space or right button orbits; middle button pans; wheel zooms.
+Mouse: left on a keyframe selects/moves it (perspective: horizontal plane at its height, Shift = up/down;
+orthographic: in the view plane, the third coordinate is kept). Empty-space left drag or right drag orbits
+(perspective) or pans (orthographic); middle drag pans; the wheel zooms.
 """
 import math
 
@@ -18,8 +21,13 @@ NEAR = 0.05
 HIT_RADIUS = 11.0
 PITCH_LIMIT = math.radians(89.0)
 MIN_DISTANCE, MAX_DISTANCE = 0.5, 60.0
+MIN_ZOOM, MAX_ZOOM = 0.05, 200.0
 CURVE_STEPS = 200
 PRESETS = {'Perspective': (35.0, 25.0), 'Top': (0.0, 89.0), 'Behind': (0.0, 0.0), 'Side': (90.0, 0.0)}
+MODES = ('perspective', 'top', 'front', 'side')
+TITLES = {'perspective': 'Perspective', 'top': 'Top', 'front': 'Front (from behind)', 'side': 'Side'}
+# (horizontal, vertical) canonical indices: 0=front, 1=right, 2=up
+ORTHO_AXES = {'top': (1, 0), 'front': (1, 2), 'side': (0, 2)}
 
 
 def _sub(a, b):
@@ -49,20 +57,27 @@ class Viewport3D(QWidget):
     keyframeMoved3 = Signal(int, int, float, float, float)  # track, key, front, right, up
     dragEnded = Signal()
 
-    def __init__(self, parent=None):
+    def __init__(self, mode='perspective', parent=None):
         super().__init__(parent)
+        if mode not in MODES:
+            raise ValueError('Unknown viewport mode')
+        self.mode = mode
         self.document = None
         self.valid = False
         self.selected = 0
         self.selected_key = None
         self.time = 0.0
+        self.context = []
+        self.selected_context = None
         self.yaw, self.pitch, self.distance = math.radians(35), math.radians(25), 5.5
         self.target = [0.0, 0.0, 0.0]  # x=right, y=front, z=up
+        self.zoom_level = 1.0          # orthographic only
+        self.center = [0.0, 0.0]       # orthographic view centre in canonical (horizontal, vertical) units
         self._mode = None
         self._last = QPointF()
         self._drag = None
         self._vertical = False
-        self.setMinimumSize(420, 360)
+        self.setMinimumSize(260, 220)
         self.setFocusPolicy(Qt.StrongFocus)
 
     # --- camera maths (unit-tested) ------------------------------------------------
@@ -72,13 +87,31 @@ class Viewport3D(QWidget):
         self.update()
 
     def orbit(self, d_yaw, d_pitch):
+        if self.mode != 'perspective':
+            return
         self.yaw += d_yaw
         self.pitch = max(-PITCH_LIMIT, min(PITCH_LIMIT, self.pitch + d_pitch))
         self.update()
 
     def zoom(self, factor):
-        self.distance = max(MIN_DISTANCE, min(MAX_DISTANCE, self.distance * factor))
+        if self.mode == 'perspective':
+            self.distance = max(MIN_DISTANCE, min(MAX_DISTANCE, self.distance * factor))
+        else:
+            self.zoom_level = max(MIN_ZOOM, min(MAX_ZOOM, self.zoom_level / factor))
         self.update()
+
+    def focus_on(self, front, right, up):
+        """Centre the view on a canonical position."""
+        if self.mode == 'perspective':
+            self.target = [right, front, up]
+        else:
+            h, v = ORTHO_AXES[self.mode]
+            position = (front, right, up)
+            self.center = [position[h], position[v]]
+        self.update()
+
+    def unit_pixels(self):
+        return min(self.width(), self.height()) / 4.0 * self.zoom_level
 
     def eye(self):
         c = math.cos(self.pitch)
@@ -104,12 +137,26 @@ class Viewport3D(QWidget):
         scale = self.focal() / cam[2]
         return QPointF(self.width() / 2 + cam[0] * scale, self.height() / 2 - cam[1] * scale)
 
+    def _ortho_screen(self, h, v):
+        scale = self.unit_pixels()
+        return QPointF(self.width() / 2 + (h - self.center[0]) * scale, self.height() / 2 - (v - self.center[1]) * scale)
+
     def project(self, front, right, up):
         """Screen point and depth for a canonical position, or None when behind the near plane."""
+        if self.mode != 'perspective':
+            h, v = ORTHO_AXES[self.mode]
+            position = (front, right, up)
+            return self._ortho_screen(position[h], position[v]), 0.0
         cam = self._camera_space((right, front, up))
         if cam[2] < NEAR:
             return None
         return self._screen(cam), cam[2]
+
+    def ortho_hit(self, point):
+        """(horizontal, vertical) canonical coordinates under a pixel in an orthographic view."""
+        scale = self.unit_pixels()
+        return ((point.x() - self.width() / 2) / scale + self.center[0],
+                (self.height() / 2 - point.y()) / scale + self.center[1])
 
     def ray(self, point):
         forward, right, up = self.basis()
@@ -148,6 +195,10 @@ class Viewport3D(QWidget):
         self.selected_key = selected_key
         self.update()
 
+    def set_context(self, objects, selected=None):
+        self.context, self.selected_context = list(objects), selected
+        self.update()
+
     def _track(self, index):
         tracks = self.document.get('tracks') if isinstance(self.document, dict) else None
         return tracks[index] if isinstance(tracks, list) and 0 <= index < len(tracks) and isinstance(tracks[index], dict) else None
@@ -172,7 +223,12 @@ class Viewport3D(QWidget):
 
     # --- painting ------------------------------------------------------------------
     def _line(self, painter, a, b):
-        """Draw a world-space segment clipped to the near plane."""
+        """Draw a world-space segment (x=right, y=front, z=up), clipped to the near plane when in perspective."""
+        if self.mode != 'perspective':
+            h, v = ORTHO_AXES[self.mode]
+            pa, pb = (a[1], a[0], a[2]), (b[1], b[0], b[2])  # to (front, right, up) indexing
+            painter.drawLine(self._ortho_screen(pa[h], pa[v]), self._ortho_screen(pb[h], pb[v]))
+            return
         ca, cb = self._camera_space(a), self._camera_space(b)
         if ca[2] < NEAR and cb[2] < NEAR:
             return
@@ -188,6 +244,7 @@ class Viewport3D(QWidget):
         painter.setRenderHint(QPainter.Antialiasing)
         painter.fillRect(self.rect(), QColor(20, 24, 30))
         self._grid(painter)
+        self._context(painter)
         if isinstance(self.document, dict):
             self._waypoints(painter)
             tracks = self.document.get('tracks')
@@ -195,13 +252,22 @@ class Viewport3D(QWidget):
                 if isinstance(track, dict):
                     self._track_paint(painter, index, track, index == self.selected)
         self._axes(painter)
+        painter.setPen(QColor(170, 180, 190))
+        painter.drawText(8, 16, TITLES[self.mode])
         painter.end()
 
     def _grid(self, painter):
         painter.setPen(QPen(QColor(44, 50, 58), 1))
         for v in range(-3, 4):
-            self._line(painter, (v, -3, 0), (v, 3, 0))
-            self._line(painter, (-3, v, 0), (3, v, 0))
+            if self.mode in ('perspective', 'top'):
+                self._line(painter, (v, -3, 0), (v, 3, 0))
+                self._line(painter, (-3, v, 0), (3, v, 0))
+            elif self.mode == 'front':
+                self._line(painter, (v, 0, -3), (v, 0, 3))
+                self._line(painter, (-3, 0, v), (3, 0, v))
+            else:
+                self._line(painter, (0, v, -3), (0, v, 3))
+                self._line(painter, (0, -3, v), (0, 3, v))
         painter.setPen(QPen(QColor(110, 160, 215), 1))
         for a, b in (((-1, -1, -1), (1, -1, -1)), ((1, -1, -1), (1, 1, -1)), ((1, 1, -1), (-1, 1, -1)), ((-1, 1, -1), (-1, -1, -1)),
                      ((-1, -1, 1), (1, -1, 1)), ((1, -1, 1), (1, 1, 1)), ((1, 1, 1), (-1, 1, 1)), ((-1, 1, 1), (-1, -1, 1)),
@@ -216,6 +282,48 @@ class Viewport3D(QWidget):
             projected = self.project(end[1], end[0], end[2])
             if projected is not None:
                 painter.drawText(projected[0] + QPointF(5, -5), name)
+
+    def _context(self, painter):
+        """Read-only reference objects from the scene (never saved into the path document)."""
+        for index, obj in enumerate(self.context):
+            chosen = index == self.selected_context
+            painter.setPen(QPen(QColor(255, 220, 120) if chosen else QColor(150, 130, 190), 2 if chosen else 1))
+            f, r, u = obj['position']
+            if obj['kind'] == 'box':
+                hf, hr, hu = obj['half_extents']
+                corners = [(r + sr * hr, f + sf * hf, u + su * hu) for sf in (-1, 1) for sr in (-1, 1) for su in (-1, 1)]
+                for i, a in enumerate(corners):
+                    for j in range(i + 1, 8):
+                        if bin(i ^ j).count('1') == 1:
+                            self._line(painter, a, corners[j])
+            elif obj['kind'] == 'sphere':
+                radius = obj['radius']
+                steps = 24
+                for plane in range(3):
+                    previous = None
+                    for k in range(steps + 1):
+                        angle = 2 * math.pi * k / steps
+                        c, s = radius * math.cos(angle), radius * math.sin(angle)
+                        offset = ((c, s, 0), (c, 0, s), (0, c, s))[plane]  # (right, front, up) offsets
+                        point = (r + offset[0], f + offset[1], u + offset[2])
+                        if previous is not None:
+                            self._line(painter, previous, point)
+                        previous = point
+            else:
+                projected = self.project(f, r, u)
+                if projected is not None:
+                    p = projected[0]
+                    painter.drawLine(p + QPointF(-5, 0), p + QPointF(0, -5))
+                    painter.drawLine(p + QPointF(0, -5), p + QPointF(5, 0))
+                    painter.drawLine(p + QPointF(5, 0), p + QPointF(0, 5))
+                    painter.drawLine(p + QPointF(0, 5), p + QPointF(-5, 0))
+                if obj['kind'] == 'listener':
+                    yaw = math.radians(obj.get('yaw_degrees', 0.0))
+                    # yaw 0 faces +front; positive turns toward the left (-right), like ADM azimuth
+                    self._line(painter, (r, f, u), (r - 0.4 * math.sin(yaw), f + 0.4 * math.cos(yaw), u))
+            projected = self.project(f, r, u)
+            if projected is not None and obj.get('label'):
+                painter.drawText(projected[0] + QPointF(8, -7), str(obj['label']))
 
     def _waypoints(self, painter):
         waypoints = self.document.get('waypoints')
@@ -248,7 +356,7 @@ class Viewport3D(QWidget):
             if projected is None:
                 continue
             chosen = selected and key_index == self.selected_key
-            if selected:  # drop line to the floor makes height readable
+            if selected and self.mode in ('perspective', 'front', 'side'):  # drop line to the floor makes height readable
                 painter.setPen(QPen(QColor(70, 90, 80), 1, Qt.DotLine))
                 self._line(painter, (position[1], position[0], position[2]), (position[1], position[0], 0))
             painter.setPen(QPen(QColor(255, 255, 255) if chosen else color, 2 if chosen else 1))
@@ -266,9 +374,9 @@ class Viewport3D(QWidget):
                 self._vertical = bool(event.modifiers() & Qt.ShiftModifier)
                 self.dragBegan.emit(hit)
                 return
-            self._mode = 'orbit'
+            self._mode = 'orbit' if self.mode == 'perspective' else 'pan'
         elif event.button() == Qt.RightButton:
-            self._mode = 'orbit'
+            self._mode = 'orbit' if self.mode == 'perspective' else 'pan'
         elif event.button() == Qt.MiddleButton:
             self._mode = 'pan'
 
@@ -278,10 +386,15 @@ class Viewport3D(QWidget):
         if self._mode == 'orbit':
             self.orbit(-delta.x() * 0.01, delta.y() * 0.01)
         elif self._mode == 'pan':
-            _forward, right, up = self.basis()
-            scale = self.distance / self.focal()
-            for i in range(3):
-                self.target[i] += (-delta.x() * right[i] + delta.y() * up[i]) * scale
+            if self.mode == 'perspective':
+                _forward, right, up = self.basis()
+                scale = self.distance / self.focal()
+                for i in range(3):
+                    self.target[i] += (-delta.x() * right[i] + delta.y() * up[i]) * scale
+            else:
+                scale = 1.0 / self.unit_pixels()
+                self.center[0] -= delta.x() * scale
+                self.center[1] += delta.y() * scale
             self.update()
         elif self._mode == 'move' and self._drag is not None:
             self._move(event.position())
@@ -292,14 +405,23 @@ class Viewport3D(QWidget):
         if current is None:
             return
         limit = model.POSITION_LIMIT
-        if self._vertical:
+
+        def clamp(value):
+            return max(-limit, min(limit, value))
+
+        if self.mode != 'perspective':
+            h, v = ORTHO_AXES[self.mode]
+            new = list(current)
+            new[h], new[v] = (clamp(c) for c in self.ortho_hit(point))
+            self.keyframeMoved3.emit(self.selected, self._drag, new[0], new[1], new[2])
+        elif self._vertical:
             up = self.vertical_hit(point, current[0], current[1])
             if up is not None:
-                self.keyframeMoved3.emit(self.selected, self._drag, current[0], current[1], max(-limit, min(limit, up)))
+                self.keyframeMoved3.emit(self.selected, self._drag, current[0], current[1], clamp(up))
         else:
             hit = self.plane_hit(point, current[2])
             if hit is not None:
-                self.keyframeMoved3.emit(self.selected, self._drag, max(-limit, min(limit, hit[0])), max(-limit, min(limit, hit[1])), current[2])
+                self.keyframeMoved3.emit(self.selected, self._drag, clamp(hit[0]), clamp(hit[1]), current[2])
 
     def mouseReleaseEvent(self, _event):
         if self._mode == 'move':

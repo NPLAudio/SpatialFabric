@@ -11,7 +11,8 @@ class ContractFixtures(unittest.TestCase):
     def test_path_contract_files_are_linked_and_versioned(self):
         d=json.loads((ROOT/'Schemas/path-v1.schema.json').read_text());self.assertEqual(d['properties']['schema']['const'],'org.nplaudio.spatialfabric.path');self.assertEqual(d['properties']['schema_version']['const'],1)
         f=json.loads((ROOT/'Fixtures/path-v1.json').read_text());self.assertEqual(f['schema_version'],1);self.assertGreaterEqual(len(f['cases']),12);self.assertGreaterEqual(len(f['invalid']),20)
-        for name in ('Specs/Path-v1.md','Docs/PathStudio-ADR-0001.md','Apps/PathStudio/README.md'):self.assertTrue((ROOT/name).is_file())
+        c=json.loads((ROOT/'Schemas/context-v1.schema.json').read_text());self.assertEqual(c['properties']['schema']['const'],'org.nplaudio.spatialfabric.context');self.assertEqual(c['properties']['schema_version']['const'],1)
+        for name in ('Specs/Context-v1.md','Apps/PathStudio/examples/room.sfctx.json','Specs/Path-v1.md','Docs/PathStudio-ADR-0001.md','Apps/PathStudio/README.md'):self.assertTrue((ROOT/name).is_file())
     def test_vector_packets_are_aligned_and_named(self):
         d=json.loads((ROOT/'Fixtures/osc-v1.json').read_text());self.assertEqual(len(d['valid']),5)
         for p in d['valid']:
