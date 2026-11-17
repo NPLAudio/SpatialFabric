@@ -4,7 +4,7 @@ import math
 import re
 
 SCHEMA = 'org.nplaudio.spatialfabric.path'
-ID = re.compile(r'^[A-Za-z0-9_-]{1,64}$')
+ID = re.compile(r'^[A-Za-z0-9_-]{1,64}\Z')
 KINDS = ('object', 'listener', 'camera')
 LOOPS = ('none', 'loop', 'ping_pong')
 INTERPS = ('linear', 'hold', 'catmull_rom', 'bezier')

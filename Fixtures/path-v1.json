@@ -1125,6 +1125,44 @@
       ]
     },
     {
+      "name": "track_id_trailing_newline",
+      "document": {
+        "schema": "org.nplaudio.spatialfabric.path",
+        "schema_version": 1,
+        "space": "canonical",
+        "tracks": [
+          {
+            "id": "t\n",
+            "target": {
+              "kind": "object",
+              "key": "fixture/object"
+            },
+            "keyframes": [
+              {
+                "t": 0,
+                "position": [
+                  0,
+                  0,
+                  0
+                ]
+              },
+              {
+                "t": 1,
+                "position": [
+                  1,
+                  0,
+                  0
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "codes": [
+        "bad_id"
+      ]
+    },
+    {
       "name": "duplicate_track_id",
       "document": {
         "schema": "org.nplaudio.spatialfabric.path",

@@ -15,7 +15,7 @@ KINDS = ('box', 'sphere', 'point', 'listener')
 MAX_OBJECTS = 4096
 POSITION_LIMIT = 64.0
 MAX_BYTES = 8 * 1024 * 1024
-ID = re.compile(r'^[A-Za-z0-9_./:-]{1,128}$')
+ID = re.compile(r'^[A-Za-z0-9_./:-]{1,128}\Z')
 
 
 def _number(value):

@@ -34,6 +34,11 @@ Design: [ADR 0001](../../Docs/PathStudio-ADR-0001.md). Contract: [Path v1](../..
   new tracks start at the object's reported position. Remove track is also available.
 - No playback commands, no audio, no device access. Without a query the editor opens no sockets.
 
+**Baked playback (Unity):** save the path in Path Studio, then in Unity use
+`Tools > SpatialFabric > Import Path Studio Path...` and add a `SpatialPathPlayer` to the object (assign the asset and
+stage, call `Play()`). Playback is deterministic and matches the golden fixtures; it moves position only and needs no
+network. Godot and Unreal exporters are not implemented yet.
+
 Context exporters: Unity has one (`Tools > SpatialFabric > Export Path Studio Context...`, on Unity main, unreleased); Godot and Unreal do not yet.
 
 Not yet: waypoint editing, bezier tangent handles, exporters, live driving. Engines currently have no inbound
