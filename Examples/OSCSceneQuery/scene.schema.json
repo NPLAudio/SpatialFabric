@@ -1,0 +1,37 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SpatialFabric scene response page, version 1",
+  "type": "object",
+  "required": ["schema", "schema_version"],
+  "properties": {
+    "schema": {"const": "org.nplaudio.spatialfabric.scene"},
+    "schema_version": {"const": 1},
+    "error": {"type": "string"},
+    "world": {"type": "string"},
+    "world_type": {"enum": ["Editor", "PIE", "Game"]},
+    "snapshot_utc": {"type": "string"},
+    "world_time_seconds": {"type": ["number", "null"]},
+    "coordinates": {"type": "string"},
+    "state_contract": {"type": "string"},
+    "playback_network": {"type": "object"},
+    "offset": {"type": "integer", "minimum": 0},
+    "limit": {"type": "integer", "minimum": 1, "maximum": 64},
+    "returned": {"type": "integer", "minimum": 0, "maximum": 64},
+    "total": {"type": "integer", "minimum": 0, "maximum": 16384},
+    "next_offset": {"type": "integer", "minimum": -1},
+    "objects": {
+      "type": "array", "maxItems": 64,
+      "items": {
+        "type": "object", "required": ["kind", "key"],
+        "properties": {"kind": {"type": "string"}, "key": {"type": "string", "minLength": 1}},
+        "additionalProperties": true
+      }
+    }
+  },
+  "oneOf": [
+    {"required": ["error"]},
+    {"required": ["world", "world_type", "snapshot_utc", "playback_network", "offset", "limit", "returned", "total", "next_offset", "objects"], "not": {"required": ["error"]}}
+  ],
+  "additionalProperties": true,
+  "$comment": "This schema describes a native response PAGE. Supplied clients assemble all pages into an inventory with returned/objects possibly above 64; preserve the original page contract when validating wire data. Unknown record kinds/fields must be ignored rather than executed."
+}

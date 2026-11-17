@@ -24,6 +24,7 @@ for Unreal content because that name now points here, not to the renamed engine 
   for the executable bundle; Python sources work independently of engine editors.
 - **[OSC v1](Specs/OSC-v1.md)** — command and transport contract, `/ack`, `/status`
   and observed `/state` feedback. UDP acknowledgement is best effort, not delivery proof.
+- **[Scene query clients](Examples/OSCSceneQuery/README.md)** — Python, Node, Max and Node-RED discovery examples.
 - **[Scene schema v1](Schemas/scene-v1.schema.json)** — engine-neutral cue discovery.
   Unknown fields/kinds are forward-compatible; version changes must be explicit.
 - **[Golden fixtures](Fixtures/)** — OSC/acknowledgement packets, command decisions,

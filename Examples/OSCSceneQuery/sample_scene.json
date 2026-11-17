@@ -1,0 +1,86 @@
+{
+  "schema": "org.nplaudio.spatialfabric.scene",
+  "schema_version": 1,
+  "world": "/Game/Example.Example",
+  "world_type": "Editor",
+  "snapshot_utc": "2026-01-01T00:00:00Z",
+  "world_time_seconds": 0,
+  "coordinates": "Internal stage positions are front/right/up; ADM wire XYZ is right/front/up and sphere-limited",
+  "state_contract": "Illustrative configuration snapshot, not hardware/audio certification",
+  "playback_network": {
+    "configured_listen_ip": "127.0.0.1",
+    "configured_listen_port": 9000,
+    "bound_ip": "127.0.0.1",
+    "bound_port": 9000,
+    "listening": true,
+    "monitor_ip": "127.0.0.1",
+    "monitor_port": 9001
+  },
+  "offset": 0,
+  "limit": 16,
+  "returned": 2,
+  "total": 2,
+  "next_offset": -1,
+  "objects": [
+    {
+      "kind": "playback",
+      "key": "/Game/Example.Example:PersistentLevel.Cue.AudioLoom",
+      "actor_label": "Warm percussion",
+      "actor_path": "/Game/Example.Example:PersistentLevel.Cue",
+      "name": "AudioLoom",
+      "registered": true,
+      "osc_base": "/demo/playback/mono",
+      "controls": {
+        "play": "/demo/playback/mono/play",
+        "stop": "/demo/playback/mono/stop",
+        "loop": "/demo/playback/mono/loop"
+      },
+      "state_address": "/demo/playback/mono/state",
+      "configured_device_id": "",
+      "output_channel": 1,
+      "channel_policy": "first_source_channel_to_selected_output",
+      "sound_path": "/Game/SpatialFabricDemo/Audio/SW_SF_MonoCue.SW_SF_MonoCue",
+      "duration_seconds": 1.2,
+      "source_channels": 1,
+      "playing": false,
+      "loop": false,
+      "auto_replay": false,
+      "exclusive_requested": false,
+      "buffer_ms_requested": 0,
+      "last_error": ""
+    },
+    {
+      "kind": "spatial_binding",
+      "key": "/Game/Example.Example:PersistentLevel.Manager/bindings/0",
+      "manager_path": "/Game/Example.Example:PersistentLevel.Manager",
+      "binding_index": 0,
+      "label": "Moving object",
+      "default_object_id": 1,
+      "enabled": true,
+      "snapshot_resolved": true,
+      "stage_normalized": [0.5, 0.25, 0.1],
+      "stage_meters": [5, 1.875, 0.4],
+      "gain": 1,
+      "width": 0,
+      "mute": false,
+      "targets": [
+        {
+          "protocol": "ADM",
+          "object_id": 1,
+          "object_id_override": -1,
+          "enabled": true,
+          "custom_fields": {},
+          "adapter": {
+            "protocol": "ADM",
+            "enabled": true,
+            "target_ip": "127.0.0.1",
+            "target_port": 50018,
+            "send_rate_hz": 30,
+            "send_only_on_change": true,
+            "adm_coordinate_mode": 2
+          }
+        }
+      ]
+    }
+  ]
+}
