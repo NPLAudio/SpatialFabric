@@ -7,9 +7,9 @@ OSC tooling and links to the Unreal, Unity and Godot integrations.
 
 | Repository | Contents / downloads |
 |---|---|
-| [SpatialFabric-Unreal](https://github.com/NPLAudio/SpatialFabric-Unreal) | Unreal plugin, four-room C++ example and source releases |
-| [SpatialFabric-Unity](https://github.com/NPLAudio/SpatialFabric-Unity) | Unity UPM package, native audio backend and four-room showcase |
-| [SpatialFabric-Godot](https://github.com/NPLAudio/SpatialFabric-Godot) | Godot addon, native backend and four-room showcase |
+| [SpatialFabric-Unreal](https://github.com/NPLAudio/SpatialFabric-Unreal) | Unreal plugin and four-room C++ example · [Downloads](https://github.com/NPLAudio/SpatialFabric-Unreal/releases/latest) |
+| [SpatialFabric-Unity](https://github.com/NPLAudio/SpatialFabric-Unity) | Unity UPM package, native audio and four-room showcase · [Downloads](https://github.com/NPLAudio/SpatialFabric-Unity/releases/latest) |
+| [SpatialFabric-Godot](https://github.com/NPLAudio/SpatialFabric-Godot) | Godot addon, native audio and four-room showcase · [Downloads](https://github.com/NPLAudio/SpatialFabric-Godot/releases/latest) |
 
 Each engine owns its runtime, examples, validation and releases. This repository is
 not an engine plugin. The previous `SpatialFabric` Unreal repository is now
