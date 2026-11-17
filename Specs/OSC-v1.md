@@ -36,6 +36,27 @@ unknown nonnumeric payloads do not trigger. `/state` float 1/0 is observed worke
 Never emit Playing=1 for an unimplemented/refused backend. Channel 0 maps corresponding
 source/device channels; 1..N selects the first source channel to one device output.
 
+## Command acknowledgement and status (playback and live-input cues)
+
+UDP gives a sender no feedback, so every engine answers each command addressed to a known cue base. All messages go to the
+**same destination as `/state`** (the engine's monitor/send IP:port, default 9001).
+
+`<base>/ack ,ssis command result playing detail`
+
+| Field | Meaning |
+|---|---|
+| `command` | `play`, `stop`, `loop`, `gain`, `status`, or the unrecognized suffix that was sent (<= 32 chars, sanitized) |
+| `result` | `received`: recognized and acted on (for `play` this is a **start request**, not yet playing). `ignored`: recognized but the payload rules say no effect (float < 0.5 / int < 1 play, non-numeric payload, engine-only message). `rejected`: invalid arguments or a command that does not apply to this cue kind (gain outside 0..4, loop on a live input, unknown suffix). `failed`: the engine tried and could not (no source, backend unavailable, device refused). |
+| `playing` | int 1/0: the engine's **observed** worker state at the moment of the ack |
+| `detail` | short human text, may be empty |
+
+A `play` that is `received` is followed by `<base>/state 1` when the worker really starts, or by a second
+`<base>/ack play failed 0 <reason>` when it cannot (for example an unavailable device). Stops and natural endings keep
+sending `<base>/state 0`. `<base>/status` (address-only) makes the engine answer `ack status received <playing> ""` and
+`<base>/state <playing>` so a controller that started after the engine learns the current state. `<base>/ack` and
+`<base>/state` sent TO an engine are engine-only messages and are `ignored`.
+`Fixtures/ack-v1.json` holds golden packets and a decision table every engine must satisfy (kind, command, arguments to result).
+
 ## Read-only scene discovery
 
 `/spatialfabric/scene/query ,siii request_id reply_port offset limit` (short `,si` form:

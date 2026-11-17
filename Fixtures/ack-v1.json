@@ -1,0 +1,443 @@
+{
+  "schema_version": 1,
+  "ack_tags": ",ssis",
+  "results": [
+    "received",
+    "ignored",
+    "rejected",
+    "failed"
+  ],
+  "vectors": [
+    {
+      "name": "play_received",
+      "address": "/demo/playback/mono/ack",
+      "command": "play",
+      "result": "received",
+      "playing": 0,
+      "detail": "",
+      "hex": "2f64656d6f2f706c61796261636b2f6d6f6e6f2f61636b002c73736973000000706c6179000000007265636569766564000000000000000000000000"
+    },
+    {
+      "name": "play_failed_async",
+      "address": "/demo/playback/mono/ack",
+      "command": "play",
+      "result": "failed",
+      "playing": 0,
+      "detail": "Get configured output (no default fallback)",
+      "hex": "2f64656d6f2f706c61796261636b2f6d6f6e6f2f61636b002c73736973000000706c6179000000006661696c656400000000000047657420636f6e66696775726564206f757470757420286e6f2064656661756c742066616c6c6261636b2900"
+    },
+    {
+      "name": "stop_received",
+      "address": "/demo/playback/mono/ack",
+      "command": "stop",
+      "result": "received",
+      "playing": 0,
+      "detail": "",
+      "hex": "2f64656d6f2f706c61796261636b2f6d6f6e6f2f61636b002c7373697300000073746f70000000007265636569766564000000000000000000000000"
+    },
+    {
+      "name": "loop_ignored",
+      "address": "/demo/playback/stereo/ack",
+      "command": "loop",
+      "result": "ignored",
+      "playing": 1,
+      "detail": "non-numeric payload",
+      "hex": "2f64656d6f2f706c61796261636b2f73746572656f2f61636b0000002c737369730000006c6f6f700000000069676e6f72656400000000016e6f6e2d6e756d65726963207061796c6f616400"
+    },
+    {
+      "name": "gain_rejected",
+      "address": "/audioloom/Stage/live/1/ack",
+      "command": "gain",
+      "result": "rejected",
+      "playing": 1,
+      "detail": "gain 9 is outside 0..4",
+      "hex": "2f617564696f6c6f6f6d2f53746167652f6c6976652f312f61636b002c737369730000006761696e0000000072656a656374656400000000000000016761696e2039206973206f75747369646520302e2e340000"
+    },
+    {
+      "name": "status_received",
+      "address": "/audioloom/Stage/live/1/ack",
+      "command": "status",
+      "result": "received",
+      "playing": 1,
+      "detail": "",
+      "hex": "2f617564696f6c6f6f6d2f53746167652f6c6976652f312f61636b002c7373697300000073746174757300007265636569766564000000000000000100000000"
+    },
+    {
+      "name": "unicode_detail",
+      "address": "/demo/playback/replay/ack",
+      "command": "play",
+      "result": "failed",
+      "playing": 0,
+      "detail": "装置が見つかりません",
+      "hex": "2f64656d6f2f706c61796261636b2f7265706c61792f61636b0000002c73736973000000706c6179000000006661696c6564000000000000e8a385e7bdaee3818ce8a68be381a4e3818be3828ae381bee3819be382930000"
+    }
+  ],
+  "decisions": [
+    {
+      "kind": "playback",
+      "op": "play",
+      "args": [],
+      "result": "received",
+      "acts": true
+    },
+    {
+      "kind": "playback",
+      "op": "play",
+      "args": [
+        [
+          "f",
+          1.0
+        ]
+      ],
+      "result": "received",
+      "acts": true
+    },
+    {
+      "kind": "playback",
+      "op": "play",
+      "args": [
+        [
+          "f",
+          0.5
+        ]
+      ],
+      "result": "received",
+      "acts": true
+    },
+    {
+      "kind": "playback",
+      "op": "play",
+      "args": [
+        [
+          "f",
+          0.49
+        ]
+      ],
+      "result": "ignored",
+      "acts": false
+    },
+    {
+      "kind": "playback",
+      "op": "play",
+      "args": [
+        [
+          "i",
+          1
+        ]
+      ],
+      "result": "received",
+      "acts": true
+    },
+    {
+      "kind": "playback",
+      "op": "play",
+      "args": [
+        [
+          "i",
+          0
+        ]
+      ],
+      "result": "ignored",
+      "acts": false
+    },
+    {
+      "kind": "playback",
+      "op": "play",
+      "args": [
+        [
+          "s",
+          "go"
+        ]
+      ],
+      "result": "ignored",
+      "acts": false
+    },
+    {
+      "kind": "playback",
+      "op": "play",
+      "args": [
+        [
+          "i",
+          0
+        ],
+        [
+          "f",
+          0.9
+        ]
+      ],
+      "result": "received",
+      "acts": true
+    },
+    {
+      "kind": "playback",
+      "op": "play",
+      "args": [
+        [
+          "i",
+          1
+        ],
+        [
+          "f",
+          0.1
+        ]
+      ],
+      "result": "ignored",
+      "acts": false
+    },
+    {
+      "kind": "playback",
+      "op": "stop",
+      "args": [],
+      "result": "received",
+      "acts": true
+    },
+    {
+      "kind": "playback",
+      "op": "stop",
+      "args": [
+        [
+          "f",
+          0.0
+        ]
+      ],
+      "result": "received",
+      "acts": true
+    },
+    {
+      "kind": "playback",
+      "op": "loop",
+      "args": [],
+      "result": "received",
+      "acts": true
+    },
+    {
+      "kind": "playback",
+      "op": "loop",
+      "args": [
+        [
+          "f",
+          0.51
+        ]
+      ],
+      "result": "received",
+      "acts": true
+    },
+    {
+      "kind": "playback",
+      "op": "loop",
+      "args": [
+        [
+          "f",
+          0.5
+        ]
+      ],
+      "result": "received",
+      "acts": true
+    },
+    {
+      "kind": "playback",
+      "op": "loop",
+      "args": [
+        [
+          "s",
+          "x"
+        ]
+      ],
+      "result": "ignored",
+      "acts": false
+    },
+    {
+      "kind": "playback",
+      "op": "gain",
+      "args": [
+        [
+          "f",
+          1.0
+        ]
+      ],
+      "result": "rejected",
+      "acts": false
+    },
+    {
+      "kind": "playback",
+      "op": "status",
+      "args": [],
+      "result": "received",
+      "acts": true
+    },
+    {
+      "kind": "playback",
+      "op": "plya",
+      "args": [],
+      "result": "rejected",
+      "acts": false
+    },
+    {
+      "kind": "playback",
+      "op": "state",
+      "args": [
+        [
+          "f",
+          1.0
+        ]
+      ],
+      "result": "ignored",
+      "acts": false
+    },
+    {
+      "kind": "playback",
+      "op": "ack",
+      "args": [
+        [
+          "s",
+          "play"
+        ]
+      ],
+      "result": "ignored",
+      "acts": false
+    },
+    {
+      "kind": "live",
+      "op": "play",
+      "args": [],
+      "result": "received",
+      "acts": true
+    },
+    {
+      "kind": "live",
+      "op": "play",
+      "args": [
+        [
+          "f",
+          0.2
+        ]
+      ],
+      "result": "ignored",
+      "acts": false
+    },
+    {
+      "kind": "live",
+      "op": "stop",
+      "args": [],
+      "result": "received",
+      "acts": true
+    },
+    {
+      "kind": "live",
+      "op": "gain",
+      "args": [
+        [
+          "f",
+          2.5
+        ]
+      ],
+      "result": "received",
+      "acts": true
+    },
+    {
+      "kind": "live",
+      "op": "gain",
+      "args": [
+        [
+          "i",
+          2
+        ]
+      ],
+      "result": "received",
+      "acts": true
+    },
+    {
+      "kind": "live",
+      "op": "gain",
+      "args": [
+        [
+          "f",
+          4.0
+        ]
+      ],
+      "result": "received",
+      "acts": true
+    },
+    {
+      "kind": "live",
+      "op": "gain",
+      "args": [
+        [
+          "f",
+          4.1
+        ]
+      ],
+      "result": "rejected",
+      "acts": false
+    },
+    {
+      "kind": "live",
+      "op": "gain",
+      "args": [
+        [
+          "f",
+          -0.1
+        ]
+      ],
+      "result": "rejected",
+      "acts": false
+    },
+    {
+      "kind": "live",
+      "op": "gain",
+      "args": [
+        [
+          "i",
+          -1
+        ]
+      ],
+      "result": "rejected",
+      "acts": false
+    },
+    {
+      "kind": "live",
+      "op": "gain",
+      "args": [],
+      "result": "rejected",
+      "acts": false
+    },
+    {
+      "kind": "live",
+      "op": "gain",
+      "args": [
+        [
+          "s",
+          "x"
+        ]
+      ],
+      "result": "rejected",
+      "acts": false
+    },
+    {
+      "kind": "live",
+      "op": "loop",
+      "args": [
+        [
+          "f",
+          1.0
+        ]
+      ],
+      "result": "rejected",
+      "acts": false
+    },
+    {
+      "kind": "live",
+      "op": "status",
+      "args": [],
+      "result": "received",
+      "acts": true
+    },
+    {
+      "kind": "live",
+      "op": "bogus",
+      "args": [],
+      "result": "rejected",
+      "acts": false
+    }
+  ]
+}

@@ -23,4 +23,15 @@ class ContractFixtures(unittest.TestCase):
         d=json.loads((ROOT/'Fixtures/coordinates-v1.json').read_text())
         for row in d['vectors']:
             f,r,u=row['canonical'];self.assertEqual(row['unity_m'],[r,u,f]);self.assertEqual(row['unreal_cm'],[100*f,100*r,100*u]);self.assertEqual(row['adm_xyz'],[r,f,u])
+    def test_ack_vectors_and_decision_table(self):
+        d=json.loads((ROOT/'Fixtures/ack-v1.json').read_text(encoding='utf-8'))
+        self.assertEqual(d['ack_tags'],',ssis');self.assertEqual(d['results'],['received','ignored','rejected','failed'])
+        for v in d['vectors']:
+            b=bytes.fromhex(v['hex']);self.assertEqual(len(b)%4,0);self.assertEqual(b.split(b'\0')[0].decode(),v['address']);self.assertTrue(v['address'].endswith('/ack'));self.assertIn(v['result'],d['results'])
+        self.assertTrue(any(v['detail']=='' for v in d['vectors']) and any(not v['detail'].isascii() for v in d['vectors']))
+        seen=set()
+        for r in d['decisions']:
+            self.assertIn(r['result'],d['results']);self.assertEqual(r['acts'],r['result']=='received' or False if r['result']!='received' else True)
+            seen.add((r['kind'],r['op']))
+        self.assertTrue({('playback','play'),('playback','loop'),('live','gain'),('live','loop'),('playback','status'),('playback','plya')}<=seen)
 if __name__=='__main__':unittest.main()

@@ -31,4 +31,27 @@ custom_case('discrete_aed_aliases',{'coordinates':1,'sendMode':1,'argumentTempla
 custom_case('address_fields_and_numeric_format',{'positionMin':0,'positionMax':100,'gainMin':0,'gainMax':10,'widthMin':0,'widthMax':100,'argumentTemplate':'id'},'/{room}/{label}/{id}/{x}/{gain}/{width}',{'id':11,'label':'Tap','front':1,'right':0,'up':0,'gain':.5,'width':0,'fields':[{'key':'room','value':'Hall_A'}]},[('/Hall_A/Tap/11/100.0/5.0/0.0',[11])])
 custom_case('reverse_ranges_case_insensitive_args',{'positionMin':1,'positionMax':-1,'gainMin':10,'gainMax':0,'widthMin':2,'widthMax':4,'argumentTemplate':'X y Z gain WIDTH'},'/reverse/{id}',{'id':3,'front':-1,'right':1,'up':0,'gain':.25,'width':.5},[('/reverse/3',[1,-1,0,7.5,3])])
 (ROOT/'Fixtures/custom-v1.json').write_text(json.dumps({'schema_version':1,'vectors':custom},indent=2)+'\n',encoding='utf-8',newline='\n')
+acks=[]
+for name,base,command,result,playing,detail in [
+ ('play_received','/demo/playback/mono','play','received',0,''),
+ ('play_failed_async','/demo/playback/mono','play','failed',0,'Get configured output (no default fallback)'),
+ ('stop_received','/demo/playback/mono','stop','received',0,''),
+ ('loop_ignored','/demo/playback/stereo','loop','ignored',1,'non-numeric payload'),
+ ('gain_rejected','/audioloom/Stage/live/1','gain','rejected',1,'gain 9 is outside 0..4'),
+ ('status_received','/audioloom/Stage/live/1','status','received',1,''),
+ ('unicode_detail','/demo/playback/replay','play','failed',0,'装置が見つかりません')]:
+ acks.append({'name':name,'address':base+'/ack','command':command,'result':result,'playing':playing,'detail':detail,'hex':packet(base+'/ack',[('s',command),('s',result),('i',playing),('s',detail)]).hex()})
+def row(kind,op,args,result,acts): return {'kind':kind,'op':op,'args':[list(a) for a in args],'result':result,'acts':acts}
+decisions=[
+ row('playback','play',[],'received',True), row('playback','play',[('f',1.)],'received',True), row('playback','play',[('f',.5)],'received',True), row('playback','play',[('f',.49)],'ignored',False),
+ row('playback','play',[('i',1)],'received',True), row('playback','play',[('i',0)],'ignored',False), row('playback','play',[('s','go')],'ignored',False),
+ row('playback','play',[('i',0),('f',.9)],'received',True), row('playback','play',[('i',1),('f',.1)],'ignored',False),
+ row('playback','stop',[],'received',True), row('playback','stop',[('f',0.)],'received',True),
+ row('playback','loop',[],'received',True), row('playback','loop',[('f',.51)],'received',True), row('playback','loop',[('f',.5)],'received',True), row('playback','loop',[('s','x')],'ignored',False),
+ row('playback','gain',[('f',1.)],'rejected',False), row('playback','status',[],'received',True), row('playback','plya',[],'rejected',False), row('playback','state',[('f',1.)],'ignored',False), row('playback','ack',[('s','play')],'ignored',False),
+ row('live','play',[],'received',True), row('live','play',[('f',.2)],'ignored',False), row('live','stop',[],'received',True),
+ row('live','gain',[('f',2.5)],'received',True), row('live','gain',[('i',2)],'received',True), row('live','gain',[('f',4.)],'received',True), row('live','gain',[('f',4.1)],'rejected',False), row('live','gain',[('f',-.1)],'rejected',False),
+ row('live','gain',[('i',-1)],'rejected',False), row('live','gain',[],'rejected',False), row('live','gain',[('s','x')],'rejected',False),
+ row('live','loop',[('f',1.)],'rejected',False), row('live','status',[],'received',True), row('live','bogus',[],'rejected',False)]
+(ROOT/'Fixtures/ack-v1.json').write_text(json.dumps({'schema_version':1,'ack_tags':',ssis','results':['received','ignored','rejected','failed'],'vectors':acks,'decisions':decisions},indent=2,ensure_ascii=False)+'\n',encoding='utf-8',newline='\n')
 print('Wrote',len(vectors),'valid OSC vectors,',len(invalid),'invalid packets,',len(coords),'coordinate vectors and',len(custom),'Custom contract vectors.')
