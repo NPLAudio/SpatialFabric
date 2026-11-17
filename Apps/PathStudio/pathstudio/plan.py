@@ -14,19 +14,23 @@ CURVE_STEPS = 240
 
 class PlanView(QWidget):
     keyframeMoved = Signal(int, int, float, float)  # track index, key index, front, right
+    dragBegan = Signal(int)   # key index pressed in the selected track
+    dragEnded = Signal()
 
     def __init__(self, parent=None):
         super().__init__(parent)
         self.document = None
         self.valid = False
         self.selected = 0
+        self.selected_key = None
         self.time = 0.0
         self._drag = None
         self.setMinimumSize(360, 360)
         self.setMouseTracking(False)
 
-    def set_document(self, document, valid, selected, time):
+    def set_document(self, document, valid, selected, time, selected_key=None):
         self.document, self.valid, self.selected, self.time = document, valid, selected, time
+        self.selected_key = selected_key
         self.update()
 
     # --- pure geometry (unit-tested) -------------------------------------------------
@@ -116,12 +120,14 @@ class PlanView(QWidget):
                 painter.drawEllipse(p, 6, 6)
                 painter.setBrush(Qt.NoBrush)
         painter.setPen(QPen(color, 1))
-        for key in keys:
+        for index, key in enumerate(keys):
             position = key.get('position') if isinstance(key, dict) else None
             if isinstance(position, list) and len(position) == 3 and all(isinstance(v, (int, float)) for v in position[:2]):
                 p = self.to_screen(position[0], position[1])
-                painter.setBrush(color if selected else Qt.NoBrush)
-                painter.drawEllipse(p, 5, 5)
+                chosen = selected and index == self.selected_key
+                painter.setPen(QPen(QColor(255, 255, 255) if chosen else color, 2 if chosen else 1))
+                painter.setBrush(QColor(255, 190, 70) if chosen else (color if selected else Qt.NoBrush))
+                painter.drawEllipse(p, 7 if chosen else 5, 7 if chosen else 5)
         painter.setBrush(Qt.NoBrush)
 
     def _curve(self, track):
@@ -142,6 +148,8 @@ class PlanView(QWidget):
     def mousePressEvent(self, event):
         if event.button() == Qt.LeftButton and self.document is not None:
             self._drag = self.hit_keyframe(event.position())
+            if self._drag is not None:
+                self.dragBegan.emit(self._drag)
 
     def mouseMoveEvent(self, event):
         if self._drag is not None:
@@ -150,4 +158,6 @@ class PlanView(QWidget):
             self.keyframeMoved.emit(self.selected, self._drag, max(-limit, min(limit, front)), max(-limit, min(limit, right)))
 
     def mouseReleaseEvent(self, _event):
+        if self._drag is not None:
+            self.dragEnded.emit()
         self._drag = None

@@ -1,6 +1,8 @@
-"""Path Studio main window: open/save, track list, validation panel, 2D plan view and scrubber.
+"""Path Studio main window: files, tracks, keyframe inspector, shapes, 2D plan, timeline, undo/redo and
+read-only scene discovery.
 
-Offline only: this window never opens a socket, enumerates devices or starts audio.
+Offline editor: it opens a socket only when the operator presses "Query scene" (read-only), and it never
+starts audio or enumerates devices.
 """
 import copy
 import sys
@@ -8,11 +10,14 @@ from pathlib import Path
 
 from PySide6.QtGui import QAction, QKeySequence
 from PySide6.QtCore import Qt, QThread, Signal
-from PySide6.QtWidgets import (QApplication, QFileDialog, QHBoxLayout, QLabel, QLineEdit, QListWidget, QMainWindow,
-                               QMessageBox, QPushButton, QSlider, QSpinBox, QSplitter, QVBoxLayout, QWidget)
+from PySide6.QtWidgets import (QApplication, QComboBox, QDoubleSpinBox, QFileDialog, QFormLayout, QGroupBox,
+                               QHBoxLayout, QLabel, QLineEdit, QListWidget, QMainWindow, QMessageBox, QPushButton,
+                               QSlider, QSpinBox, QSplitter, QVBoxLayout, QWidget)
 
-from . import __version__, discovery, model, store
+from . import __version__, discovery, edit, model, shapes, store
+from .history import History
 from .plan import PlanView
+from .timeline import TimelineView
 
 SLIDER_STEPS = 1000
 FILTER = 'SpatialFabric paths (*.sfpath.json *.json)'
@@ -36,25 +41,49 @@ class QueryWorker(QThread):
             self.succeeded.emit(targets)
 
 
+def _spin(low, high, decimals, step, value=0.0):
+    box = QDoubleSpinBox()
+    box.setRange(low, high)
+    box.setDecimals(decimals)
+    box.setSingleStep(step)
+    box.setValue(value)
+    return box
+
+
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.document = store.new_document()
+        self.saved = copy.deepcopy(self.document)
+        self.history = History()
         self.path = None
         self.dirty = False
         self.issues = []
-        self.resize(1100, 720)
+        self.selected_key = None
+        self._drag_snapshot = None
+        self._drag_recorded = False
+        self.targets = []
+        self.worker = None
+        self.resize(1360, 800)
 
         self.tracks = QListWidget()
         self.tracks.currentRowChanged.connect(self._select_track)
         self.plan = PlanView()
         self.plan.keyframeMoved.connect(self.move_keyframe)
+        self.plan.dragBegan.connect(self._plan_pressed)
+        self.plan.dragEnded.connect(self._end_drag)
+        self.timeline = TimelineView()
+        self.timeline.keySelected.connect(self._timeline_selected)
+        self.timeline.dragBegan.connect(self._begin_drag)
+        self.timeline.keyRetimed.connect(self.retime_keyframe)
+        self.timeline.dragEnded.connect(self._end_drag)
+        self.timeline.scrubbed.connect(self._scrub_to)
         self.slider = QSlider(Qt.Horizontal)
         self.slider.setRange(0, SLIDER_STEPS)
         self.slider.valueChanged.connect(self._refresh_plan)
         self.time_label = QLabel('t = 0.00 s')
         self.problems = QListWidget()
-        self.problems.setMaximumHeight(140)
+        self.problems.setMaximumHeight(110)
 
         scrub = QHBoxLayout()
         scrub.addWidget(self.slider, 1)
@@ -62,30 +91,91 @@ class MainWindow(QMainWindow):
         center = QWidget()
         column = QVBoxLayout(center)
         column.addWidget(self.plan, 1)
+        column.addWidget(self.timeline)
         column.addLayout(scrub)
         column.addWidget(QLabel('Validation'))
         column.addWidget(self.problems)
+
+        left = QWidget()
+        left_column = QVBoxLayout(left)
+        left_column.addWidget(QLabel('Tracks'))
+        left_column.addWidget(self.tracks, 1)
+        left_column.addWidget(self._build_inspector())
+
         splitter = QSplitter()
-        splitter.addWidget(self.tracks)
+        splitter.addWidget(left)
         splitter.addWidget(center)
         splitter.setStretchFactor(1, 1)
         self.setCentralWidget(splitter)
-        self.targets = []
-        self.worker = None
-
-        file_menu = self.menuBar().addMenu('&File')
-        for text, handler, shortcut in (('&New', self.new, QKeySequence.New), ('&Open...', self.open, QKeySequence.Open),
-                                        ('&Save', self.save, QKeySequence.Save), ('Save &As...', self.save_as, QKeySequence.SaveAs),
-                                        ('&Quit', self.close, QKeySequence.Quit)):
-            action = QAction(text, self)
-            action.setShortcut(shortcut)
-            action.triggered.connect(handler)
-            file_menu.addAction(action)
+        self._build_menus()
         self._build_scene_panel(splitter)
         self.statusBar().showMessage('Offline editor: nothing is sent and no audio is started.')
         self._reload()
 
-    # --- scene discovery and binding ------------------------------------------------
+    # --- widgets -------------------------------------------------------------------
+    def _build_menus(self):
+        def action(menu, text, handler, shortcut=None):
+            item = QAction(text, self)
+            if shortcut is not None:
+                item.setShortcut(shortcut)
+            item.triggered.connect(handler)
+            menu.addAction(item)
+            return item
+
+        file_menu = self.menuBar().addMenu('&File')
+        action(file_menu, '&New', self.new, QKeySequence.New)
+        action(file_menu, '&Open...', self.open, QKeySequence.Open)
+        action(file_menu, '&Save', self.save, QKeySequence.Save)
+        action(file_menu, 'Save &As...', self.save_as, QKeySequence.SaveAs)
+        action(file_menu, '&Quit', self.close, QKeySequence.Quit)
+        edit_menu = self.menuBar().addMenu('&Edit')
+        self.undo_action = action(edit_menu, '&Undo', self.undo, QKeySequence.Undo)
+        self.redo_action = action(edit_menu, '&Redo', self.redo, QKeySequence.Redo)
+
+    def _build_inspector(self):
+        box = QGroupBox('Keyframe')
+        form = QFormLayout(box)
+        self.key_title = QLabel('No keyframe selected')
+        form.addRow(self.key_title)
+        self.t_spin = _spin(0, 1_000_000, 3, 0.1)
+        self.front_spin, self.right_spin, self.up_spin = (_spin(-16, 16, 4, 0.05) for _ in range(3))
+        self.interp_combo, self.ease_combo = QComboBox(), QComboBox()
+        self.interp_combo.addItems(model.INTERPS)
+        self.ease_combo.addItems(model.EASES)
+        for label, widget in (('time (track s)', self.t_spin), ('front', self.front_spin), ('right', self.right_spin),
+                              ('up', self.up_spin), ('interp', self.interp_combo), ('ease', self.ease_combo)):
+            form.addRow(label, widget)
+        self.t_spin.editingFinished.connect(self._commit_time)
+        for spin in (self.front_spin, self.right_spin, self.up_spin):
+            spin.editingFinished.connect(self._commit_position)
+        self.interp_combo.activated.connect(lambda _i: self._commit_choice('interp', self.interp_combo))
+        self.ease_combo.activated.connect(lambda _i: self._commit_choice('ease', self.ease_combo))
+        buttons = QHBoxLayout()
+        self.add_button = QPushButton('Add at scrub time')
+        self.add_button.clicked.connect(self.add_keyframe_at_scrub)
+        self.delete_button = QPushButton('Delete')
+        self.delete_button.clicked.connect(self.delete_selected_keyframe)
+        buttons.addWidget(self.add_button)
+        buttons.addWidget(self.delete_button)
+        form.addRow(buttons)
+        self.shape_combo = QComboBox()
+        self.shape_combo.addItems(shapes.SHAPES)
+        self.size_spin = _spin(0.05, 16, 2, 0.1, 1.0)
+        self.duration_spin = _spin(0.1, 3600, 2, 1.0, 8.0)
+        self.points_spin = QSpinBox()
+        self.points_spin.setRange(2, 200)
+        self.points_spin.setValue(24)
+        self.seed_spin = QSpinBox()
+        self.seed_spin.setRange(0, 2_000_000_000)
+        self.seed_spin.setValue(1)
+        for label, widget in (('shape', self.shape_combo), ('size', self.size_spin), ('duration s', self.duration_spin),
+                              ('points', self.points_spin), ('seed', self.seed_spin)):
+            form.addRow(label, widget)
+        self.generate_button = QPushButton('Replace track keyframes with shape')
+        self.generate_button.clicked.connect(self.generate_shape)
+        form.addRow(self.generate_button)
+        return box
+
     def _build_scene_panel(self, splitter):
         panel = QWidget()
         column = QVBoxLayout(panel)
@@ -113,6 +203,7 @@ class MainWindow(QMainWindow):
             column.addWidget(button)
         splitter.addWidget(panel)
 
+    # --- scene discovery and binding ------------------------------------------------
     def query_scene(self):
         if self.worker is not None and self.worker.isRunning():
             return
@@ -140,13 +231,10 @@ class MainWindow(QMainWindow):
         return self.targets[row] if 0 <= row < len(self.targets) else None
 
     def bind_selected(self):
-        target, tracks = self._selected_target(), self.document.get('tracks')
-        if target is None or not isinstance(tracks, list) or not tracks or not isinstance(tracks[self.selected_row()], dict):
+        target, tracks, row = self._selected_target(), self.document.get('tracks'), self.selected_row()
+        if target is None or not isinstance(tracks, list) or not tracks or not isinstance(tracks[row], dict):
             return False
-        tracks[self.selected_row()]['target'] = target.path_target()
-        self.dirty = True
-        self._reload()
-        return True
+        return self._edit(lambda doc: doc['tracks'][row].__setitem__('target', target.path_target()))
 
     def new_track_for_target(self):
         target = self._selected_target()
@@ -157,10 +245,13 @@ class MainWindow(QMainWindow):
         number = 1
         while f'track{number}' in existing:
             number += 1
-        self.document['tracks'].append({'id': f'track{number}', 'target': target.path_target(), 'loop': 'none', 'speed': 1,
-                                        'keyframes': [{'t': 0, 'position': list(position)}, {'t': 4, 'position': list(position)}]})
-        self.dirty = True
-        self._reload()
+
+        def add(doc):
+            doc['tracks'].append({'id': f'track{number}', 'target': target.path_target(), 'loop': 'none', 'speed': 1,
+                                  'keyframes': [{'t': 0, 'position': list(position)}, {'t': 4, 'position': list(position)}]})
+
+        if not self._edit(add):
+            return False
         self.tracks.setCurrentRow(len(self.document['tracks']) - 1)
         return True
 
@@ -168,15 +259,16 @@ class MainWindow(QMainWindow):
         tracks, row = self.document.get('tracks'), self.tracks.currentRow()
         if not isinstance(tracks, list) or not 0 <= row < len(tracks):
             return False
-        del tracks[row]
-        self.dirty = True
-        self._reload()
-        return True
+        return self._edit(lambda doc: doc['tracks'].pop(row))
 
     # --- document state ------------------------------------------------------------
+    def _tracks_list(self):
+        tracks = self.document.get('tracks') if isinstance(self.document, dict) else None
+        return tracks if isinstance(tracks, list) else []
+
     def duration(self):
         longest = 0.0
-        for track in self.document.get('tracks', []) if isinstance(self.document.get('tracks'), list) else []:
+        for track in self._tracks_list():
             keys = track.get('keyframes') if isinstance(track, dict) else None
             if isinstance(keys, list) and keys and isinstance(keys[-1], dict) and isinstance(keys[-1].get('t'), (int, float)):
                 speed = track.get('speed', 1)
@@ -190,17 +282,27 @@ class MainWindow(QMainWindow):
     def selected_row(self):
         return max(0, self.tracks.currentRow())
 
+    def _selected_track(self):
+        tracks, row = self._tracks_list(), self.selected_row()
+        return tracks[row] if row < len(tracks) and isinstance(tracks[row], dict) else None
+
+    def _keys(self):
+        track = self._selected_track()
+        keys = track.get('keyframes') if track else None
+        return keys if isinstance(keys, list) else []
+
     def _reload(self):
         row = self.selected_row()
         self.tracks.blockSignals(True)
         self.tracks.clear()
-        tracks = self.document.get('tracks')
-        for track in tracks if isinstance(tracks, list) else []:
+        for track in self._tracks_list():
             track = track if isinstance(track, dict) else {}
             target = track.get('target') if isinstance(track.get('target'), dict) else {}
             self.tracks.addItem(f"{track.get('id', '?')}  [{target.get('kind', '?')}: {target.get('key', '?')}]")
         self.tracks.setCurrentRow(min(row, self.tracks.count() - 1) if self.tracks.count() else -1)
         self.tracks.blockSignals(False)
+        if self.selected_key is not None and not 0 <= self.selected_key < len(self._keys()):
+            self.selected_key = None
         self._revalidate()
 
     def _revalidate(self):
@@ -213,25 +315,203 @@ class MainWindow(QMainWindow):
         self._refresh_plan()
         self._title()
 
-    def _refresh_plan(self):
+    def _refresh_plan(self, *_ignored):
         time = self.current_time()
         self.time_label.setText(f't = {time:.2f} s')
-        self.plan.set_document(self.document, not self.issues, self.selected_row(), time)
+        self.plan.set_document(self.document, not self.issues, self.selected_row(), time, self.selected_key)
+        self.timeline.set_document(self.document, self.duration(), time, self.selected_row(), self.selected_key)
+        self._sync_inspector()
+        self.undo_action.setEnabled(self.history.can_undo())
+        self.redo_action.setEnabled(self.history.can_redo())
 
     def _select_track(self, _row):
+        self.selected_key = None
         self._refresh_plan()
 
     def _title(self):
         name = Path(self.path).name if self.path else 'Untitled'
         self.setWindowTitle(f"{name}{' *' if self.dirty else ''} - Path Studio {__version__}")
 
-    # --- editing -------------------------------------------------------------------
+    def _changed(self):
+        self.dirty = self.document != self.saved
+        self._reload()
+
+    def _say(self, message):
+        self.statusBar().showMessage(message, 6000)
+
+    # --- editing core --------------------------------------------------------------
+    def _edit(self, function, *arguments):
+        """Run one undoable mutation. On failure the document and history are left untouched."""
+        snapshot = copy.deepcopy(self.document)
+        try:
+            function(self.document, *arguments)
+        except (ValueError, KeyError, IndexError, TypeError) as error:
+            self.document = snapshot
+            self._say(f'Edit refused: {error}')
+            return False
+        self.history.record(snapshot)
+        self._changed()
+        return True
+
+    def _begin_drag(self):
+        self._drag_snapshot = copy.deepcopy(self.document)
+        self._drag_recorded = False
+
+    def _end_drag(self):
+        self._drag_snapshot, self._drag_recorded = None, False
+
+    def _drag_edit(self, function, *arguments):
+        """Mutations repeated during a drag collapse into one undo step."""
+        snapshot = self._drag_snapshot if self._drag_snapshot is not None else copy.deepcopy(self.document)
+        trial = copy.deepcopy(self.document)
+        try:
+            function(trial, *arguments)
+        except (ValueError, KeyError, IndexError, TypeError) as error:
+            self._say(f'Edit refused: {error}')
+            return False
+        if self._drag_snapshot is None or not self._drag_recorded:
+            self.history.record(snapshot)
+            self._drag_recorded = self._drag_snapshot is not None
+        self.document = trial
+        self._changed()
+        return True
+
+    def undo(self):
+        previous = self.history.undo(self.document)
+        if previous is not None:
+            self.document = previous
+            self._changed()
+            self._say('Undone')
+
+    def redo(self):
+        following = self.history.redo(self.document)
+        if following is not None:
+            self.document = following
+            self._changed()
+            self._say('Redone')
+
+    # --- keyframe editing ----------------------------------------------------------
+    def _plan_pressed(self, key_index):
+        self.selected_key = key_index
+        self._begin_drag()
+        self._refresh_plan()
+
+    def _timeline_selected(self, track_index, key_index):
+        self.tracks.blockSignals(True)
+        self.tracks.setCurrentRow(track_index)
+        self.tracks.blockSignals(False)
+        self.selected_key = key_index
+        self._refresh_plan()
+
+    def _scrub_to(self, time):
+        duration = self.duration()
+        self.slider.setValue(round(SLIDER_STEPS * time / duration) if duration > 0 else 0)
+
     def move_keyframe(self, track_index, key_index, front, right):
-        keys = self.document['tracks'][track_index]['keyframes']
-        up = keys[key_index]['position'][2]
-        keys[key_index]['position'] = [round(front, 4), round(right, 4), up]
-        self.dirty = True
-        self._revalidate()
+        def move(document):
+            up = document['tracks'][track_index]['keyframes'][key_index]['position'][2]
+            edit.set_position(document, track_index, key_index, [round(front, 4), round(right, 4), up])
+
+        self._drag_edit(move)
+
+    def retime_keyframe(self, track_index, key_index, time):
+        self._drag_edit(lambda document: edit.set_time(document, track_index, key_index, time))
+
+    def add_keyframe_at_scrub(self):
+        track = self._selected_track()
+        if track is None:
+            return False
+        speed = track.get('speed', 1) if isinstance(track.get('speed', 1), (int, float)) else 1
+        row, created = self.selected_row(), []
+        ok = self._edit(lambda document: created.append(edit.add_keyframe(document, row, self.current_time() * speed)))
+        if ok:
+            self.selected_key = created[0]
+            self._refresh_plan()
+        return ok
+
+    def delete_selected_keyframe(self):
+        if self.selected_key is None:
+            return False
+        row, key = self.selected_row(), self.selected_key
+        ok = self._edit(lambda document: edit.delete_keyframe(document, row, key))
+        if ok:
+            self.selected_key = min(key, len(self._keys()) - 1)
+            self._refresh_plan()
+        return ok
+
+    def generate_shape(self):
+        track = self._selected_track()
+        if track is None:
+            return False
+        keys = self._keys()
+        first = keys[0].get('position') if keys and isinstance(keys[0], dict) else None
+        center = tuple(first) if isinstance(first, list) and len(first) == 3 else (0.0, 0.0, 0.0)
+        row = self.selected_row()
+
+        def apply(document):
+            generated = shapes.generate(self.shape_combo.currentText(), center, self.size_spin.value(),
+                                        self.duration_spin.value(), self.points_spin.value(), self.seed_spin.value())
+            edit.replace_keyframes(document, row, generated)
+
+        ok = self._edit(apply)
+        if ok:
+            self.selected_key = None
+            self._refresh_plan()
+        return ok
+
+    def _sync_inspector(self):
+        keys = self._keys()
+        key = keys[self.selected_key] if self.selected_key is not None and self.selected_key < len(keys) else None
+        key = key if isinstance(key, dict) else None
+        widgets = (self.t_spin, self.front_spin, self.right_spin, self.up_spin, self.interp_combo, self.ease_combo)
+        for widget in widgets:
+            widget.blockSignals(True)
+        try:
+            if key is None:
+                self.key_title.setText('No keyframe selected')
+            else:
+                position = key.get('position')
+                linked = key.get('waypoint')
+                self.key_title.setText(f'Keyframe {self.selected_key + 1} of {len(keys)}' + (f' (waypoint {linked})' if linked else ''))
+                if isinstance(key.get('t'), (int, float)):
+                    self.t_spin.setValue(min(key['t'], self.t_spin.maximum()))
+                if isinstance(position, list) and len(position) == 3 and all(isinstance(v, (int, float)) for v in position):
+                    for spin, value in zip((self.front_spin, self.right_spin, self.up_spin), position):
+                        spin.setValue(max(-16, min(16, value)))
+                self.interp_combo.setCurrentText(str(key.get('interp', 'linear')))
+                self.ease_combo.setCurrentText(str(key.get('ease', 'linear')))
+        finally:
+            for widget in widgets:
+                widget.blockSignals(False)
+        editable = key is not None and not self.issues
+        for widget in widgets:
+            widget.setEnabled(key is not None)
+        self.delete_button.setEnabled(key is not None)
+        self.add_button.setEnabled(self._selected_track() is not None and not self.issues)
+        self.generate_button.setEnabled(self._selected_track() is not None)
+        return editable
+
+    def _commit_time(self):
+        if self.selected_key is not None:
+            row, key = self.selected_row(), self.selected_key
+            if abs(self.t_spin.value() - self._keys()[key].get('t', 0)) > 1e-9:
+                self._edit(lambda document: edit.set_time(document, row, key, self.t_spin.value()))
+                self._refresh_plan()
+
+    def _commit_position(self):
+        if self.selected_key is not None:
+            row, key = self.selected_row(), self.selected_key
+            position = [self.front_spin.value(), self.right_spin.value(), self.up_spin.value()]
+            current = self._keys()[key].get('position')
+            if current != position:
+                self._edit(lambda document: edit.set_position(document, row, key, position))
+                self._refresh_plan()
+
+    def _commit_choice(self, field, combo):
+        if self.selected_key is not None:
+            row, key = self.selected_row(), self.selected_key
+            if self._keys()[key].get(field, 'linear') != combo.currentText():
+                self._edit(lambda document: edit.set_choice(document, row, key, field, combo.currentText()))
 
     # --- file operations -----------------------------------------------------------
     def confirm_discard(self):
@@ -240,11 +520,17 @@ class MainWindow(QMainWindow):
         answer = QMessageBox.question(self, 'Unsaved changes', 'Discard unsaved changes?')
         return answer == QMessageBox.Yes
 
+    def _adopt(self, document, path):
+        self.document, self.path, self.dirty = document, path, False
+        self.saved = copy.deepcopy(document)
+        self.history.clear()
+        self.selected_key = None
+        self.slider.setValue(0)
+        self._reload()
+
     def new(self):
         if self.confirm_discard():
-            self.document, self.path, self.dirty = store.new_document(), None, False
-            self.slider.setValue(0)
-            self._reload()
+            self._adopt(store.new_document(), None)
 
     def open(self, path=None):
         if not self.confirm_discard():
@@ -258,9 +544,7 @@ class MainWindow(QMainWindow):
         except (OSError, ValueError) as error:
             QMessageBox.warning(self, 'Cannot open', str(error))
             return False
-        self.document, self.path, self.dirty = document, str(path), False
-        self.slider.setValue(0)
-        self._reload()
+        self._adopt(document, str(path))
         return True
 
     def save(self):
@@ -282,6 +566,7 @@ class MainWindow(QMainWindow):
             QMessageBox.warning(self, 'Cannot save', str(error))
             return False
         self.path, self.dirty = str(path), False
+        self.saved = copy.deepcopy(self.document)
         self._title()
         return True
 
