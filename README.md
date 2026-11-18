@@ -22,6 +22,12 @@ for Unreal content because that name now points here, not to the renamed engine 
 - **[OSC Controller](Apps/OSCController/README.md)** — portable Windows desktop
   controller, debugger and silent engine simulator. See [releases](https://github.com/NPLAudio/SpatialFabric/releases)
   for the executable bundle; Python sources work independently of engine editors.
+- **[Playback parity v1](Specs/Playback-Parity-v1.md)** — AudioLoom baseline,
+  cross-engine implementation requirements, safe migration and separate software /
+  deployment acceptance gates.
+- **[AudioLoom audit](Docs/AUDIOLOOM_DEPRECATION_AUDIT.md)** and
+  **[completion report](Docs/AUDIOLOOM_FEATURE_COMPLETION.md)** — historical audit,
+  implemented gaps, fresh validation and remaining deployment limitations.
 - **[OSC v1](Specs/OSC-v1.md)** — command and transport contract, `/ack`, `/status`
   and observed `/state` feedback. UDP acknowledgement is best effort, not delivery proof.
 - **[Scene query clients](Examples/OSCSceneQuery/README.md)** — Python, Node, Max and Node-RED discovery examples.
@@ -38,8 +44,10 @@ is **right/front/up**, coherently limited to a unit sphere with AED. Schema v1
 
 Shared defaults: spatial input **8100**, playback input **9000**, monitor **9001**,
 ADM **50018**, Custom **9002**. Configure distinct ports for simultaneous engines.
-Explicitly start listeners and audio in the chosen integration; nothing should play
-automatically. Use trusted networks and maintain an independent hardware mute.
+Explicitly start listeners and audio in the chosen integration. Playback-on-start
+requires an authored per-cue opt-in (off by default); importing or inspecting a
+project must not start audio. Use trusted networks and maintain an independent
+hardware mute.
 
 ## Development
 

@@ -1,0 +1,77 @@
+{
+  "date": "2026-11-18",
+  "scope": "Local artifacts only; no tags or public releases created",
+  "artifact_root": "C:/dev/UnrealSpatial/LocalReleases/2026-11-18-audioloom-parity",
+  "source_commits": {
+    "AudioLoom": "eddbcaa3ea414ddb735ec9cac869764173382eec",
+    "SpatialFabric-Unity": "7fb1de39df4609a100151bece48f700fcb61a126",
+    "SpatialFabric-Godot": "5b398b7ddaaba3f5309a6d4965b29e58448e9ed8",
+    "SpatialFabric-Unreal": "f00c574d2b495d842a74caf75db414c4a8984547"
+  },
+  "versions": {
+    "Unity": "0.7.0",
+    "Godot": "0.2.0",
+    "Unreal": "2.2.0"
+  },
+  "artifacts": [
+    {
+      "path": "unity-packages/0.7.0/com.nplaudio.spatialfabric-0.7.0.tgz",
+      "bytes": 1243462,
+      "sha256": "760ad93a8e6ffdebf1ae1ee41ac8100dfc8e3bf9d7f4429c4ee2ad8ad1101058"
+    },
+    {
+      "path": "unity-packages/0.7.0/SpatialFabric-Unity-0.7.0-CompleteSource.zip",
+      "bytes": 2127901,
+      "sha256": "7386aa114a06ec67ae2008287f20c3a172a054f31ff18f1943a5e0ca86933776"
+    },
+    {
+      "path": "unity-player/SpatialFabricRoomShowcase-Unity-0.7.0-Windows-x64.zip",
+      "bytes": 40693729,
+      "sha256": "73ee6f48da767887b463de2490cf4e27c4549001d724f67e705c33fdecd66a2d"
+    },
+    {
+      "path": "godot-player/SpatialFabricRoomShowcase-Godot-0.2.0-Windows-x64.zip",
+      "bytes": 40207815,
+      "sha256": "7a3a3ecf8ee9b89ca921a3d19192c52135405ebca8b31f3f29eb23fe6add5f3f"
+    },
+    {
+      "path": "unreal-source/SpatialFabric-2.2.0-CompleteSource.zip",
+      "bytes": 2152145,
+      "sha256": "31965ab183e2c60330f440160777e931582865116db625d908888375a2332671"
+    },
+    {
+      "path": "unreal-source/SpatialFabric-2.2.0.zip",
+      "bytes": 1120594,
+      "sha256": "51f81fe9d0140629345e988fc5d51c9202fdf24aa7b14eb2db30ee6519627aef"
+    },
+    {
+      "path": "unreal-source/SpatialFabric-Example-2.2.0.zip",
+      "bytes": 2128996,
+      "sha256": "2a8d84ed577bfd27acde2b691c8b65f1d4c6e558ff952c48fc84b87a25db1bb6"
+    },
+    {
+      "path": "unreal-win64/SpatialFabric-2.2.0-UE5.8-Win64.zip",
+      "bytes": 123866283,
+      "sha256": "be2651193098a88cf225221c7710d071262557d5cbca495ead689448efbd3c77"
+    }
+  ],
+  "validation": {
+    "Unity": "55 native + 55 mocked WASAPI; Mono release 53 smoke checks and 5 rendered views; fresh release DLL also passed isolated IL2CPP smoke",
+    "Godot": "Headless/windowed release self-checks, 24 exports, 3 WAVs, 10 records, 4 loopback ADM XYZ addresses",
+    "Unreal": "BuildPlugin Editor Development/Game Development/Game Shipping; source/Win64 ZIP verification"
+  },
+  "native_sha256": {
+    "Unity": "a0cf687350f4b980f4b65aafc222faa963c1f98c3a5308a2d12d9da5d5afe963",
+    "Godot": "5514088c434da07db1298f7773dabec9a922b5f2b90b1823a680e3df62ee1827"
+  },
+  "limitations": [
+    "No physical playback, microphone or latency certification",
+    "No fresh macOS qualification",
+    "Prior Unreal cooked silent loader smoke remains partial: 16/22 passed, six failed under -NoSound; not a full packaged-playback pass",
+    "Versions retained for uniquely located local builds; these do not replace existing published assets"
+  ],
+  "preexisting_user_edits_excluded": [
+    "SpatialFabric-Unity/ExampleProject/ProjectSettings/InputManager.asset",
+    "SpatialFabric-Godot/project.godot"
+  ]
+}
