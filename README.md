@@ -22,6 +22,12 @@ for Unreal content because that name now points here, not to the renamed engine 
 - **[OSC Controller](Apps/OSCController/README.md)** — portable Windows desktop
   controller, debugger and silent engine simulator. See [releases](https://github.com/NPLAudio/SpatialFabric/releases)
   for the executable bundle; Python sources work independently of engine editors.
+- **[Scene Object Manager](Docs/SceneObjectManager.md)** — central editor
+  authoring for all scene objects: add SpatialFabric capabilities and edit their
+  properties individually or in bulk, without replacing normal Inspector/Details.
+  See the [shared acceptance contract](Specs/Scene-Object-Manager-v1.md).
+- **[Audio routing matrix](Docs/AudioRoutingMatrix.md)** — crosspoint route authoring,
+  interface/channel dropdowns and offline interface caching; [shared contract](Specs/Audio-Routing-Matrix-v1.md).
 - **[Playback parity v1](Specs/Playback-Parity-v1.md)** — AudioLoom baseline,
   cross-engine implementation requirements, safe migration and separate software /
   deployment acceptance gates.
